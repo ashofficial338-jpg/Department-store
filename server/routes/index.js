@@ -1,0 +1,57 @@
+import { Router } from 'express';
+
+import authRoutes from './authRoutes.js';
+import userRoutes from './userRoutes.js';
+import productRoutes from './productRoutes.js';
+import categoryRoutes from './categoryRoutes.js';
+import brandRoutes from './brandRoutes.js';
+import batchRoutes from './batchRoutes.js';
+import inventoryRoutes from './inventoryRoutes.js';
+import dcRoutes from './dcRoutes.js';
+import dcMasterRoutes from './dcMasterRoutes.js';
+import storeRoutes from './storeRoutes.js';
+import vendorRoutes from './vendorRoutes.js';
+import supplierRoutes from './supplierRoutes.js';
+import customerRoutes from './customerRoutes.js';
+import salesRoutes from './salesRoutes.js';
+import purchaseRoutes from './purchaseRoutes.js';
+import paymentRoutes from './paymentRoutes.js';
+import accountRoutes from './accountRoutes.js';
+import expenseRoutes from './expenseRoutes.js';
+import gstRoutes from './gstRoutes.js';
+import reportRoutes from './reportRoutes.js';
+import dashboardRoutes from './dashboardRoutes.js';
+import auditLogRoutes from './auditLogRoutes.js';
+import settingsRoutes from './settingsRoutes.js';
+import notificationRoutes from './notificationRoutes.js';
+import searchRoutes from './searchRoutes.js';
+
+const router = Router();
+
+router.use('/auth', authRoutes);
+router.use('/users', userRoutes);
+router.use('/products', productRoutes);
+router.use('/categories', categoryRoutes);
+router.use('/brands', brandRoutes);
+router.use('/batches', batchRoutes);
+router.use('/inventory', inventoryRoutes);
+router.use('/dc', dcRoutes);
+router.use('/distribution-centers', dcMasterRoutes);
+router.use('/stores', storeRoutes);
+router.use('/vendors', vendorRoutes);
+router.use('/suppliers', supplierRoutes);
+router.use('/customers', customerRoutes);
+router.use('/sales', salesRoutes);
+router.use('/purchases', purchaseRoutes);
+router.use('/payments', paymentRoutes);
+router.use('/accounts', accountRoutes);
+router.use('/expenses', expenseRoutes);
+router.use('/gst', gstRoutes);
+router.use('/reports', reportRoutes);
+router.use('/dashboard', dashboardRoutes);
+router.use('/audit-logs', auditLogRoutes);
+router.use('/settings', settingsRoutes);
+router.use('/notifications', notificationRoutes);
+router.use('/search', searchRoutes);
+
+export default router;
