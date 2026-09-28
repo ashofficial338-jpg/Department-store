@@ -9,7 +9,8 @@
     "start": "node server.js",
     "seed": "node seed/seed.js",
     "seed:destroy": "node seed/seed.js --destroy",
-    "seed:admin": "node seed/createAdmin.js"
+    "seed:admin": "node seed/createAdmin.js",
+    "seed:sample": "node seed/sampleVendorProduct.js"
   },
   "dependencies": {
     "@vercel/blob": "^2.8.0",
