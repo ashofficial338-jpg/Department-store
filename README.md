@@ -138,3 +138,4 @@ Centralized error handling returns `{ success: false, message }`; validation/dup
 Fully wired end-to-end (real MongoDB-backed CRUD + business logic): auth & roles, dashboard, POS billing & GST, products/categories/brands/batches, inventory (overview/adjustment/transfer/ledger/low-stock/expiry), DC inward/outward, vendors/suppliers/customers, purchase orders/returns, sales/returns, payments, expenses, chart-of-accounts & ledger, GST reports, P&L, reports center with CSV export, audit log, settings, notifications, global search.
 
 Present as clean extension points rather than fully built out: AI image-to-product extraction (abstraction only, no provider wired), thermal-printer integration (browser print is used for receipts), coupon/promotion engine, multi-step approval workflows beyond DC/PO status transitions, and multi-currency.
+
