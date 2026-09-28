@@ -123,7 +123,7 @@ export const uploadProductImages = catchAsync(async (req, res) => {
   if (!files.length) throw new ApiError(400, 'No images were uploaded.');
 
   const newImages = files.map((f, i) => ({
-    url: `/uploads/${f.filename}`,
+    url: f.url,
     isPrimary: product.images.length === 0 && i === 0,
   }));
   product.images.push(...newImages);
@@ -151,7 +151,7 @@ export const deleteProductImage = catchAsync(async (req, res) => {
 // only ever returns real extraction results, never fabricated data.
 export const extractFromImage = catchAsync(async (req, res) => {
   if (!req.file) throw new ApiError(400, 'Please upload an image to extract product information from.');
-  const imageUrl = `/uploads/${req.file.filename}`;
+  const imageUrl = req.file.url;
   const result = await extractProductInfoFromImage(imageUrl);
   res.json({ success: true, imageUrl, ...result });
 });

@@ -9,3 +9,7 @@ server/uploads/*
 !server/uploads/.gitkeep
 .vscode/
 .idea/
+.vercel
+
+.vercel
+.env*
