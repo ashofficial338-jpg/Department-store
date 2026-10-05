@@ -10,15 +10,17 @@ import {
   customerService, vendorService, supplierService, expenseService, paymentService,
 } from '../services/index.js';
 import { useAuth } from '../context/AuthContext.jsx';
-import { roleHasModule, isAdmin } from '../utils/permissions.js';
+import { hasPermission, isAdmin } from '../utils/permissions.js';
 import { formatCurrency } from '../utils/format.js';
 
 const PAYMENT_METHODS = [
   { value: 'cash', label: 'Cash' }, { value: 'upi', label: 'UPI' },
   { value: 'card', label: 'Card' }, { value: 'bank_transfer', label: 'Bank Transfer' },
 ];
-const EXPENSE_CATEGORIES = ['rent', 'utilities', 'salaries', 'marketing', 'logistics', 'maintenance', 'supplies', 'other']
-  .map((c) => ({ value: c, label: c.charAt(0).toUpperCase() + c.slice(1) }));
+const EXPENSE_CATEGORIES = ['rent', 'utilities', 'salaries', 'marketing', 'logistics', 'maintenance', 'supplies', 'other',
+  // Below-the-line items: deducted for net profit, added back for EBITDA.
+  'interest', 'income_tax', 'depreciation', 'amortization']
+  .map((c) => ({ value: c, label: (c.charAt(0).toUpperCase() + c.slice(1)).replace(/_/g, ' ') }));
 const UNITS = ['PCS', 'KG', 'G', 'LTR', 'ML', 'BOX', 'PACK', 'DOZEN', 'MTR', 'PAIR'].map((u) => ({ value: u, label: u }));
 
 const toList = (res) => res?.data || [];
@@ -288,7 +290,7 @@ function EntryField({ field, value, onChange, options }) {
 
 export function DataEntry() {
   const { user } = useAuth();
-  const entities = useMemo(() => ENTITIES.filter((e) => user && roleHasModule(user.role, e.module)), [user]);
+  const entities = useMemo(() => ENTITIES.filter((e) => user && hasPermission(user, e.module)), [user]);
   const [activeKey, setActiveKey] = useState(() => {
     try { return localStorage.getItem('aurelia_data_entry_tab') || ''; } catch { return ''; }
   });

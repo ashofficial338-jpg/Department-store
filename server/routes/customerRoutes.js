@@ -3,10 +3,10 @@ import {
   listCustomers, getCustomer, createCustomer, updateCustomer, deleteCustomer,
   customerDashboard, customerHistory, outstandingCustomers,
 } from '../controllers/customerController.js';
-import { protect, adminOnly } from '../middleware/auth.js';
+import { protect, adminOnly, requirePermission } from '../middleware/auth.js';
 
 const router = Router();
-router.use(protect);
+router.use(protect, requirePermission('customers', 'pos', 'sales'));
 
 router.get('/outstanding', outstandingCustomers);
 router.get('/', listCustomers);

@@ -13,7 +13,11 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
   (res) => res,
-  (error) => {
+  async (error) => {
+    // Blob downloads (exports) receive error bodies as Blobs; read them so the server's message is shown.
+    if (error.response?.data instanceof Blob && error.response.data.type.includes('json')) {
+      try { error.response.data = JSON.parse(await error.response.data.text()); } catch { /* keep generic message */ }
+    }
     if (error.response?.status === 401 && !window.location.pathname.startsWith('/login')) {
       localStorage.removeItem('aurelia_token');
       localStorage.removeItem('aurelia_user');

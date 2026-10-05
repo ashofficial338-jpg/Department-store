@@ -85,7 +85,14 @@ To add/reset the Super Admin on an existing database without reseeding: `cd serv
 | Sales Manager | salesmanager@aurelia.test |
 | Auditor | auditor@aurelia.test |
 
-Role → module access is defined in `server/config/permissions.js` (seeded into the `RolePermission` collection) and editable at **Settings → Roles & Permissions**.
+Role → permission defaults are defined in `server/config/permissions.js` (seeded into the `RolePermission` collection). The live matrix is editable by administrators at **Settings → Roles & Permissions**, where admins can also create and delete custom roles.
+
+**Access control (enforced by the API, not just the UI):**
+
+- **Super Admin / Admin** always have full access: every dashboard section, detail pages, filters, exports, reports, users, settings, and roles & permissions. These roles can't be restricted.
+- **Other roles** get view-only dashboard sections (`dashboard.sales`, `dashboard.expenses`, `dashboard.inventory`, `dashboard.financials`) and module access as assigned. Click-through detail pages (`dashboard.details`), filters (`dashboard.filters`), and exports (`dashboard.export`) are off unless an admin grants them.
+- Users, Settings, and Roles & Permissions are admin-only and can't be granted to other roles. Only a Super Admin can assign the Super Admin role.
+- Every route checks permissions through `requirePermission()` (`server/middleware/auth.js`), reading the DB-backed matrix with a 15-second cache. Role documents created before dashboard permissions existed are migrated automatically on first use.
 
 ## 6. API Overview
 
@@ -106,7 +113,8 @@ Base path: `/api`. JWT bearer auth (`Authorization: Bearer <token>`) required on
 /api/expenses
 /api/gst               rates, summary, sales-report, purchase-report
 /api/reports            sales, purchases, stock, batches, vendors, customers, products, dc, expenses, payments, outstanding, cash-bank, profit-loss (CSV via ?format=csv on the supported ones)
-/api/dashboard          kpis, top-products, sales-trend, category-brand-sales
+/api/dashboard          kpis, top-products, product-roi, sales-trend, category-brand-sales, filter-options,
+                        details/:metric, export/:metric?format=csv|xlsx|pdf
 /api/audit-logs
 /api/settings           company/system settings, roles
 /api/notifications
@@ -122,6 +130,23 @@ Centralized error handling returns `{ success: false, message }`; validation/dup
 - **Purchase order → Goods Receipt** → creates `Batch` records, increases inventory, and posts Accounts Payable on invoicing.
 - **Stock Transfer / Inward DC / Outward DC** → every movement is traceable to a store/DC, user and timestamp via `InventoryTransaction`.
 - **GST manual override** (POS line-level) requires a reason and is recorded to the audit log with old/new values (`server/controllers/salesController.js`).
+
+## 7a. Dashboard Metrics
+
+All dashboard figures, detail pages, exports and the P&L report share one implementation (`server/services/analyticsService.js`), so they always agree for the same filters:
+
+| Metric | Formula |
+|---|---|
+| COGS | Σ (units sold × product purchase price), completed and partially returned sales |
+| Average Inventory | (Opening Inventory + Closing Inventory) ÷ 2, valued at purchase price. Opening/closing stock is reconstructed from current stock minus `InventoryTransaction` movements after each date |
+| Inventory Turnover Ratio | COGS ÷ Average Inventory (for the selected period; not annualised) |
+| Inventory Holding Period | Current Inventory ÷ Average Daily Consumption (period COGS ÷ days in period) |
+| EBITDA | Net Profit + Interest + Taxes + Depreciation + Amortization |
+| Product ROI | (Revenue ex-GST − COGS) ÷ COGS × 100 |
+
+Interest, taxes, depreciation and amortization come from expenses recorded with the `interest`, `income_tax`, `depreciation` and `amortization` categories. They are deducted in net profit and added back for EBITDA.
+
+Admins can filter by date range, product, category, stock status, payment method (revenue) and expense category, click any card, chart, or table to open its detail page, and export the current view as Excel, CSV, or PDF.
 
 ## 8. AI Image → Product Creation
 

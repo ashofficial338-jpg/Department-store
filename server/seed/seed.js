@@ -69,7 +69,7 @@ async function run() {
   console.log(`[seed] Tax rates: ${taxRates.length}`);
 
   // ---------- Role Permissions ----------
-  await RolePermission.insertMany(Object.entries(DEFAULT_ROLE_PERMISSIONS).map(([role, v]) => ({ role, label: v.label, permissions: v.permissions })));
+  await RolePermission.insertMany(Object.entries(DEFAULT_ROLE_PERMISSIONS).map(([role, v]) => ({ role, label: v.label, permissions: v.permissions, isSystem: true, version: 2 })));
 
   // ---------- Categories ----------
   const categoryDocs = {};
@@ -211,6 +211,8 @@ async function run() {
       await InventoryTransaction.create({
         product: product._id, batch: batch._id, quantity: openingQty, type: 'opening_stock',
         destination: store._id, destinationModel: 'Store', referenceType: 'OpeningStock', referenceNumber: 'OPEN-STOCK',
+        // Dated before the seeded sales history so opening/closing inventory reconstruction (ITR) is meaningful.
+        createdAt: daysAgo(75),
       });
     }
   }
@@ -320,6 +322,20 @@ async function run() {
       expenseDate, recordedBy: users.find((u) => u.role === 'accountant')._id,
     });
     expenseCount += 1;
+  }
+  // Monthly below-the-line charges so EBITDA has interest/tax/depreciation/amortization to add back.
+  const BELOW_THE_LINE = [
+    { category: 'interest', description: 'Working capital loan interest', amount: 18500 },
+    { category: 'depreciation', description: 'Store fixtures & equipment depreciation', amount: 22000 },
+    { category: 'amortization', description: 'POS software licence amortization', amount: 6500 },
+    { category: 'income_tax', description: 'Advance income tax provision', amount: 30000 },
+  ];
+  for (let m = 2; m >= 0; m -= 1) {
+    const expenseDate = new Date(); expenseDate.setMonth(expenseDate.getMonth() - m, 1); expenseDate.setHours(10, 0, 0, 0);
+    for (const item of BELOW_THE_LINE) {
+      await Expense.create({ ...item, paymentMethod: 'bank_transfer', store: stores[0]._id, expenseDate, recordedBy: users.find((u) => u.role === 'accountant')._id });
+      expenseCount += 1;
+    }
   }
   console.log(`[seed] Expenses: ${expenseCount}`);
 

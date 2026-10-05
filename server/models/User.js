@@ -19,7 +19,8 @@ const userSchema = new mongoose.Schema(
     name: { type: String, required: true, trim: true },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     password: { type: String, required: true, minlength: 6, select: false },
-    role: { type: String, enum: ROLES, default: 'cashier' },
+    // Built-in ROLES plus any custom roles created in Settings > Roles & Permissions (validated in userController).
+    role: { type: String, required: true, trim: true, lowercase: true, default: 'cashier' },
     phone: { type: String, trim: true },
     store: { type: mongoose.Schema.Types.ObjectId, ref: 'Store' },
     distributionCenter: { type: mongoose.Schema.Types.ObjectId, ref: 'DistributionCenter' },

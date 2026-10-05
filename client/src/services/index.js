@@ -139,8 +139,27 @@ export const reportService = {
   downloadCsvUrl: (endpoint, params) => `/api${endpoint}?${new URLSearchParams({ ...params, format: 'csv' }).toString()}`,
 };
 
+// Downloads a file from an authenticated endpoint (a plain link would not carry the bearer token).
+async function downloadFile(url, params, fallbackName) {
+  const res = await api.get(url, { params, responseType: 'blob', timeout: 120000 });
+  const disposition = res.headers['content-disposition'] || '';
+  const name = /filename="?([^";]+)"?/.exec(disposition)?.[1] || fallbackName;
+  const href = URL.createObjectURL(res.data);
+  const a = document.createElement('a');
+  a.href = href;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(href), 1000);
+}
+
 export const dashboardService = {
-  kpis: () => api.get('/dashboard/kpis').then((r) => r.data),
+  kpis: (params) => api.get('/dashboard/kpis', { params }).then((r) => r.data),
+  productRoi: (params) => api.get('/dashboard/product-roi', { params }).then((r) => r.data),
+  filterOptions: () => api.get('/dashboard/filter-options').then((r) => r.data),
+  details: (metric, params) => api.get(`/dashboard/details/${metric}`, { params, timeout: 60000 }).then((r) => r.data),
+  exportFile: (metric, params, format) => downloadFile(`/dashboard/export/${metric}`, { ...params, format }, `${metric}.${format}`),
   topProducts: (params) => api.get('/dashboard/top-products', { params }).then((r) => r.data),
   salesTrend: (params) => api.get('/dashboard/sales-trend', { params }).then((r) => r.data),
   categoryBrandSales: (params) => api.get('/dashboard/category-brand-sales', { params }).then((r) => r.data),
@@ -153,8 +172,11 @@ export const auditLogService = {
 export const settingsService = {
   get: () => api.get('/settings').then((r) => r.data),
   update: (payload) => api.put('/settings', payload).then((r) => r.data),
+  permissions: () => api.get('/settings/permissions').then((r) => r.data),
   roles: () => api.get('/settings/roles').then((r) => r.data),
+  createRole: (payload) => api.post('/settings/roles', payload).then((r) => r.data),
   updateRole: (role, payload) => api.put(`/settings/roles/${role}`, payload).then((r) => r.data),
+  deleteRole: (role) => api.delete(`/settings/roles/${role}`).then((r) => r.data),
 };
 
 export const notificationService = {

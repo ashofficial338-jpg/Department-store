@@ -3,11 +3,12 @@ import {
   listProducts, getProduct, createProduct, updateProduct, deleteProduct,
   uploadProductImages, setPrimaryImage, deleteProductImage, extractFromImage,
 } from '../controllers/productController.js';
-import { protect, adminOnly } from '../middleware/auth.js';
+import { protect, adminOnly, requirePermissionForWrites } from '../middleware/auth.js';
 import { upload } from '../middleware/upload.js';
 
 const router = Router();
-router.use(protect);
+// Product information is readable by every signed-in user (POS, pickers); changes need the products module.
+router.use(protect, requirePermissionForWrites('products'));
 
 router.get('/', listProducts);
 router.get('/:id', getProduct);

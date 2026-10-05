@@ -2,9 +2,11 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import ProtectedRoute from './routes/ProtectedRoute.jsx';
 import DashboardLayout from './layouts/DashboardLayout.jsx';
+import RequirePermission from './routes/RequirePermission.jsx';
 
 import Login from './pages/auth/Login.jsx';
 import Dashboard from './pages/Dashboard.jsx';
+import DashboardDetails from './pages/DashboardDetails.jsx';
 import DataEntry from './pages/DataEntry.jsx';
 
 import POSBilling from './pages/pos/POSBilling.jsx';
@@ -70,60 +72,61 @@ export default function App() {
           <Route element={<DashboardLayout />}>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/data-entry" element={<DataEntry />} />
+            <Route path="/dashboard/details/:metric" element={<RequirePermission any={['dashboard.details']}><DashboardDetails /></RequirePermission>} />
+            <Route path="/data-entry" element={<RequirePermission any={['dashboard']}><DataEntry /></RequirePermission>} />
 
-            <Route path="/pos" element={<POSBilling />} />
-            <Route path="/sales/invoices" element={<SalesInvoices />} />
-            <Route path="/sales/returns" element={<SalesReturns />} />
-            <Route path="/sales/history" element={<SalesHistory />} />
+            <Route path="/pos" element={<RequirePermission any={['pos']}><POSBilling /></RequirePermission>} />
+            <Route path="/sales/invoices" element={<RequirePermission any={['sales', 'pos']}><SalesInvoices /></RequirePermission>} />
+            <Route path="/sales/returns" element={<RequirePermission any={['sales']}><SalesReturns /></RequirePermission>} />
+            <Route path="/sales/history" element={<RequirePermission any={['sales', 'pos']}><SalesHistory /></RequirePermission>} />
 
-            <Route path="/products" element={<ProductMaster />} />
-            <Route path="/products/categories" element={<Categories />} />
-            <Route path="/products/brands" element={<Brands />} />
-            <Route path="/products/from-image" element={<ProductFromImage />} />
-            <Route path="/products/batches" element={<Batches />} />
-            <Route path="/products/pricing" element={<Pricing />} />
+            <Route path="/products" element={<RequirePermission any={['products']}><ProductMaster /></RequirePermission>} />
+            <Route path="/products/categories" element={<RequirePermission any={['products']}><Categories /></RequirePermission>} />
+            <Route path="/products/brands" element={<RequirePermission any={['products']}><Brands /></RequirePermission>} />
+            <Route path="/products/from-image" element={<RequirePermission any={['products']}><ProductFromImage /></RequirePermission>} />
+            <Route path="/products/batches" element={<RequirePermission any={['products']}><Batches /></RequirePermission>} />
+            <Route path="/products/pricing" element={<RequirePermission any={['products']}><Pricing /></RequirePermission>} />
 
-            <Route path="/inventory/overview" element={<StockOverview />} />
-            <Route path="/inventory/adjustment" element={<StockAdjustment />} />
-            <Route path="/inventory/transfer" element={<StockTransfer />} />
-            <Route path="/inventory/ledger" element={<StockLedger />} />
-            <Route path="/inventory/low-stock" element={<LowStock />} />
-            <Route path="/inventory/expiry-management" element={<ExpiryManagement />} />
+            <Route path="/inventory/overview" element={<RequirePermission any={['inventory']}><StockOverview /></RequirePermission>} />
+            <Route path="/inventory/adjustment" element={<RequirePermission any={['inventory']}><StockAdjustment /></RequirePermission>} />
+            <Route path="/inventory/transfer" element={<RequirePermission any={['inventory']}><StockTransfer /></RequirePermission>} />
+            <Route path="/inventory/ledger" element={<RequirePermission any={['inventory']}><StockLedger /></RequirePermission>} />
+            <Route path="/inventory/low-stock" element={<RequirePermission any={['inventory']}><LowStock /></RequirePermission>} />
+            <Route path="/inventory/expiry-management" element={<RequirePermission any={['inventory']}><ExpiryManagement /></RequirePermission>} />
 
-            <Route path="/dc/inward" element={<InwardDC />} />
-            <Route path="/dc/outward" element={<OutwardDC />} />
-            <Route path="/dc/history" element={<DCHistory />} />
-            <Route path="/dc/stock" element={<DCStock />} />
+            <Route path="/dc/inward" element={<RequirePermission any={['dc']}><InwardDC /></RequirePermission>} />
+            <Route path="/dc/outward" element={<RequirePermission any={['dc']}><OutwardDC /></RequirePermission>} />
+            <Route path="/dc/history" element={<RequirePermission any={['dc']}><DCHistory /></RequirePermission>} />
+            <Route path="/dc/stock" element={<RequirePermission any={['dc']}><DCStock /></RequirePermission>} />
 
-            <Route path="/purchasing/orders" element={<PurchaseOrders />} />
-            <Route path="/purchasing/invoices" element={<PurchaseOrders />} />
-            <Route path="/purchasing/returns" element={<PurchaseReturns />} />
-            <Route path="/purchasing/vendors" element={<Vendors />} />
-            <Route path="/purchasing/suppliers" element={<Suppliers />} />
+            <Route path="/purchasing/orders" element={<RequirePermission any={['purchasing']}><PurchaseOrders /></RequirePermission>} />
+            <Route path="/purchasing/invoices" element={<RequirePermission any={['purchasing']}><PurchaseOrders /></RequirePermission>} />
+            <Route path="/purchasing/returns" element={<RequirePermission any={['purchasing']}><PurchaseReturns /></RequirePermission>} />
+            <Route path="/purchasing/vendors" element={<RequirePermission any={['vendors']}><Vendors /></RequirePermission>} />
+            <Route path="/purchasing/suppliers" element={<RequirePermission any={['vendors']}><Suppliers /></RequirePermission>} />
 
-            <Route path="/customers" element={<CustomerMaster />} />
-            <Route path="/customers/loyalty" element={<Loyalty />} />
-            <Route path="/customers/outstanding" element={<Outstanding />} />
+            <Route path="/customers" element={<RequirePermission any={['customers']}><CustomerMaster /></RequirePermission>} />
+            <Route path="/customers/loyalty" element={<RequirePermission any={['customers']}><Loyalty /></RequirePermission>} />
+            <Route path="/customers/outstanding" element={<RequirePermission any={['customers']}><Outstanding /></RequirePermission>} />
 
-            <Route path="/finance/accounts" element={<Accounts />} />
-            <Route path="/finance/receivables" element={<Receivables />} />
-            <Route path="/finance/payables" element={<Payables />} />
-            <Route path="/finance/expenses" element={<Expenses />} />
-            <Route path="/finance/cash-bank" element={<CashBank />} />
-            <Route path="/finance/gst" element={<GST />} />
-            <Route path="/finance/profit-loss" element={<ProfitLoss />} />
+            <Route path="/finance/accounts" element={<RequirePermission any={['finance']}><Accounts /></RequirePermission>} />
+            <Route path="/finance/receivables" element={<RequirePermission any={['finance']}><Receivables /></RequirePermission>} />
+            <Route path="/finance/payables" element={<RequirePermission any={['finance']}><Payables /></RequirePermission>} />
+            <Route path="/finance/expenses" element={<RequirePermission any={['finance']}><Expenses /></RequirePermission>} />
+            <Route path="/finance/cash-bank" element={<RequirePermission any={['finance']}><CashBank /></RequirePermission>} />
+            <Route path="/finance/gst" element={<RequirePermission any={['finance']}><GST /></RequirePermission>} />
+            <Route path="/finance/profit-loss" element={<RequirePermission any={['finance']}><ProfitLoss /></RequirePermission>} />
 
-            <Route path="/reports" element={<ReportsCenter />} />
+            <Route path="/reports" element={<RequirePermission any={['reports']}><ReportsCenter /></RequirePermission>} />
 
-            <Route path="/settings/users" element={<UsersSettings />} />
-            <Route path="/settings/roles" element={<RolesSettings />} />
-            <Route path="/settings/stores" element={<StoresSettings />} />
-            <Route path="/settings/tax" element={<TaxSettings />} />
-            <Route path="/settings/invoice" element={<InvoiceSettings />} />
-            <Route path="/settings/system" element={<SystemSettings />} />
+            <Route path="/settings/users" element={<RequirePermission admin><UsersSettings /></RequirePermission>} />
+            <Route path="/settings/roles" element={<RequirePermission admin><RolesSettings /></RequirePermission>} />
+            <Route path="/settings/stores" element={<RequirePermission admin><StoresSettings /></RequirePermission>} />
+            <Route path="/settings/tax" element={<RequirePermission admin><TaxSettings /></RequirePermission>} />
+            <Route path="/settings/invoice" element={<RequirePermission admin><InvoiceSettings /></RequirePermission>} />
+            <Route path="/settings/system" element={<RequirePermission admin><SystemSettings /></RequirePermission>} />
 
-            <Route path="/audit-log" element={<AuditLogPage />} />
+            <Route path="/audit-log" element={<RequirePermission any={['audit']}><AuditLogPage /></RequirePermission>} />
           </Route>
         </Route>
 

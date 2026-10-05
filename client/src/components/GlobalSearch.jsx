@@ -6,7 +6,7 @@ import { useDebounce } from '../hooks/useDebounce.js';
 import { searchService } from '../services/index.js';
 import NAV_SECTIONS from '../routes/navConfig.js';
 import { useAuth } from '../context/AuthContext.jsx';
-import { roleHasModule } from '../utils/permissions.js';
+import { hasPermission } from '../utils/permissions.js';
 
 const ROUTE_MAP = {
   product: (id) => `/products?highlight=${id}`,
@@ -29,7 +29,7 @@ export function GlobalSearch({ open, onClose }) {
   const q = query.trim().toLowerCase();
   const pages = q
     ? NAV_SECTIONS.flatMap((section) => section.items
-      .filter((item) => (!user || roleHasModule(user.role, item.module))
+      .filter((item) => (!user || hasPermission(user, item.module))
         && `${section.label || ''} ${item.label}`.toLowerCase().includes(q))
       .map((item) => ({ ...item, section: section.label })))
       .slice(0, 6)

@@ -3,10 +3,14 @@ import ApiError from '../utils/ApiError.js';
 import catchAsync from '../utils/catchAsync.js';
 import generateToken from '../utils/generateToken.js';
 import recordAudit from '../utils/audit.js';
+import { userPermissions, isFullAccessRole } from '../services/permissionService.js';
 
-function sanitizeUser(user) {
+// The client receives the effective permission keys so it can tailor the UI; the API enforces them independently.
+async function sanitizeUser(user) {
   const obj = user.toObject();
   delete obj.password;
+  obj.permissions = await userPermissions(user);
+  obj.isAdmin = isFullAccessRole(user.role);
   return obj;
 }
 
@@ -28,12 +32,12 @@ export const login = catchAsync(async (req, res) => {
   res.json({
     success: true,
     token: generateToken(user),
-    user: sanitizeUser(user),
+    user: await sanitizeUser(user),
   });
 });
 
 export const me = catchAsync(async (req, res) => {
-  res.json({ success: true, user: sanitizeUser(req.user) });
+  res.json({ success: true, user: await sanitizeUser(req.user) });
 });
 
 export const changePassword = catchAsync(async (req, res) => {

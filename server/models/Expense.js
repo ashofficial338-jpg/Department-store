@@ -5,7 +5,9 @@ const expenseSchema = new mongoose.Schema(
     category: {
       type: String,
       required: true,
-      enum: ['rent', 'utilities', 'salaries', 'marketing', 'logistics', 'maintenance', 'supplies', 'other'],
+      // interest / income_tax / depreciation / amortization are below-the-line items added back for EBITDA.
+      enum: ['rent', 'utilities', 'salaries', 'marketing', 'logistics', 'maintenance', 'supplies', 'other',
+        'interest', 'income_tax', 'depreciation', 'amortization'],
     },
     description: { type: String, required: true },
     amount: { type: Number, required: true, min: 0 },

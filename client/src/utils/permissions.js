@@ -1,27 +1,31 @@
-// Mirrors server/config/permissions.js so the sidebar/routes can hide what a role can't access.
-// The server is the actual source of truth/enforcement; this is UI-only convenience.
-export const DEFAULT_ROLE_PERMISSIONS = {
+// The signed-in user's effective permission keys come from the server (/auth/login and /auth/me),
+// which reads the editable Roles & Permissions matrix. This is UI convenience only - the API enforces
+// every permission independently.
+//
+// Fallback used only until /auth/me refreshes a session cached before permissions were sent.
+const FALLBACK_ROLE_PERMISSIONS = {
   super_admin: ['*'],
-  admin: ['dashboard', 'pos', 'sales', 'products', 'inventory', 'dc', 'purchasing', 'vendors', 'customers', 'finance', 'reports', 'users', 'settings', 'audit'],
-  store_manager: ['dashboard', 'sales', 'products', 'inventory', 'dc', 'customers', 'reports'],
-  dc_manager: ['dashboard', 'inventory', 'dc', 'reports'],
-  cashier: ['dashboard', 'pos', 'sales', 'customers'],
-  accountant: ['dashboard', 'finance', 'reports'],
-  purchase_manager: ['dashboard', 'purchasing', 'vendors', 'reports'],
-  inventory_manager: ['dashboard', 'inventory', 'dc', 'products', 'reports'],
-  sales_manager: ['dashboard', 'sales', 'pos', 'customers', 'reports'],
-  auditor: ['dashboard', 'reports', 'audit'],
+  admin: ['*'],
 };
 
-export function roleHasModule(role, moduleKey) {
-  const perms = DEFAULT_ROLE_PERMISSIONS[role];
-  if (!perms) return false;
-  return perms.includes('*') || perms.includes(moduleKey);
-}
+export const ADMIN_ROLES = ['super_admin', 'admin'];
 
-// Only administrators may edit or delete existing records (enforced on the server too).
 export function isAdmin(user) {
-  return user?.role === 'super_admin' || user?.role === 'admin';
+  return !!user && (user.isAdmin === true || ADMIN_ROLES.includes(user.role));
 }
 
-export default { DEFAULT_ROLE_PERMISSIONS, roleHasModule, isAdmin };
+export function userPermissions(user) {
+  if (!user) return [];
+  return user.permissions || FALLBACK_ROLE_PERMISSIONS[user.role] || ['dashboard'];
+}
+
+export function hasPermission(user, key) {
+  const perms = userPermissions(user);
+  return perms.includes('*') || perms.includes(key);
+}
+
+export function hasAnyPermission(user, keys) {
+  return keys.some((k) => hasPermission(user, k));
+}
+
+export default { isAdmin, hasPermission, hasAnyPermission, userPermissions };

@@ -13,6 +13,7 @@ import { parseDateRange } from '../utils/dateRanges.js';
 import { getPagination, buildPaginatedResponse } from '../utils/pagination.js';
 import { sendCSV } from '../utils/csv.js';
 import { round2 } from '../utils/gstCalculator.js';
+import { financialSummary } from '../services/analyticsService.js';
 
 export const salesReport = catchAsync(async (req, res) => {
   const { from, to } = parseDateRange(req.query);
@@ -174,55 +175,10 @@ export const cashBankReport = catchAsync(async (req, res) => {
 });
 
 // ---------- Profit & Loss (section 8) ----------
+// Shares its calculation with the dashboard (EBITDA, margins) via services/analyticsService.js.
 export const profitAndLoss = catchAsync(async (req, res) => {
   const { from, to } = parseDateRange(req.query);
-
-  const [salesAgg, returnsAgg, cogsAgg, purchaseAgg, expenseAgg] = await Promise.all([
-    Sale.aggregate([
-      { $match: { createdAt: { $gte: from, $lte: to }, status: { $in: ['completed', 'partially_returned'] } } },
-      { $group: { _id: null, grossSales: { $sum: '$subtotal' }, discounts: { $sum: '$discount' } } },
-    ]),
-    Sale.aggregate([
-      { $match: { createdAt: { $gte: from, $lte: to }, status: { $in: ['returned', 'partially_returned'] } } },
-      { $lookup: { from: 'salesreturns', localField: '_id', foreignField: 'sale', as: 'ret' } },
-      { $unwind: '$ret' },
-      { $group: { _id: null, returns: { $sum: '$ret.totalRefund' } } },
-    ]),
-    Sale.aggregate([
-      { $match: { createdAt: { $gte: from, $lte: to }, status: { $in: ['completed', 'partially_returned'] } } },
-      { $unwind: '$items' },
-      { $lookup: { from: 'products', localField: 'items.product', foreignField: '_id', as: 'p' } },
-      { $unwind: '$p' },
-      { $group: { _id: null, cogs: { $sum: { $multiply: ['$items.quantity', '$p.purchasePrice'] } } } },
-    ]),
-    Purchase.aggregate([
-      { $match: { createdAt: { $gte: from, $lte: to }, status: { $ne: 'draft' } } },
-      { $group: { _id: null, total: { $sum: '$subtotal' } } },
-    ]),
-    Expense.aggregate([
-      { $match: { expenseDate: { $gte: from, $lte: to } } },
-      { $group: { _id: null, total: { $sum: '$amount' } } },
-    ]),
-  ]);
-
-  const grossSales = salesAgg[0]?.grossSales || 0;
-  const discounts = salesAgg[0]?.discounts || 0;
-  const returns = returnsAgg[0]?.returns || 0;
-  const netSales = round2(grossSales - discounts - returns);
-  const cogs = cogsAgg[0]?.cogs || 0;
-  const purchaseCost = purchaseAgg[0]?.total || 0;
-  const operatingExpenses = expenseAgg[0]?.total || 0;
-  const grossProfit = round2(netSales - cogs);
-  const netProfit = round2(grossProfit - operatingExpenses);
-
-  res.json({
-    success: true,
-    data: {
-      revenue: { grossSales, discounts, returns, netSales },
-      cost: { costOfGoodsSold: cogs, purchaseCost, otherCosts: operatingExpenses },
-      profit: { grossProfit, operatingExpenses, netProfit },
-    },
-  });
+  res.json({ success: true, data: await financialSummary(from, to) });
 });
 
 export default {

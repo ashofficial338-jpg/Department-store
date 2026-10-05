@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import { listExpenses, createExpense, updateExpense, deleteExpense } from '../controllers/expenseController.js';
-import { protect, adminOnly } from '../middleware/auth.js';
+import { protect, adminOnly, requirePermission } from '../middleware/auth.js';
 
 const router = Router();
-router.use(protect);
+router.use(protect, requirePermission('finance'));
 
 router.get('/', listExpenses);
 router.post('/', createExpense);

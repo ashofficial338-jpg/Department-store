@@ -4,7 +4,7 @@ import clsx from 'clsx';
 import { ChevronsLeft, ChevronsRight, ChevronDown, Search, X } from 'lucide-react';
 import NAV_SECTIONS from '../routes/navConfig.js';
 import { useAuth } from '../context/AuthContext.jsx';
-import { roleHasModule } from '../utils/permissions.js';
+import { hasPermission } from '../utils/permissions.js';
 
 const OPEN_KEY = 'aurelia_sidebar_open_sections';
 
@@ -23,7 +23,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }) {
   const [openSections, setOpenSections] = useState(loadOpenSections);
 
   const sections = useMemo(() => NAV_SECTIONS
-    .map((section) => ({ ...section, items: section.items.filter((item) => !user || roleHasModule(user.role, item.module)) }))
+    .map((section) => ({ ...section, items: section.items.filter((item) => !user || hasPermission(user, item.module)) }))
     .filter((section) => section.items.length), [user]);
 
   // Always expand the section containing the current page.

@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import { listUsers, createUser, updateUser, deleteUser } from '../controllers/userController.js';
-import { protect, restrictTo } from '../middleware/auth.js';
+import { protect, adminOnly } from '../middleware/auth.js';
 
 const router = Router();
-router.use(protect, restrictTo('super_admin', 'admin'));
+router.use(protect, adminOnly);
 
 router.get('/', listUsers);
 router.post('/', createUser);

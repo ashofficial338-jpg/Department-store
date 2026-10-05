@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { useTheme } from '../context/ThemeContext.jsx';
 import GlobalSearch from '../components/GlobalSearch.jsx';
 import NotificationBell from '../components/NotificationBell.jsx';
-import { roleHasModule } from '../utils/permissions.js';
+import { hasPermission } from '../utils/permissions.js';
 
 function roleLabel(role) {
   return (role || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
@@ -14,7 +14,7 @@ function roleLabel(role) {
 export function Header({ onMenuClick }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const canBill = user && roleHasModule(user.role, 'pos');
+  const canBill = user && hasPermission(user, 'pos');
   const { theme, toggleTheme } = useTheme();
   const [searchOpen, setSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);

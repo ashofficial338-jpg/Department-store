@@ -7,7 +7,9 @@ import { isAdmin } from '../../utils/permissions.js';
 import { expenseService, storeService } from '../../services/index.js';
 import { formatCurrency, formatDate } from '../../utils/format.js';
 
-const CATEGORIES = ['rent', 'utilities', 'salaries', 'marketing', 'logistics', 'maintenance', 'supplies', 'other'];
+const CATEGORIES = ['rent', 'utilities', 'salaries', 'marketing', 'logistics', 'maintenance', 'supplies', 'other',
+  // Below-the-line items: deducted for net profit, added back for EBITDA.
+  'interest', 'income_tax', 'depreciation', 'amortization'];
 const EMPTY = { category: 'other', description: '', amount: '', paymentMethod: 'cash', store: '', expenseDate: new Date().toISOString().slice(0, 10) };
 
 export function Expenses() {
@@ -92,7 +94,7 @@ export function Expenses() {
       >
         <form id="expense-form" onSubmit={handleSubmit} className="space-y-4">
           <Select label="Category" value={form.category} onChange={(e) => setForm((s) => ({ ...s, category: e.target.value }))}>
-            {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+            {CATEGORIES.map((c) => <option key={c} value={c}>{c.replace(/_/g, ' ')}</option>)}
           </Select>
           <Input label="Description" required value={form.description} onChange={(e) => setForm((s) => ({ ...s, description: e.target.value }))} />
           <Input label="Amount" type="number" required value={form.amount} onChange={(e) => setForm((s) => ({ ...s, amount: e.target.value }))} />

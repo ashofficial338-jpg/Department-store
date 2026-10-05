@@ -2,7 +2,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { GOLD, GRAPHITE, GRID, AXIS_TEXT } from './palette.js';
 import { formatCurrency } from '../utils/format.js';
 
-export function SalesTrendChart({ data }) {
+export function SalesTrendChart({ data, showPurchases = true }) {
   return (
     <ResponsiveContainer width="100%" height="100%">
       <AreaChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
@@ -22,7 +22,7 @@ export function SalesTrendChart({ data }) {
         <Tooltip formatter={(v) => formatCurrency(v)} contentStyle={{ borderRadius: 10, border: '1px solid #E7E3D8', fontSize: 12 }} />
         <Legend wrapperStyle={{ fontSize: 12 }} />
         <Area type="monotone" dataKey="sales" name="Sales" stroke={GOLD} strokeWidth={2} fill="url(#salesFill)" />
-        <Area type="monotone" dataKey="purchases" name="Purchases" stroke={GRAPHITE} strokeWidth={2} fill="url(#purchaseFill)" />
+        {showPurchases && <Area type="monotone" dataKey="purchases" name="Purchases" stroke={GRAPHITE} strokeWidth={2} fill="url(#purchaseFill)" />}
       </AreaChart>
     </ResponsiveContainer>
   );

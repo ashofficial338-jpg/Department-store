@@ -52,6 +52,18 @@ export function ProfitLoss() {
               <span className="font-display text-lg font-semibold">Net Profit</span>
               <span className={`font-display text-lg font-semibold ${data.profit.netProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{formatCurrency(data.profit.netProfit)}</span>
             </div>
+
+            {data.ebitda && (
+              <>
+                <h3 className="font-display text-base font-semibold mb-3 mt-6">EBITDA</h3>
+                <Row label="Net Profit" value={data.ebitda.netProfit} indent negative={data.ebitda.netProfit < 0} />
+                <Row label="Add: Interest" value={data.ebitda.interest} indent />
+                <Row label="Add: Taxes" value={data.ebitda.taxes} indent />
+                <Row label="Add: Depreciation" value={data.ebitda.depreciation} indent />
+                <Row label="Add: Amortization" value={data.ebitda.amortization} indent />
+                <Row label="EBITDA" value={data.ebitda.value} bold negative={data.ebitda.value < 0} />
+              </>
+            )}
           </div>
         </div>
       )}

@@ -4,10 +4,10 @@ import {
   createOutwardDC, listOutwardDC, getOutwardDC, advanceOutwardDC, cancelOutwardDC,
   dcWiseStock,
 } from '../controllers/dcController.js';
-import { protect } from '../middleware/auth.js';
+import { protect, requirePermission } from '../middleware/auth.js';
 
 const router = Router();
-router.use(protect);
+router.use(protect, requirePermission('dc'));
 
 router.get('/inward', listInwardDC);
 router.get('/inward/:id', getInwardDC);

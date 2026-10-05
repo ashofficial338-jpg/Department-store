@@ -1,15 +1,19 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import {
   IndianRupee, ShoppingBag, TrendingUp, Percent, Boxes, AlertTriangle, ArrowDownCircle, ArrowUpCircle,
   ShoppingCart, FilePlus2, PackagePlus, UserPlus, ClipboardList, Receipt, FileBarChart, Undo2, ArrowLeftRight,
+  Wallet, RefreshCw, Hourglass, Landmark, Target, Lock,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
-import { roleHasModule } from '../utils/permissions.js';
+import { hasPermission } from '../utils/permissions.js';
 import { KPICard, ChartCard, PageHeader } from '../components/ui/index.js';
-import { FilterSelect } from '../components/ui/FilterBar.jsx';
+import DashboardFilters from '../components/dashboard/DashboardFilters.jsx';
+import ExportMenu from '../components/dashboard/ExportMenu.jsx';
+import { readFilters, toQueryString } from '../components/dashboard/filters.js';
 import { dashboardService } from '../services/index.js';
-import { formatCurrency, formatNumber } from '../utils/format.js';
+import { formatCurrency, formatNumber, formatDate } from '../utils/format.js';
 import SalesTrendChart from '../charts/SalesTrendChart.jsx';
 import DonutChart from '../charts/DonutChart.jsx';
 import HorizontalBarChart from '../charts/HorizontalBarChart.jsx';
@@ -27,41 +31,102 @@ const QUICK_ACTIONS = [
   { label: 'Reports', to: '/reports', icon: FileBarChart, module: 'reports' },
 ];
 
-const RANGE_OPTIONS = [
-  { value: 'today', label: 'Today' }, { value: 'this_week', label: 'This Week' },
-  { value: 'this_month', label: 'This Month' }, { value: 'this_year', label: 'This Year' },
-];
+const DATE_KEYS = ['range', 'from', 'to'];
+
+function SectionTitle({ children, aside }) {
+  return (
+    <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2.5">
+      <div className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{children}</div>
+      {aside && <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{aside}</div>}
+    </div>
+  );
+}
 
 export function Dashboard() {
-  const [kpis, setKpis] = useState(null);
-  const [topProducts, setTopProducts] = useState([]);
-  const [trend, setTrend] = useState([]);
-  const [categoryBrand, setCategoryBrand] = useState(null);
-  const [range, setRange] = useState('this_month');
-  const [loading, setLoading] = useState(true);
   const { user } = useAuth();
-  const quickActions = QUICK_ACTIONS.filter((a) => user && roleHasModule(user.role, a.module));
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const can = (k) => hasPermission(user, k);
+  const allow = {
+    sales: can('dashboard.sales'), expenses: can('dashboard.expenses'),
+    inventory: can('dashboard.inventory'), financials: can('dashboard.financials'),
+  };
+  const canDetails = can('dashboard.details');
+  const canFilter = can('dashboard.filters');
+  const canExport = can('dashboard.export');
+
+  const filters = useMemo(() => readFilters(searchParams, canFilter), [searchParams, canFilter]);
+  const filterKey = JSON.stringify(filters);
+  const quickActions = QUICK_ACTIONS.filter((a) => user && hasPermission(user, a.module));
+
+  const [kpis, setKpis] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [topProducts, setTopProducts] = useState([]);
+  const [trend, setTrend] = useState({ data: [], showPurchases: false });
+  const [categoryBrand, setCategoryBrand] = useState(null);
+  const [roi, setRoi] = useState(null);
+  const [refreshTick, setRefreshTick] = useState(0);
 
   useEffect(() => {
-    dashboardService.kpis().then((r) => setKpis(r.data)).finally(() => setLoading(false));
-  }, []);
+    let cancelled = false;
+    setLoading(true);
+    const params = filters;
+    const jobs = [dashboardService.kpis(params).then((r) => { if (!cancelled) setKpis(r.data); })];
+    if (allow.sales) {
+      jobs.push(dashboardService.topProducts({ ...params, limit: 5 }).then((r) => !cancelled && setTopProducts(r.data)));
+      jobs.push(dashboardService.salesTrend(params).then((r) => !cancelled && setTrend({ data: r.data, showPurchases: r.showPurchases })));
+      jobs.push(dashboardService.categoryBrandSales(params).then((r) => !cancelled && setCategoryBrand(r.data)));
+    }
+    if (allow.financials) jobs.push(dashboardService.productRoi({ ...params, limit: 8 }).then((r) => !cancelled && setRoi(r.data)));
+    Promise.allSettled(jobs).then((results) => {
+      if (cancelled) return;
+      const failed = results.find((r) => r.status === 'rejected');
+      if (failed) toast.error(failed.reason?.message || 'Some dashboard data could not be loaded.');
+      setLoading(false);
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterKey, refreshTick, allow.sales, allow.financials]);
 
-  useEffect(() => {
-    dashboardService.topProducts({ range, limit: 5 }).then((r) => setTopProducts(r.data));
-    dashboardService.salesTrend({ range, groupBy: range === 'this_year' ? 'month' : 'day' }).then((r) => setTrend(r.data));
-    dashboardService.categoryBrandSales({ range }).then((r) => setCategoryBrand(r.data));
-  }, [range]);
+  // Detail pages are opened only with the dashboard.details permission (also enforced by the API).
+  // "Today" metrics drop the date filter so they always open on today's data.
+  const opener = (metric, { daily = false, extra = {} } = {}) => {
+    if (!canDetails) return undefined;
+    const f = { ...filters, ...extra };
+    if (daily) DATE_KEYS.forEach((k) => delete f[k]);
+    return () => navigate(`/dashboard/details/${metric}${toQueryString(f)}`);
+  };
+
+  const t = kpis?.today || {};
+  const p = kpis?.period || {};
+  const scope = kpis?.scope;
+  const periodLabel = scope ? `${formatDate(scope.from)} – ${formatDate(scope.to)} · ${scope.days} day${scope.days === 1 ? '' : 's'}` : '';
+  const nothingVisible = !allow.sales && !allow.expenses && !allow.inventory && !allow.financials;
 
   return (
     <div>
       <PageHeader
         title={`Welcome, ${user?.name?.split(' ')[0] || 'there'}`}
-        actions={<FilterSelect value={range} onChange={setRange} options={RANGE_OPTIONS} />}
+        actions={(
+          <>
+            <button
+              type="button"
+              onClick={() => setRefreshTick((x) => x + 1)}
+              className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm hover:border-gold-400"
+              style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
+              title="Recalculate with the latest data"
+            >
+              <RefreshCw size={15} className={loading ? 'animate-spin' : ''} /> Refresh
+            </button>
+            {canExport && <ExportMenu metric="summary" filters={filters} label="Export dashboard" />}
+          </>
+        )}
       />
 
       {quickActions.length > 0 && (
         <div className="mb-6">
-          <div className="text-xs font-semibold uppercase tracking-wider mb-2.5" style={{ color: 'var(--text-muted)' }}>Quick actions</div>
+          <SectionTitle>Quick actions</SectionTitle>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-10 gap-3">
             {quickActions.map((a) => (
               <Link
@@ -81,69 +146,162 @@ export function Dashboard() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-        <KPICard label="Today's Sales" value={kpis?.todaySales.value} change={kpis?.todaySales.change} prefix="₹" icon={IndianRupee} loading={loading} />
-        <KPICard label="Today's Purchases" value={kpis?.todayPurchases.value} change={kpis?.todayPurchases.change} prefix="₹" icon={ShoppingBag} loading={loading} />
-        <KPICard label="Today's Profit" value={kpis?.todayProfit.value} change={kpis?.todayProfit.change} prefix="₹" icon={TrendingUp} loading={loading} />
-        <KPICard label="Gross Margin" value={kpis?.grossMargin.value} suffix="%" icon={Percent} loading={loading} />
-        <KPICard label="Total Stock Value" value={kpis?.stockValue.value} prefix="₹" icon={Boxes} loading={loading} />
-        <KPICard label="Low Stock Items" value={kpis?.lowStockItems.value} icon={AlertTriangle} loading={loading} accent="graphite" />
-        <KPICard label="Outstanding Receivables" value={kpis?.outstandingReceivables.value} prefix="₹" icon={ArrowDownCircle} loading={loading} accent="graphite" />
-        <KPICard label="Outstanding Payables" value={kpis?.outstandingPayables.value} prefix="₹" icon={ArrowUpCircle} loading={loading} accent="graphite" />
-      </div>
+      {canFilter && <DashboardFilters value={filters} onChange={(next) => setSearchParams(next, { replace: true })} />}
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 mb-5">
-        <div className="xl:col-span-2">
-          <ChartCard title="Sales vs Purchases" subtitle="Trend over the selected period" height={320}>
-            {trend.length ? <SalesTrendChart data={trend} /> : <EmptyChart />}
-          </ChartCard>
+      {nothingVisible && (
+        <div className="surface-card rounded-xl2 shadow-premium p-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
+          <Lock size={20} className="mx-auto mb-2 text-gold-600" />
+          Your role doesn&apos;t include any dashboard information yet. Ask an administrator to grant access in Roles &amp; Permissions.
         </div>
-        <ChartCard title="Payment Methods" subtitle="Share of collections" height={320}>
-          {categoryBrand?.byPayment?.length ? <DonutChart data={categoryBrand.byPayment} /> : <EmptyChart />}
-        </ChartCard>
-      </div>
+      )}
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
-        <div className="xl:col-span-2">
-          <ChartCard title="Top 5 Most Selling Products" subtitle="Ranked by revenue for the selected period" height={280}>
-            {topProducts.length ? <HorizontalBarChart data={topProducts} /> : <EmptyChart />}
-          </ChartCard>
-          {topProducts.length > 0 && (
-            <div className="mt-4 surface-card rounded-xl2 shadow-premium overflow-hidden">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-                    {['Product', 'SKU', 'Units Sold', 'Revenue', 'Profit', 'Share'].map((h) => (
-                      <th key={h} className="text-left px-4 py-2.5 text-xs font-semibold uppercase" style={{ color: 'var(--text-muted)' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {topProducts.map((p) => (
-                    <tr key={p._id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                      <td className="px-4 py-2.5">{p.productName}</td>
-                      <td className="px-4 py-2.5 text-xs" style={{ color: 'var(--text-muted)' }}>{p.sku}</td>
-                      <td className="px-4 py-2.5">{formatNumber(p.unitsSold)}</td>
-                      <td className="px-4 py-2.5">{formatCurrency(p.revenue)}</td>
-                      <td className="px-4 py-2.5 text-emerald-600">{formatCurrency(p.profit)}</td>
-                      <td className="px-4 py-2.5">{p.contributionPercent}%</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+      {(allow.sales || allow.expenses || allow.financials) && (
+        <div className="mb-6">
+          <SectionTitle aside={canDetails ? 'Click any card for details' : undefined}>Today</SectionTitle>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            {allow.sales && <KPICard label="Today's Revenue" value={t.sales?.value} change={t.sales?.change} prefix="₹" icon={IndianRupee} loading={loading} onClick={opener('daily-sales', { daily: true })} />}
+            {allow.expenses && <KPICard label="Today's Expenses" value={t.expenses?.value} change={t.expenses?.change} prefix="₹" icon={Wallet} loading={loading} accent="graphite" onClick={opener('daily-expenses', { daily: true })} />}
+            {allow.financials && <KPICard label="Today's Purchases" value={t.purchases?.value} change={t.purchases?.change} prefix="₹" icon={ShoppingBag} loading={loading} onClick={opener('daily-purchases', { daily: true })} />}
+            {allow.financials && <KPICard label="Today's Profit" value={t.profit?.value} change={t.profit?.change} prefix="₹" icon={TrendingUp} loading={loading} onClick={opener('daily-profit', { daily: true })} />}
+          </div>
+        </div>
+      )}
+
+      {!nothingVisible && (
+        <div className="mb-6">
+          <SectionTitle aside={periodLabel}>{scope?.filtersApplied ? 'Selected period · filters applied' : 'This month'}</SectionTitle>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            {allow.sales && <KPICard label="Revenue" value={p.revenue?.value} prefix="₹" icon={IndianRupee} loading={loading} hint={p.revenue?.invoices != null ? `${formatNumber(p.revenue.invoices)} invoices` : 'Selected products'} onClick={opener('sales')} />}
+            {allow.expenses && <KPICard label="Expenses" value={p.expenses?.value} prefix="₹" icon={Receipt} loading={loading} accent="graphite" hint={`${formatNumber(p.expenses?.count || 0)} entries`} onClick={opener('expenses')} />}
+            {allow.financials && (
+              <KPICard
+                label="EBITDA" value={p.ebitda?.value} prefix="₹" icon={Landmark} loading={loading}
+                hint="Net profit + interest + taxes + D&A" onClick={opener('ebitda')}
+                title={p.ebitda ? `Net profit ${formatCurrency(p.ebitda.netProfit)} + interest ${formatCurrency(p.ebitda.interest)} + taxes ${formatCurrency(p.ebitda.taxes)} + depreciation ${formatCurrency(p.ebitda.depreciation)} + amortization ${formatCurrency(p.ebitda.amortization)}` : undefined}
+              />
+            )}
+            {allow.financials && <KPICard label="Product ROI" value={p.productRoi?.value} suffix="%" decimals={1} icon={Target} loading={loading} hint="(Revenue − COGS) ÷ COGS" onClick={opener('product-roi')} />}
+            {allow.inventory && (
+              <KPICard
+                label="Inventory Turnover (ITR)" value={p.itr?.value} suffix="×" decimals={3} icon={RefreshCw} loading={loading}
+                hint="COGS ÷ average inventory" onClick={opener('itr')}
+                title={p.itr ? `COGS ${formatCurrency(p.itr.cogs)} ÷ average inventory ${formatCurrency(p.itr.averageInventory)} (opening ${formatCurrency(p.itr.openingInventory)}, closing ${formatCurrency(p.itr.closingInventory)})` : undefined}
+              />
+            )}
+            {allow.inventory && (
+              <KPICard
+                label="Inventory Holding Period" value={p.holdingPeriod?.value} suffix=" days" decimals={1} icon={Hourglass} loading={loading}
+                hint={p.holdingPeriod?.value == null ? 'No sales in period' : 'Days current stock will last'} onClick={opener('holding-period')}
+                title={p.holdingPeriod ? `Current inventory ${formatCurrency(p.holdingPeriod.currentInventory)} ÷ average daily consumption ${formatCurrency(p.holdingPeriod.avgDailyConsumption)}` : undefined}
+              />
+            )}
+            {allow.financials && <KPICard label="Gross Margin" value={p.grossMargin?.value} suffix="%" decimals={1} icon={Percent} loading={loading} hint="On sales excluding GST" onClick={opener('gross-margin')} />}
+            {allow.inventory && <KPICard label="Total Stock Value" value={p.stockValue?.value} prefix="₹" icon={Boxes} loading={loading} hint="At purchase price" onClick={opener('stock-value')} />}
+            {allow.inventory && <KPICard label="Low / Out of Stock" value={p.lowStockItems?.value} icon={AlertTriangle} loading={loading} accent="graphite" hint={`${formatNumber(p.lowStockItems?.outOfStock || 0)} out of stock`} onClick={opener('low-stock')} />}
+            {allow.financials && <KPICard label="Outstanding Receivables" value={p.receivables?.value} prefix="₹" icon={ArrowDownCircle} loading={loading} accent="graphite" hint={`${formatNumber(p.receivables?.count || 0)} customers`} onClick={opener('receivables')} />}
+            {allow.financials && <KPICard label="Outstanding Payables" value={p.payables?.value} prefix="₹" icon={ArrowUpCircle} loading={loading} accent="graphite" hint={`${formatNumber(p.payables?.count || 0)} open bills`} onClick={opener('payables')} />}
+          </div>
+        </div>
+      )}
+
+      {allow.sales && (
+        <>
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 mb-5">
+            <div className="xl:col-span-2">
+              <ChartCard title={trend.showPurchases ? 'Sales vs Purchases' : 'Sales Trend'} subtitle="Trend over the selected period" height={320} onOpen={opener('revenue-trend')}>
+                {trend.data.length ? <SalesTrendChart data={trend.data} showPurchases={trend.showPurchases} /> : <EmptyChart />}
+              </ChartCard>
             </div>
-          )}
-        </div>
-        <ChartCard title="Category-wise Sales" height={280}>
-          {categoryBrand?.byCategory?.length ? <DonutChart data={categoryBrand.byCategory} /> : <EmptyChart />}
+            <ChartCard title="Payment Methods" subtitle="Share of collections" height={320} onOpen={opener('payment-methods')}>
+              {categoryBrand?.byPayment?.length ? <DonutChart data={categoryBrand.byPayment} /> : <EmptyChart />}
+            </ChartCard>
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 mb-5">
+            <div className="xl:col-span-2">
+              <ChartCard title="Top 5 Most Selling Products" subtitle="Ranked by revenue for the selected period" height={280} onOpen={opener('top-products')}>
+                {topProducts.length ? <HorizontalBarChart data={topProducts} /> : <EmptyChart />}
+              </ChartCard>
+              {topProducts.length > 0 && (
+                <DataGrid
+                  headers={['Product', 'SKU', 'Units Sold', 'Revenue', 'Profit', 'Share']}
+                  rows={topProducts.map((r) => ({
+                    key: r._id,
+                    onClick: canFilter ? opener('product-roi', { extra: { product: r._id } }) : opener('top-products'),
+                    cells: [r.productName, <Muted key="s">{r.sku}</Muted>, formatNumber(r.unitsSold), formatCurrency(r.revenue),
+                      <span key="p" className={r.profit >= 0 ? 'text-emerald-600' : 'text-rose-600'}>{formatCurrency(r.profit)}</span>, `${r.contributionPercent}%`],
+                  }))}
+                />
+              )}
+            </div>
+            <ChartCard title="Category-wise Sales" height={280} onOpen={opener('category-sales')}>
+              {categoryBrand?.byCategory?.length ? <DonutChart data={categoryBrand.byCategory} /> : <EmptyChart />}
+            </ChartCard>
+          </div>
+        </>
+      )}
+
+      {allow.financials && roi && (
+        <ChartCard
+          title="Product ROI"
+          subtitle={`ROI = (Revenue ex-GST − COGS) ÷ COGS · overall ${roi.totals.roiPercent ?? '—'}% across ${formatNumber(roi.count)} products`}
+          height="auto"
+          onOpen={opener('product-roi')}
+        >
+          {roi.products.length ? (
+            <DataGrid
+              flush
+              headers={['Product', 'Category', 'Units', 'Revenue', 'COGS', 'Profit', 'ROI']}
+              rows={roi.products.map((r) => ({
+                key: r.productId,
+                onClick: canFilter ? opener('product-roi', { extra: { product: r.productId } }) : undefined,
+                cells: [r.name, <Muted key="c">{r.category}</Muted>, formatNumber(r.units), formatCurrency(r.revenue), formatCurrency(r.cogs),
+                  <span key="p" className={r.profit >= 0 ? 'text-emerald-600' : 'text-rose-600'}>{formatCurrency(r.profit)}</span>,
+                  r.roiPercent == null ? '—' : `${r.roiPercent}%`],
+              }))}
+            />
+          ) : <EmptyChart />}
         </ChartCard>
-      </div>
+      )}
+    </div>
+  );
+}
+
+function Muted({ children }) {
+  return <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{children}</span>;
+}
+
+// Row clicks are only wired when the user may open details; the parent ChartCard handles the rest.
+function DataGrid({ headers, rows, flush = false }) {
+  return (
+    <div className={flush ? 'overflow-x-auto' : 'mt-4 surface-card rounded-xl2 shadow-premium overflow-x-auto'}>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+            {headers.map((h) => (
+              <th key={h} className="text-left px-4 py-2.5 text-xs font-semibold uppercase whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr
+              key={r.key}
+              onClick={r.onClick ? (e) => { e.stopPropagation(); r.onClick(); } : undefined}
+              className={r.onClick ? 'cursor-pointer hover:bg-gold-500/5' : undefined}
+              style={{ borderBottom: '1px solid var(--border-subtle)' }}
+            >
+              {r.cells.map((c, i) => <td key={i} className="px-4 py-2.5 whitespace-nowrap">{c}</td>)}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
 
 function EmptyChart() {
-  return <div className="h-full flex items-center justify-center text-sm" style={{ color: 'var(--text-muted)' }}>No data recorded for this period.</div>;
+  return <div className="h-full min-h-[120px] flex items-center justify-center text-sm" style={{ color: 'var(--text-muted)' }}>No data recorded for this period.</div>;
 }
 
 export default Dashboard;

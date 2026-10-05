@@ -23,6 +23,19 @@ export function AuthProvider({ children }) {
       .finally(() => setLoading(false));
   }, []);
 
+  // Re-read the profile (incl. effective permissions) when the tab regains focus, so changes made in
+  // Roles & Permissions reach signed-in users without a fresh login.
+  useEffect(() => {
+    function onVisible() {
+      if (document.visibilityState !== 'visible' || !localStorage.getItem('aurelia_token')) return;
+      authService.me()
+        .then((res) => { setUser(res.user); localStorage.setItem('aurelia_user', JSON.stringify(res.user)); })
+        .catch(() => { /* 401s are handled by the API interceptor */ });
+    }
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
+
   const login = useCallback(async (email, password) => {
     const res = await authService.login({ email, password });
     localStorage.setItem('aurelia_token', res.token);
