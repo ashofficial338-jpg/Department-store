@@ -15,7 +15,7 @@ export function Pagination({ page, totalPages, total, limit, onPageChange }) {
         <button
           disabled={page <= 1}
           onClick={() => onPageChange(page - 1)}
-          className="p-1.5 rounded-lg border disabled:opacity-40 hover:bg-graphite-50"
+          className="p-2 rounded-xl border transition-all duration-300 disabled:opacity-40 enabled:hover:border-gold-400 enabled:hover:text-gold-700 enabled:hover:-translate-y-px"
           style={{ borderColor: 'var(--border-subtle)' }}
         >
           <ChevronLeft size={14} />
@@ -24,7 +24,7 @@ export function Pagination({ page, totalPages, total, limit, onPageChange }) {
         <button
           disabled={page >= totalPages}
           onClick={() => onPageChange(page + 1)}
-          className="p-1.5 rounded-lg border disabled:opacity-40 hover:bg-graphite-50"
+          className="p-2 rounded-xl border transition-all duration-300 disabled:opacity-40 enabled:hover:border-gold-400 enabled:hover:text-gold-700 enabled:hover:-translate-y-px"
           style={{ borderColor: 'var(--border-subtle)' }}
         >
           <ChevronRight size={14} />

@@ -2,6 +2,8 @@ import Sale from '../models/Sale.js';
 import Purchase from '../models/Purchase.js';
 import Product from '../models/Product.js';
 import Category from '../models/Category.js';
+import Brand from '../models/Brand.js';
+import { itrAnalysis } from '../services/itrAnalysisService.js';
 import ApiError from '../utils/ApiError.js';
 import catchAsync from '../utils/catchAsync.js';
 import recordAudit from '../utils/audit.js';
@@ -183,14 +185,15 @@ export const categoryBrandSales = catchAsync(async (req, res) => {
 
 // Options for the filter controls (only for users allowed to filter).
 export const filterOptions = catchAsync(async (req, res) => {
-  const [categories, products] = await Promise.all([
+  const [categories, products, brands] = await Promise.all([
     Category.find({ status: { $ne: 'inactive' } }).select('name parent').sort({ name: 1 }).lean(),
-    Product.find({ status: { $ne: 'discontinued' } }).select('name sku').sort({ name: 1 }).limit(2000).lean(),
+    Product.find({ status: { $ne: 'discontinued' } }).select('name sku category subcategory brand').sort({ name: 1 }).limit(2000).lean(),
+    Brand.find({ status: { $ne: 'inactive' } }).select('name').sort({ name: 1 }).lean(),
   ]);
   res.json({
     success: true,
     data: {
-      categories, products, stockStatuses: STOCK_STATUSES, expenseCategories: EXPENSE_CATEGORIES, paymentMethods: PAYMENT_METHODS,
+      categories, products, brands, stockStatuses: STOCK_STATUSES, expenseCategories: EXPENSE_CATEGORIES, paymentMethods: PAYMENT_METHODS,
       exportFormats: Object.keys(EXPORT_FORMATS),
     },
   });
@@ -201,7 +204,7 @@ async function buildDataset(req) {
   if (!def) throw new ApiError(404, 'Unknown dashboard metric.');
   requireSection(req, def.section);
   const f = readFilters(req, { range: def.defaultRange });
-  const result = await def.build(f, { canSection: canSection(req) });
+  const result = await def.build(f, { canSection: canSection(req), query: req.query });
   return { metric: req.params.metric, title: def.title, section: def.section, scope: scopeInfo(f, req), filters: f, ...result };
 }
 
@@ -209,11 +212,22 @@ async function describeFilters(f) {
   const parts = [`Period: ${f.from.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })} to ${f.to.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })}`];
   if (f.product) parts.push(`Product: ${(await Product.findById(f.product).select('name').lean())?.name || f.product}`);
   if (f.category) parts.push(`Category: ${(await Category.findById(f.category).select('name').lean())?.name || f.category}`);
+  if (f.brand) parts.push(`Brand: ${(await Brand.findById(f.brand).select('name').lean())?.name || f.brand}`);
   if (f.stockStatus) parts.push(`Stock: ${f.stockStatus.replace(/_/g, ' ')}`);
   if (f.expenseCategory) parts.push(`Expense: ${f.expenseCategory.replace(/_/g, ' ')}`);
   if (f.paymentMethod) parts.push(`Payment: ${f.paymentMethod.replace(/_/g, ' ')}`);
   return parts.join('  |  ');
 }
+
+// Product-wise ITR over 3/6/12 months. `period` picks the window used for ranking and classification and is
+// available to everyone with inventory access; product/category/brand narrowing needs the filters permission.
+export const itrAnalysisReport = catchAsync(async (req, res) => {
+  requireSection(req, 'inventory');
+  const f = readFilters(req, { range: 'this_month' });
+  const period = Number(req.query.period) || 12;
+  if (![3, 6, 12].includes(period)) throw new ApiError(400, 'Period must be 3, 6 or 12 months.');
+  res.json({ success: true, data: await itrAnalysis({ product: f.product, category: f.category, brand: f.brand, period }) });
+});
 
 export const metricDetails = catchAsync(async (req, res) => {
   const { filters, ...ds } = await buildDataset(req);
@@ -230,4 +244,4 @@ export const exportMetric = catchAsync(async (req, res) => {
   await sendExport(res, format, ds, `${ds.metric}-${stamp}`);
 });
 
-export default { kpis, topProducts, productRoi, salesTrend, categoryBrandSales, filterOptions, metricDetails, exportMetric };
+export default { kpis, topProducts, productRoi, salesTrend, categoryBrandSales, filterOptions, itrAnalysisReport, metricDetails, exportMetric };

@@ -6,7 +6,7 @@ import {
   ClipboardList, FileText, RotateCcw, Building2, Factory,
   Users, UserCircle, Star, Wallet,
   Landmark, ArrowDownCircle, ArrowUpCircle, Receipt, Coins, Building, CreditCard, Percent, TrendingUp,
-  BarChart3, FileBarChart,
+  BarChart3, FileBarChart, RefreshCcw,
   UserCog, ShieldCheck, Store, Percent as PercentIcon, Banknote, FileCog, Settings as SettingsIcon,
 } from 'lucide-react';
 
@@ -16,6 +16,7 @@ export const NAV_SECTIONS = [
     label: null,
     items: [
       { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard, module: 'dashboard' },
+      { label: 'ITR Analysis', to: '/analytics/itr', icon: RefreshCcw, module: 'dashboard.inventory' },
       { label: 'Data Entry', to: '/data-entry', icon: FilePlus2, module: 'dashboard' },
     ],
   },

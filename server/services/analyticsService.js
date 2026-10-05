@@ -26,7 +26,7 @@ export const STOCK_STATUSES = ['in_stock', 'low_stock', 'out_of_stock'];
 export const PAYMENT_METHODS = ['cash', 'upi', 'card', 'bank_transfer', 'credit'];
 export const EXPENSE_CATEGORIES = Expense.schema.path('category').enumValues;
 export const RANGE_KEYS = ['today', 'yesterday', 'this_week', 'this_month', 'previous_month', 'this_year', 'previous_year', 'custom'];
-export const FILTER_KEYS = ['range', 'from', 'to', 'product', 'category', 'stockStatus', 'expenseCategory', 'paymentMethod'];
+export const FILTER_KEYS = ['range', 'from', 'to', 'product', 'category', 'brand', 'stockStatus', 'expenseCategory', 'paymentMethod'];
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const oid = (v) => new mongoose.Types.ObjectId(String(v));
@@ -56,7 +56,7 @@ export function parseFilters(query = {}, defaults = {}) {
     Object.assign(f, parseDateRange({ range }), { range });
   }
 
-  for (const key of ['product', 'category']) {
+  for (const key of ['product', 'category', 'brand']) {
     const v = str(query[key]);
     if (v) {
       if (!mongoose.isValidObjectId(v)) throw new ApiError(400, `Invalid ${key} filter.`);
@@ -102,10 +102,11 @@ async function movementsAfter(date, ids) {
 
 // Resolves product / category / stock-status filters to a product id list (null = no product restriction).
 export async function resolveProductScope(f) {
-  if (!f.product && !f.category && !f.stockStatus) return null;
+  if (!f.product && !f.category && !f.brand && !f.stockStatus) return null;
   const match = {};
   if (f.product) match._id = oid(f.product);
   if (f.category) match.$or = [{ category: oid(f.category) }, { subcategory: oid(f.category) }];
+  if (f.brand) match.brand = oid(f.brand);
   const products = await Product.find(match).select('_id reorderLevel').lean();
   if (!f.stockStatus) return products.map((p) => p._id);
   const stock = await stockByProduct(products.map((p) => p._id));

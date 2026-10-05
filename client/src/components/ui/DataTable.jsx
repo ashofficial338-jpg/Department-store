@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion';
 import { TableSkeleton } from './Skeleton.jsx';
 import EmptyState from './EmptyState.jsx';
 import Pagination from './Pagination.jsx';
@@ -20,24 +21,32 @@ export function DataTable({ columns, rows, loading, emptyTitle = 'No records fou
   }
 
   return (
-    <div className="surface-card rounded-xl2 shadow-premium overflow-hidden">
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+      className="surface-card rounded-xl2 overflow-hidden"
+    >
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+            <tr className="border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-surface-muted)' }}>
               {columns.map((col) => (
-                <th key={col.key} className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wide whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
+                <th key={col.key} className="text-left px-5 py-3.5 text-xs font-bold uppercase whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
                   {col.header}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
-              <tr
+            {rows.map((row, i) => (
+              <motion.tr
                 key={row[keyField]}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.35, delay: Math.min(i, 14) * 0.025, ease: [0.22, 1, 0.36, 1] }}
                 onClick={() => onRowClick?.(row)}
-                className={onRowClick ? 'cursor-pointer hover:bg-gold-50/50 transition-colors' : 'hover:bg-graphite-50/50 transition-colors'}
+                className={onRowClick ? 'cursor-pointer hover:!bg-[var(--gold-tint)]' : undefined}
                 style={{ borderBottom: '1px solid var(--border-subtle)' }}
               >
                 {columns.map((col) => (
@@ -45,7 +54,7 @@ export function DataTable({ columns, rows, loading, emptyTitle = 'No records fou
                     {col.render ? col.render(row) : row[col.key]}
                   </td>
                 ))}
-              </tr>
+              </motion.tr>
             ))}
           </tbody>
         </table>
@@ -55,7 +64,7 @@ export function DataTable({ columns, rows, loading, emptyTitle = 'No records fou
           <Pagination {...pagination} />
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }
 

@@ -7,7 +7,7 @@ export function FilterSelect({ value, onChange, options, placeholder }) {
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="rounded-lg border px-3 py-2 text-sm bg-transparent focus:outline-none focus:ring-2 focus:ring-gold-400 cursor-pointer"
+      className="rounded-xl border px-3.5 py-2 text-sm font-medium bg-[var(--bg-surface)] hover:border-gold-400 focus:outline-none focus:!border-gold-400 cursor-pointer transition-all duration-300"
       style={{ color: 'var(--text-primary)', borderColor: 'var(--border-subtle)' }}
     >
       {placeholder && <option value="">{placeholder}</option>}

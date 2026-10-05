@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { motion } from 'framer-motion';
 import {
   IndianRupee, ShoppingBag, TrendingUp, Percent, Boxes, AlertTriangle, ArrowDownCircle, ArrowUpCircle,
   ShoppingCart, FilePlus2, PackagePlus, UserPlus, ClipboardList, Receipt, FileBarChart, Undo2, ArrowLeftRight,
@@ -21,6 +22,7 @@ import HorizontalBarChart from '../charts/HorizontalBarChart.jsx';
 const QUICK_ACTIONS = [
   { label: 'New Bill', hint: 'F2', to: '/pos', icon: ShoppingCart, module: 'pos', primary: true },
   { label: 'Data Entry', to: '/data-entry', icon: FilePlus2, module: 'dashboard' },
+  { label: 'ITR Analysis', to: '/analytics/itr', icon: RefreshCw, module: 'dashboard.inventory' },
   { label: 'Products', to: '/products', icon: PackagePlus, module: 'products' },
   { label: 'Customers', to: '/customers', icon: UserPlus, module: 'customers' },
   { label: 'Sales Return', to: '/sales/returns', icon: Undo2, module: 'sales' },
@@ -32,12 +34,23 @@ const QUICK_ACTIONS = [
 ];
 
 const DATE_KEYS = ['range', 'from', 'to'];
+const EASE = [0.22, 1, 0.36, 1];
+
+function greeting() {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  return 'Good evening';
+}
 
 function SectionTitle({ children, aside }) {
   return (
-    <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2.5">
-      <div className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{children}</div>
-      {aside && <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{aside}</div>}
+    <div className="flex flex-wrap items-center justify-between gap-2 mb-3.5">
+      <div className="flex items-center gap-2.5">
+        <span className="h-px w-6 bg-gold-gradient" />
+        <span className="eyebrow">{children}</span>
+      </div>
+      {aside && <div className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>{aside}</div>}
     </div>
   );
 }
@@ -107,14 +120,15 @@ export function Dashboard() {
   return (
     <div>
       <PageHeader
-        title={`Welcome, ${user?.name?.split(' ')[0] || 'there'}`}
+        title={<>{greeting()}, <span className="text-gold-gradient italic">{user?.name?.split(' ')[0] || 'there'}</span></>}
+        subtitle={new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
         actions={(
           <>
             <button
               type="button"
               onClick={() => setRefreshTick((x) => x + 1)}
-              className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm hover:border-gold-400"
-              style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
+              className="inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-sm font-semibold transition-all duration-300 hover:border-gold-400 hover:-translate-y-px"
+              style={{ borderColor: 'var(--border-strong)', color: 'var(--text-primary)', background: 'var(--bg-surface)' }}
               title="Recalculate with the latest data"
             >
               <RefreshCw size={15} className={loading ? 'animate-spin' : ''} /> Refresh
@@ -127,20 +141,31 @@ export function Dashboard() {
       {quickActions.length > 0 && (
         <div className="mb-6">
           <SectionTitle>Quick actions</SectionTitle>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-10 gap-3">
-            {quickActions.map((a) => (
-              <Link
+          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-11 gap-2.5 sm:gap-3">
+            {quickActions.map((a, i) => (
+              <motion.div
                 key={a.to + a.label}
-                to={a.to}
-                className={a.primary
-                  ? 'flex flex-col items-center justify-center gap-2 rounded-xl py-4 px-2 text-sm font-medium bg-gold-500 hover:bg-gold-400 text-graphite-950 shadow-premium transition-colors'
-                  : 'surface-card flex flex-col items-center justify-center gap-2 rounded-xl py-4 px-2 text-sm font-medium shadow-premium border border-transparent hover:border-gold-400 transition-colors'}
-                style={a.primary ? undefined : { color: 'var(--text-primary)' }}
+                initial={{ opacity: 0, y: 12, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ duration: 0.5, ease: EASE, delay: 0.05 + i * 0.035 }}
               >
-                <a.icon size={20} className={a.primary ? '' : 'text-gold-600'} />
-                <span className="text-center leading-tight">{a.label}</span>
-                {a.hint && <kbd className="text-[10px] px-1 rounded bg-black/10">{a.hint}</kbd>}
-              </Link>
+                <Link
+                  to={a.to}
+                  className={a.primary
+                    ? 'sheen group h-full flex flex-col items-center justify-center gap-2 rounded-2xl py-4 px-2 text-sm font-semibold bg-gold-gradient text-graphite-950 shadow-gold lift'
+                    : 'group h-full surface-card gold-ring lift flex flex-col items-center justify-center gap-2.5 rounded-2xl py-4 px-2 text-sm font-medium'}
+                  style={a.primary ? undefined : { color: 'var(--text-primary)' }}
+                >
+                  <span className={a.primary
+                    ? 'relative z-[2] w-10 h-10 rounded-xl bg-black/10 flex items-center justify-center'
+                    : 'w-10 h-10 rounded-xl bg-gold-50 text-gold-700 flex items-center justify-center transition-all duration-500 ease-luxe group-hover:bg-gold-gradient group-hover:text-graphite-950 group-hover:shadow-gold group-hover:-rotate-6 group-hover:scale-110'}
+                  >
+                    <a.icon size={19} />
+                  </span>
+                  <span className="relative z-[2] text-center leading-tight">{a.label}</span>
+                  {a.hint && <kbd className="relative z-[2] text-[10px] px-1.5 rounded-md bg-black/10 font-semibold">{a.hint}</kbd>}
+                </Link>
+              </motion.div>
             ))}
           </div>
         </div>
@@ -159,10 +184,10 @@ export function Dashboard() {
         <div className="mb-6">
           <SectionTitle aside={canDetails ? 'Click any card for details' : undefined}>Today</SectionTitle>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-            {allow.sales && <KPICard label="Today's Revenue" value={t.sales?.value} change={t.sales?.change} prefix="₹" icon={IndianRupee} loading={loading} onClick={opener('daily-sales', { daily: true })} />}
-            {allow.expenses && <KPICard label="Today's Expenses" value={t.expenses?.value} change={t.expenses?.change} prefix="₹" icon={Wallet} loading={loading} accent="graphite" onClick={opener('daily-expenses', { daily: true })} />}
-            {allow.financials && <KPICard label="Today's Purchases" value={t.purchases?.value} change={t.purchases?.change} prefix="₹" icon={ShoppingBag} loading={loading} onClick={opener('daily-purchases', { daily: true })} />}
-            {allow.financials && <KPICard label="Today's Profit" value={t.profit?.value} change={t.profit?.change} prefix="₹" icon={TrendingUp} loading={loading} onClick={opener('daily-profit', { daily: true })} />}
+            {allow.sales && <KPICard delay={0.1} label="Today's Revenue" value={t.sales?.value} change={t.sales?.change} prefix="₹" icon={IndianRupee} loading={loading} onClick={opener('daily-sales', { daily: true })} />}
+            {allow.expenses && <KPICard delay={0.15} label="Today's Expenses" value={t.expenses?.value} change={t.expenses?.change} prefix="₹" icon={Wallet} loading={loading} accent="graphite" onClick={opener('daily-expenses', { daily: true })} />}
+            {allow.financials && <KPICard delay={0.2} label="Today's Purchases" value={t.purchases?.value} change={t.purchases?.change} prefix="₹" icon={ShoppingBag} loading={loading} onClick={opener('daily-purchases', { daily: true })} />}
+            {allow.financials && <KPICard delay={0.25} label="Today's Profit" value={t.profit?.value} change={t.profit?.change} prefix="₹" icon={TrendingUp} loading={loading} onClick={opener('daily-profit', { daily: true })} />}
           </div>
         </div>
       )}
@@ -171,35 +196,35 @@ export function Dashboard() {
         <div className="mb-6">
           <SectionTitle aside={periodLabel}>{scope?.filtersApplied ? 'Selected period · filters applied' : 'This month'}</SectionTitle>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-            {allow.sales && <KPICard label="Revenue" value={p.revenue?.value} prefix="₹" icon={IndianRupee} loading={loading} hint={p.revenue?.invoices != null ? `${formatNumber(p.revenue.invoices)} invoices` : 'Selected products'} onClick={opener('sales')} />}
-            {allow.expenses && <KPICard label="Expenses" value={p.expenses?.value} prefix="₹" icon={Receipt} loading={loading} accent="graphite" hint={`${formatNumber(p.expenses?.count || 0)} entries`} onClick={opener('expenses')} />}
+            {allow.sales && <KPICard delay={0.1} label="Revenue" value={p.revenue?.value} prefix="₹" icon={IndianRupee} loading={loading} hint={p.revenue?.invoices != null ? `${formatNumber(p.revenue.invoices)} invoices` : 'Selected products'} onClick={opener('sales')} />}
+            {allow.expenses && <KPICard delay={0.15} label="Expenses" value={p.expenses?.value} prefix="₹" icon={Receipt} loading={loading} accent="graphite" hint={`${formatNumber(p.expenses?.count || 0)} entries`} onClick={opener('expenses')} />}
             {allow.financials && (
-              <KPICard
+              <KPICard delay={0.2}
                 label="EBITDA" value={p.ebitda?.value} prefix="₹" icon={Landmark} loading={loading}
                 hint="Net profit + interest + taxes + D&A" onClick={opener('ebitda')}
                 title={p.ebitda ? `Net profit ${formatCurrency(p.ebitda.netProfit)} + interest ${formatCurrency(p.ebitda.interest)} + taxes ${formatCurrency(p.ebitda.taxes)} + depreciation ${formatCurrency(p.ebitda.depreciation)} + amortization ${formatCurrency(p.ebitda.amortization)}` : undefined}
               />
             )}
-            {allow.financials && <KPICard label="Product ROI" value={p.productRoi?.value} suffix="%" decimals={1} icon={Target} loading={loading} hint="(Revenue − COGS) ÷ COGS" onClick={opener('product-roi')} />}
+            {allow.financials && <KPICard delay={0.25} label="Product ROI" value={p.productRoi?.value} suffix="%" decimals={1} icon={Target} loading={loading} hint="(Revenue − COGS) ÷ COGS" onClick={opener('product-roi')} />}
             {allow.inventory && (
-              <KPICard
+              <KPICard delay={0.3}
                 label="Inventory Turnover (ITR)" value={p.itr?.value} suffix="×" decimals={3} icon={RefreshCw} loading={loading}
                 hint="COGS ÷ average inventory" onClick={opener('itr')}
                 title={p.itr ? `COGS ${formatCurrency(p.itr.cogs)} ÷ average inventory ${formatCurrency(p.itr.averageInventory)} (opening ${formatCurrency(p.itr.openingInventory)}, closing ${formatCurrency(p.itr.closingInventory)})` : undefined}
               />
             )}
             {allow.inventory && (
-              <KPICard
+              <KPICard delay={0.35}
                 label="Inventory Holding Period" value={p.holdingPeriod?.value} suffix=" days" decimals={1} icon={Hourglass} loading={loading}
                 hint={p.holdingPeriod?.value == null ? 'No sales in period' : 'Days current stock will last'} onClick={opener('holding-period')}
                 title={p.holdingPeriod ? `Current inventory ${formatCurrency(p.holdingPeriod.currentInventory)} ÷ average daily consumption ${formatCurrency(p.holdingPeriod.avgDailyConsumption)}` : undefined}
               />
             )}
-            {allow.financials && <KPICard label="Gross Margin" value={p.grossMargin?.value} suffix="%" decimals={1} icon={Percent} loading={loading} hint="On sales excluding GST" onClick={opener('gross-margin')} />}
-            {allow.inventory && <KPICard label="Total Stock Value" value={p.stockValue?.value} prefix="₹" icon={Boxes} loading={loading} hint="At purchase price" onClick={opener('stock-value')} />}
-            {allow.inventory && <KPICard label="Low / Out of Stock" value={p.lowStockItems?.value} icon={AlertTriangle} loading={loading} accent="graphite" hint={`${formatNumber(p.lowStockItems?.outOfStock || 0)} out of stock`} onClick={opener('low-stock')} />}
-            {allow.financials && <KPICard label="Outstanding Receivables" value={p.receivables?.value} prefix="₹" icon={ArrowDownCircle} loading={loading} accent="graphite" hint={`${formatNumber(p.receivables?.count || 0)} customers`} onClick={opener('receivables')} />}
-            {allow.financials && <KPICard label="Outstanding Payables" value={p.payables?.value} prefix="₹" icon={ArrowUpCircle} loading={loading} accent="graphite" hint={`${formatNumber(p.payables?.count || 0)} open bills`} onClick={opener('payables')} />}
+            {allow.financials && <KPICard delay={0.4} label="Gross Margin" value={p.grossMargin?.value} suffix="%" decimals={1} icon={Percent} loading={loading} hint="On sales excluding GST" onClick={opener('gross-margin')} />}
+            {allow.inventory && <KPICard delay={0.45} label="Total Stock Value" value={p.stockValue?.value} prefix="₹" icon={Boxes} loading={loading} hint="At purchase price" onClick={opener('stock-value')} />}
+            {allow.inventory && <KPICard delay={0.5} label="Low / Out of Stock" value={p.lowStockItems?.value} icon={AlertTriangle} loading={loading} accent="graphite" hint={`${formatNumber(p.lowStockItems?.outOfStock || 0)} out of stock`} onClick={opener('low-stock')} />}
+            {allow.financials && <KPICard delay={0.55} label="Outstanding Receivables" value={p.receivables?.value} prefix="₹" icon={ArrowDownCircle} loading={loading} accent="graphite" hint={`${formatNumber(p.receivables?.count || 0)} customers`} onClick={opener('receivables')} />}
+            {allow.financials && <KPICard delay={0.6} label="Outstanding Payables" value={p.payables?.value} prefix="₹" icon={ArrowUpCircle} loading={loading} accent="graphite" hint={`${formatNumber(p.payables?.count || 0)} open bills`} onClick={opener('payables')} />}
           </div>
         </div>
       )}

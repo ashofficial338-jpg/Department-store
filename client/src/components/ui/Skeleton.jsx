@@ -6,9 +6,12 @@ export function Skeleton({ className }) {
 
 export function CardSkeleton() {
   return (
-    <div className="surface-card rounded-xl2 p-5 shadow-premium">
-      <Skeleton className="h-4 w-24 mb-3" />
-      <Skeleton className="h-7 w-32 mb-2" />
+    <div className="surface-card rounded-xl2 p-5">
+      <div className="flex justify-between mb-4">
+        <Skeleton className="h-3 w-24" />
+        <Skeleton className="h-10 w-10 rounded-xl" />
+      </div>
+      <Skeleton className="h-7 w-36 mb-3" />
       <Skeleton className="h-3 w-20" />
     </div>
   );

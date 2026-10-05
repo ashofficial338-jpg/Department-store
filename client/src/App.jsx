@@ -7,6 +7,7 @@ import RequirePermission from './routes/RequirePermission.jsx';
 import Login from './pages/auth/Login.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import DashboardDetails from './pages/DashboardDetails.jsx';
+import ItrAnalysis from './pages/analytics/ItrAnalysis.jsx';
 import DataEntry from './pages/DataEntry.jsx';
 
 import POSBilling from './pages/pos/POSBilling.jsx';
@@ -64,7 +65,26 @@ import AuditLogPage from './pages/AuditLog.jsx';
 export default function App() {
   return (
     <>
-      <Toaster position="top-right" toastOptions={{ style: { fontSize: '13px', borderRadius: '10px' } }} />
+      <Toaster
+        position="top-right"
+        gutter={10}
+        toastOptions={{
+          duration: 3500,
+          style: {
+            fontSize: '13px',
+            fontWeight: 500,
+            borderRadius: '14px',
+            padding: '12px 14px',
+            color: 'var(--text-primary)',
+            background: 'color-mix(in srgb, var(--bg-surface) 90%, transparent)',
+            backdropFilter: 'blur(14px)',
+            border: '1px solid var(--border-subtle)',
+            boxShadow: '0 20px 40px -20px rgba(17,18,24,0.45)',
+          },
+          success: { iconTheme: { primary: '#C29A56', secondary: '#fff' } },
+          error: { iconTheme: { primary: '#E11D48', secondary: '#fff' } },
+        }}
+      />
       <Routes>
         <Route path="/login" element={<Login />} />
 
@@ -73,6 +93,7 @@ export default function App() {
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/dashboard/details/:metric" element={<RequirePermission any={['dashboard.details']}><DashboardDetails /></RequirePermission>} />
+            <Route path="/analytics/itr" element={<RequirePermission any={['dashboard.inventory']}><ItrAnalysis /></RequirePermission>} />
             <Route path="/data-entry" element={<RequirePermission any={['dashboard']}><DataEntry /></RequirePermission>} />
 
             <Route path="/pos" element={<RequirePermission any={['pos']}><POSBilling /></RequirePermission>} />

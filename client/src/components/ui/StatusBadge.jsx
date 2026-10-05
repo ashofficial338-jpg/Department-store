@@ -1,5 +1,9 @@
 import clsx from 'clsx';
 
+const DOTS = {
+  success: 'bg-emerald-500', warning: 'bg-amber-500', danger: 'bg-rose-500', info: 'bg-sky-500', neutral: 'bg-graphite-400', gold: 'bg-gold-500',
+};
+
 const STYLES = {
   success: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
   warning: 'bg-amber-50 text-amber-700 ring-amber-600/20',
@@ -20,7 +24,11 @@ export function StatusBadge({ status, variant, label }) {
   const key = (status || '').toLowerCase();
   const resolvedVariant = variant || STATUS_MAP[key] || 'neutral';
   return (
-    <span className={clsx('inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ring-1 ring-inset capitalize', STYLES[resolvedVariant])}>
+    <span className={clsx('inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ring-1 ring-inset capitalize', STYLES[resolvedVariant])}>
+      <span className="relative flex w-1.5 h-1.5">
+        {(resolvedVariant === 'warning' || resolvedVariant === 'info') && <span className={clsx('absolute inset-0 rounded-full animate-pulse-ring', DOTS[resolvedVariant])} />}
+        <span className={clsx('relative w-1.5 h-1.5 rounded-full', DOTS[resolvedVariant])} />
+      </span>
       {(label || status || '').replace(/_/g, ' ')}
     </span>
   );

@@ -1,12 +1,12 @@
 import clsx from 'clsx';
 
-const baseInput = 'w-full rounded-lg border px-3 py-2 text-sm bg-transparent focus:outline-none focus:ring-2 focus:ring-gold-400 focus:border-gold-400 transition-colors placeholder:text-graphite-400';
+const baseInput = 'w-full rounded-xl border px-3.5 py-2.5 text-sm bg-[var(--bg-surface)] hover:border-[var(--border-strong)] focus:outline-none focus:!border-gold-400 transition-all duration-300 placeholder:text-graphite-400';
 
 function Wrapper({ label, error, hint, required, children }) {
   return (
     <label className="block">
       {label && (
-        <span className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+        <span className="block text-xs font-semibold mb-1.5 tracking-[0.01em]" style={{ color: 'var(--text-secondary)' }}>
           {label}{required && <span className="text-rose-500 ml-0.5">*</span>}
         </span>
       )}

@@ -158,6 +158,7 @@ export const dashboardService = {
   kpis: (params) => api.get('/dashboard/kpis', { params }).then((r) => r.data),
   productRoi: (params) => api.get('/dashboard/product-roi', { params }).then((r) => r.data),
   filterOptions: () => api.get('/dashboard/filter-options').then((r) => r.data),
+  itrAnalysis: (params) => api.get('/dashboard/itr-analysis', { params, timeout: 60000 }).then((r) => r.data),
   details: (metric, params) => api.get(`/dashboard/details/${metric}`, { params, timeout: 60000 }).then((r) => r.data),
   exportFile: (metric, params, format) => downloadFile(`/dashboard/export/${metric}`, { ...params, format }, `${metric}.${format}`),
   topProducts: (params) => api.get('/dashboard/top-products', { params }).then((r) => r.data),

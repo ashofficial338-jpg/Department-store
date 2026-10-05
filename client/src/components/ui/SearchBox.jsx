@@ -8,7 +8,7 @@ export function SearchBox({ value, onChange, placeholder = 'Search...', classNam
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-lg border pl-9 pr-8 py-2 text-sm bg-transparent focus:outline-none focus:ring-2 focus:ring-gold-400 focus:border-gold-400 transition-colors"
+        className="w-full rounded-xl border pl-9 pr-8 py-2.5 text-sm bg-[var(--bg-surface)] hover:border-[var(--border-strong)] focus:outline-none focus:!border-gold-400 transition-all duration-300"
         style={{ color: 'var(--text-primary)', borderColor: 'var(--border-subtle)' }}
       />
       {value && (

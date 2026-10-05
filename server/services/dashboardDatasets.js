@@ -7,6 +7,7 @@ import {
   SALE_STATUSES, resolveProductScope, salesByProduct, productProfitability, inventoryAnalysis, financialSummary,
   expensesTotal, salesTotal, purchasesTotal, receivablesTotal, payablesTotal, todayAndYesterday,
 } from './analyticsService.js';
+import { itrAnalysis } from './itrAnalysisService.js';
 
 // Every clickable dashboard element maps to one dataset here. The same dataset powers the detail page
 // and its CSV / Excel / PDF export, so what a user sees is exactly what they export.
@@ -376,6 +377,29 @@ async function topProducts(f) {
   };
 }
 
+async function itrProductTable(f, { query = {} } = {}) {
+  const period = [3, 6, 12].includes(Number(query.period)) ? Number(query.period) : 12;
+  const data = await itrAnalysis({ product: f.product, category: f.category, brand: f.brand, period });
+  const label = (k) => data.classes.find((c) => c.key === k)?.label || k;
+  return {
+    columns: [
+      { key: 'name', label: 'Product' }, { key: 'sku', label: 'SKU' }, { key: 'category', label: 'Category' }, { key: 'brand', label: 'Brand' },
+      { key: 'itr3', label: 'ITR 3M', type: 'number' }, { key: 'itr6', label: 'ITR 6M', type: 'number' }, { key: 'itr12', label: 'ITR 12M', type: 'number' },
+      { key: 'annualised', label: `Annualised (${period}M)`, type: 'number' }, { key: 'daysOfInventory', label: 'Days of inventory', type: 'days' },
+      { key: 'cogs', label: `COGS (${period}M)`, type: 'currency' }, { key: 'avgInventory', label: `Avg inventory (${period}M)`, type: 'currency' },
+      { key: 'stockValue', label: 'Stock value now', type: 'currency' }, { key: 'trendPct', label: 'Trend 3M vs 12M', type: 'percent' }, { key: 'classLabel', label: 'Movement' },
+    ],
+    rows: data.rows.map((r) => ({
+      ...r, annualised: r.windows[period].annualised, daysOfInventory: r.windows[period].daysOfInventory,
+      cogs: r.windows[period].cogs, avgInventory: r.windows[period].avgInventory, classLabel: label(r.class),
+    })),
+    summary: [3, 6, 12].map((n) => ({ label: `Portfolio ITR ${n}M`, value: data.summary[n].itr, type: 'number' })).concat([
+      { label: `Days of inventory (${period}M)`, value: data.summary[period].daysOfInventory, type: 'days' },
+    ]),
+    formula: 'ITR = COGS ÷ Average Inventory; Average Inventory = (Inventory at window start + Inventory now) ÷ 2; Annualised = ITR × 12 ÷ months',
+  };
+}
+
 // The whole dashboard as one table (only the sections the caller may view).
 async function dashboardSummary(f, { canSection }) {
   const ids = await resolveProductScope(f);
@@ -439,6 +463,7 @@ export const DATASETS = {
   expenses: { title: 'Expenses', section: 'expenses', defaultRange: 'this_month', build: expensesList },
   'stock-value': { title: 'Stock Value by Product', section: 'inventory', defaultRange: 'this_month', build: (f) => stockPositions(f) },
   'low-stock': { title: 'Low & Out of Stock Items', section: 'inventory', defaultRange: 'this_month', build: (f) => stockPositions(f, { onlyLow: true }) },
+  'itr-analysis': { title: 'Product-wise ITR Analysis', section: 'inventory', defaultRange: 'this_month', build: itrProductTable },
   itr: { title: 'Inventory Turnover Ratio', section: 'inventory', defaultRange: 'this_month', build: itrBreakdown },
   'holding-period': { title: 'Inventory Holding Period', section: 'inventory', defaultRange: 'this_month', build: holdingBreakdown },
   'daily-purchases': { title: "Today's Purchases", section: 'financials', defaultRange: 'today', build: purchasesList },
