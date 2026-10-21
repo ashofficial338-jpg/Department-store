@@ -3,6 +3,7 @@ import Sale from '../models/Sale.js';
 import ApiError from '../utils/ApiError.js';
 import catchAsync from '../utils/catchAsync.js';
 import { getPagination, buildPaginatedResponse } from '../utils/pagination.js';
+import { literalRegex } from '../utils/validate.js';
 
 export const listBatches = catchAsync(async (req, res) => {
   const { page, limit, skip } = getPagination(req.query);
@@ -15,7 +16,7 @@ export const listBatches = catchAsync(async (req, res) => {
     filter.expiryDate = { $lte: cutoff };
     filter.availableQuantity = { $gt: 0 };
   }
-  if (req.query.search) filter.batchNumber = new RegExp(req.query.search, 'i');
+  if (req.query.search) filter.batchNumber = literalRegex(req.query.search);
 
   const [docs, total] = await Promise.all([
     Batch.find(filter).populate('product', 'name sku').populate('supplier', 'name').populate('store', 'name').sort({ expiryDate: 1 }).skip(skip).limit(limit),

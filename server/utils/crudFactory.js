@@ -2,6 +2,7 @@ import ApiError from './ApiError.js';
 import catchAsync from './catchAsync.js';
 import recordAudit from './audit.js';
 import { getPagination, buildPaginatedResponse } from './pagination.js';
+import { literalRegex } from '../utils/validate.js';
 
 // Generic CRUD controller builder for straightforward master-data models
 // (Category, Brand, Store, DistributionCenter, Vendor, Supplier, TaxRate, Account).
@@ -12,7 +13,7 @@ export function crudFactory(Model, { entityName, searchFields = [], populate = [
     const filter = {};
     if (req.query.status) filter.status = req.query.status;
     if (req.query.search && searchFields.length) {
-      filter.$or = searchFields.map((f) => ({ [f]: new RegExp(req.query.search.trim(), 'i') }));
+      filter.$or = searchFields.map((f) => ({ [f]: literalRegex(req.query.search) }));
     }
     let query = Model.find(filter).sort(defaultSort).skip(skip).limit(limit);
     populate.forEach((p) => { query = query.populate(p); });

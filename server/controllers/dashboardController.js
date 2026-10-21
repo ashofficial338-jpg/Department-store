@@ -3,6 +3,7 @@ import Purchase from '../models/Purchase.js';
 import Product from '../models/Product.js';
 import Category from '../models/Category.js';
 import Brand from '../models/Brand.js';
+import Inventory from '../models/Inventory.js';
 import { itrAnalysis } from '../services/itrAnalysisService.js';
 import ApiError from '../utils/ApiError.js';
 import catchAsync from '../utils/catchAsync.js';
@@ -13,8 +14,8 @@ import { EXPORT_FORMATS, sendExport } from '../utils/exporters.js';
 import DATASETS from '../services/dashboardDatasets.js';
 import {
   SALE_STATUSES, EXPENSE_CATEGORIES, PAYMENT_METHODS, STOCK_STATUSES,
-  parseFilters, hasFilterParams, resolveProductScope, salesByProduct, salesTotal, purchasesTotal, expensesTotal,
-  productProfitability, inventoryAnalysis, financialSummary, receivablesTotal, payablesTotal, pctChange, todayAndYesterday,
+  parseFilters, hasFilterParams, resolveProductScope, salesByProduct, salesTotal, purchasesTotal, purchaseCount, expensesTotal,
+  productProfitability, inventoryAnalysis, financialSummary, receivablesTotal, payablesTotal, pctChange, todayAndYesterday, stockStatusOf,
 } from '../services/analyticsService.js';
 
 const canSection = (req) => (section) => can(req, `dashboard.${section}`);
@@ -76,12 +77,14 @@ export const kpis = catchAsync(async (req, res) => {
   }
   if (allow('financials')) {
     jobs.push(Promise.all([
-      purchasesTotal(today.from, today.to), purchasesTotal(yesterday.from, yesterday.to),
+      purchasesTotal(today.from, today.to), purchasesTotal(yesterday.from, yesterday.to), purchasesTotal(f.from, f.to), purchaseCount(f.from, f.to),
       productProfitability(today.from, today.to, null), productProfitability(yesterday.from, yesterday.to, null),
       productProfitability(f.from, f.to, ids), financialSummary(f.from, f.to), receivablesTotal(), payablesTotal(),
-    ]).then(([tp, yp, tProfit, yProfit, period, fin, rec, pay]) => {
+    ]).then(([tp, yp, pp, pCount, tProfit, yProfit, period, fin, rec, pay]) => {
       data.today.purchases = { value: tp, change: pctChange(tp, yp) };
       data.today.profit = { value: tProfit.totals.profit, change: pctChange(tProfit.totals.profit, yProfit.totals.profit) };
+      data.period.purchases = { value: pp, count: pCount };
+      data.period.netProfit = { value: fin.profit.netProfit, grossProfit: fin.profit.grossProfit, expenses: fin.profit.operatingExpenses };
       data.period.grossMargin = { value: period.totals.marginPercent, profit: period.totals.profit, revenue: period.totals.revenue };
       data.period.productRoi = { value: period.totals.roiPercent, ...period.totals };
       data.period.ebitda = fin.ebitda;
@@ -109,6 +112,78 @@ export const topProducts = catchAsync(async (req, res) => {
       profit: round2(r.revenue - r.cogs),
       contributionPercent: totalRevenue ? Math.round((r.grossRevenue / totalRevenue) * 1000) / 10 : 0,
     })),
+  });
+});
+
+const CATALOG_SORTS = {
+  revenue: (a, b) => b.revenue - a.revenue,
+  units: (a, b) => b.unitsSold - a.unitsSold,
+  name: (a, b) => a.name.localeCompare(b.name),
+  price_high: (a, b) => b.sellingPrice - a.sellingPrice,
+  price_low: (a, b) => a.sellingPrice - b.sellingPrice,
+  margin: (a, b) => b.marginPercent - a.marginPercent,
+  stock_low: (a, b) => a.stock - b.stock,
+};
+
+// Full product catalogue with brand, category, prices, GST, stock and sales for the selected period.
+// Visible with either the sales or the inventory dashboard section.
+export const productCatalog = catchAsync(async (req, res) => {
+  if (!can(req, 'dashboard.sales') && !can(req, 'dashboard.inventory')) throw new ApiError(403, 'You do not have access to this dashboard information.');
+  const f = readFilters(req, { range: 'this_month' });
+  const page = Math.max(Number(req.query.page) || 1, 1);
+  const limit = Math.min(Math.max(Number(req.query.limit) || 10, 1), 100);
+  const sort = CATALOG_SORTS[req.query.sort] ? req.query.sort : 'revenue';
+  const search = String(req.query.search || '').trim();
+
+  const ids = await resolveProductScope(f);
+  const match = { status: { $ne: 'discontinued' } };
+  if (ids) match._id = { $in: ids };
+  if (search) {
+    const rx = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    const brandIds = (await Brand.find({ name: rx }).select('_id').lean()).map((b) => b._id);
+    match.$or = [{ name: rx }, { sku: rx }, { barcode: rx }, { hsn: rx }, { brand: { $in: brandIds } }];
+  }
+
+  const [products, stockRows, salesRows] = await Promise.all([
+    Product.find(match)
+      .select('name sku barcode hsn gstRate unit mrp sellingPrice purchasePrice discountPercent reorderLevel status images brand category subcategory primarySupplier')
+      .populate('brand', 'name').populate('category', 'name').populate('subcategory', 'name').populate('primarySupplier', 'name').lean(),
+    Inventory.aggregate([{ $group: { _id: '$product', qty: { $sum: '$currentStock' } } }]),
+    salesByProduct(f.from, f.to, ids, { paymentMethod: f.paymentMethod }),
+  ]);
+  const stock = new Map(stockRows.map((r) => [String(r._id), r.qty]));
+  const sales = new Map(salesRows.map((r) => [String(r._id), r]));
+
+  const rows = products.map((p) => {
+    const qty = stock.get(String(p._id)) || 0;
+    const s = sales.get(String(p._id));
+    // Selling price is stored excluding GST; the shelf price the customer pays adds GST on top.
+    const priceInclGst = round2(p.sellingPrice * (1 + (p.gstRate || 0) / 100));
+    return {
+      _id: p._id, name: p.name, sku: p.sku, barcode: p.barcode, hsn: p.hsn, unit: p.unit, status: p.status,
+      image: (p.images || []).find((i) => i.isPrimary)?.url || p.images?.[0]?.url || null,
+      brand: p.brand?.name || '—', supplier: p.primarySupplier?.name || null, category: p.category?.name || 'Uncategorized', subcategory: p.subcategory?.name || null,
+      mrp: p.mrp, sellingPrice: p.sellingPrice, priceInclGst, purchasePrice: p.purchasePrice, gstRate: p.gstRate || 0,
+      discountPercent: p.mrp ? Math.max(0, round2(((p.mrp - priceInclGst) / p.mrp) * 100)) : 0,
+      // Margin on the selling price excluding GST, same basis as Gross Margin.
+      marginPercent: p.sellingPrice ? round2(((p.sellingPrice - p.purchasePrice) / p.sellingPrice) * 100) : 0,
+      stock: qty, stockValue: round2(qty * p.purchasePrice), reorderLevel: p.reorderLevel, stockStatus: stockStatusOf(qty, p.reorderLevel),
+      unitsSold: s?.units || 0, revenue: round2(s?.grossRevenue || 0), profit: round2((s?.revenue || 0) - (s?.cogs || 0)),
+    };
+  }).sort(CATALOG_SORTS[sort]);
+
+  const summary = {
+    products: rows.length,
+    brands: new Set(rows.map((r) => r.brand)).size,
+    categories: new Set(rows.map((r) => r.category)).size,
+    stockValue: round2(rows.reduce((t, r) => t + r.stockValue, 0)),
+    revenue: round2(rows.reduce((t, r) => t + r.revenue, 0)),
+  };
+  res.json({
+    success: true,
+    data: rows.slice((page - 1) * limit, page * limit),
+    summary,
+    pagination: { page, limit, total: rows.length, totalPages: Math.ceil(rows.length / limit) },
   });
 });
 
@@ -163,11 +238,13 @@ export const categoryBrandSales = catchAsync(async (req, res) => {
   const itemScope = ids ? [{ $match: { 'items.product': { $in: ids } } }] : [];
   const byLookup = (collection, field, fallback) => Sale.aggregate([
     { $match: match }, { $unwind: '$items' }, ...itemScope,
-    { $lookup: { from: 'products', localField: 'items.product', foreignField: '_id', as: 'p' } },
+    // Total per product first, so the lookups run once per product instead of once per invoice line.
+    { $group: { _id: '$items.product', value: { $sum: '$items.totalAmount' } } },
+    { $lookup: { from: 'products', localField: '_id', foreignField: '_id', as: 'p' } },
     { $unwind: '$p' },
     { $lookup: { from: collection, localField: `p.${field}`, foreignField: '_id', as: 'x' } },
     { $unwind: { path: '$x', preserveNullAndEmptyArrays: true } },
-    { $group: { _id: { $ifNull: ['$x.name', fallback] }, value: { $sum: '$items.totalAmount' } } },
+    { $group: { _id: { $ifNull: ['$x.name', fallback] }, value: { $sum: '$value' } } },
     { $sort: { value: -1 } },
   ]);
   const [byCategory, byBrand, byPayment] = await Promise.all([
@@ -244,4 +321,4 @@ export const exportMetric = catchAsync(async (req, res) => {
   await sendExport(res, format, ds, `${ds.metric}-${stamp}`);
 });
 
-export default { kpis, topProducts, productRoi, salesTrend, categoryBrandSales, filterOptions, itrAnalysisReport, metricDetails, exportMetric };
+export default { kpis, topProducts, productCatalog, productRoi, salesTrend, categoryBrandSales, filterOptions, itrAnalysisReport, metricDetails, exportMetric };

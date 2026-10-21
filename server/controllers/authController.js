@@ -15,10 +15,11 @@ async function sanitizeUser(user) {
 }
 
 export const login = catchAsync(async (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) throw new ApiError(400, 'Email and password are required.');
+  const { email, password } = req.body || {};
+  if (typeof email !== 'string' || typeof password !== 'string' || !email.trim() || !password) throw new ApiError(400, 'Email and password are required.');
+  if (email.length > 254 || password.length > 200) throw new ApiError(400, 'Invalid email or password.');
 
-  const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
+  const user = await User.findOne({ email: email.trim().toLowerCase() }).select('+password');
   if (!user || !(await user.comparePassword(password))) {
     throw new ApiError(401, 'Invalid email or password.');
   }
@@ -42,16 +43,19 @@ export const me = catchAsync(async (req, res) => {
 
 export const changePassword = catchAsync(async (req, res) => {
   const { currentPassword, newPassword } = req.body;
-  if (!newPassword || newPassword.length < 6) {
-    throw new ApiError(400, 'New password must be at least 6 characters.');
+  if (typeof newPassword !== 'string' || newPassword.length < 8 || !/[A-Za-z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+    throw new ApiError(400, 'New password must be at least 8 characters and include a letter and a number.');
   }
+  if (typeof currentPassword !== 'string') throw new ApiError(400, 'Current password is required.');
   const user = await User.findById(req.user._id).select('+password');
   if (!(await user.comparePassword(currentPassword))) {
     throw new ApiError(401, 'Current password is incorrect.');
   }
   user.password = newPassword;
   await user.save();
-  res.json({ success: true, message: 'Password updated successfully.' });
+  await recordAudit({ req, action: 'user.password_change', entity: 'User', entityId: user._id });
+  // Older sessions are now invalid (see passwordChangedAt); hand this device a fresh token.
+  res.json({ success: true, message: 'Password updated successfully. Other devices have been signed out.', token: generateToken(user) });
 });
 
 export default { login, me, changePassword };

@@ -467,6 +467,7 @@ export const DATASETS = {
   itr: { title: 'Inventory Turnover Ratio', section: 'inventory', defaultRange: 'this_month', build: itrBreakdown },
   'holding-period': { title: 'Inventory Holding Period', section: 'inventory', defaultRange: 'this_month', build: holdingBreakdown },
   'daily-purchases': { title: "Today's Purchases", section: 'financials', defaultRange: 'today', build: purchasesList },
+  purchases: { title: 'Purchases', section: 'financials', defaultRange: 'this_month', build: purchasesList },
   'daily-profit': { title: "Today's Profit by Product", section: 'financials', defaultRange: 'today', build: productRoi },
   'gross-margin': { title: 'Gross Margin by Category', section: 'financials', defaultRange: 'this_month', build: marginByCategory },
   'product-roi': { title: 'Product ROI', section: 'financials', defaultRange: 'this_month', build: productRoi },

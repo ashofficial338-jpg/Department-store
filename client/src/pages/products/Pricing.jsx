@@ -27,7 +27,7 @@ export function Pricing() {
       .finally(() => setLoading(false));
   }
 
-  useEffect(load, [debounced, page]); // eslint-disable-line
+  useEffect(load, [debounced, page]);  
 
   function startEdit(row) {
     setEditingId(row._id);

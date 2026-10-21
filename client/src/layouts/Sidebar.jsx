@@ -152,7 +152,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }) {
           );
         })}
         {query && !sections.some((s) => s.items.some((item) => item.label.toLowerCase().includes(query))) && (
-          <p className="px-3 py-4 text-xs text-graphite-500">No page matches "{filter}".</p>
+          <p className="px-3 py-4 text-xs text-graphite-500">No page matches &ldquo;{filter}&rdquo;.</p>
         )}
       </nav>
 

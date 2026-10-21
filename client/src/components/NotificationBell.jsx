@@ -25,7 +25,7 @@ export function NotificationBell() {
 
   return (
     <div className="relative" ref={ref}>
-      <button onClick={() => setOpen((o) => !o)} className="relative p-2 rounded-lg hover:bg-graphite-100">
+      <button type="button" aria-label="Notifications" aria-expanded={open} onClick={() => setOpen((o) => !o)} className="relative p-2 rounded-lg hover:bg-graphite-100">
         <Bell size={18} style={{ color: 'var(--text-secondary)' }} />
         {items.length > 0 && (
           <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-rose-500" />
@@ -37,7 +37,7 @@ export function NotificationBell() {
             Notifications
           </div>
           {items.length === 0 ? (
-            <p className="text-sm text-center py-8" style={{ color: 'var(--text-muted)' }}>You're all caught up.</p>
+            <p className="text-sm text-center py-8" style={{ color: 'var(--text-muted)' }}>You&rsquo;re all caught up.</p>
           ) : (
             <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
               {items.map((n, i) => {

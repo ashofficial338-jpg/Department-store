@@ -3,6 +3,9 @@ import {
   salesReport, purchaseReport, stockReport, batchReport, vendorReport, customerReport,
   productReport, dcReport, expenseReport, paymentReport, outstandingReport, cashBankReport, profitAndLoss,
 } from '../controllers/reportController.js';
+import {
+  meta, overview, section, exportReport, createTemplate, updateTemplate, deleteTemplate,
+} from '../controllers/advancedReportController.js';
 import { protect, requirePermission } from '../middleware/auth.js';
 
 const router = Router();
@@ -24,5 +27,14 @@ router.get('/products', productReport);
 router.get('/dc', dcReport);
 router.get('/expenses', expenseReport);
 router.get('/payments', paymentReport);
+
+// Advanced reporting: analytics overview, section tables, PDF / Excel export and saved templates.
+router.get('/advanced/meta', meta);
+router.get('/advanced/overview', overview);
+router.get('/advanced/section/:key', section);
+router.post('/advanced/export', exportReport);
+router.post('/advanced/templates', createTemplate);
+router.put('/advanced/templates/:id', updateTemplate);
+router.delete('/advanced/templates/:id', deleteTemplate);
 
 export default router;

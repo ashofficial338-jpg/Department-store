@@ -7,10 +7,17 @@
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
+    "test": "node --test --test-concurrency=1 \"tests/**/*.test.js\"",
+    "test:db": "mongodump --quiet --db department_store --archive | mongorestore --quiet --archive --nsFrom=department_store.* --nsTo=department_store_qa.* --drop",
     "seed": "node seed/seed.js",
     "seed:destroy": "node seed/seed.js --destroy",
     "seed:admin": "node seed/createAdmin.js",
-    "seed:sample": "node seed/sampleVendorProduct.js"
+    "seed:sample": "node seed/sampleVendorProduct.js",
+    "seed:catalog": "node seed/catalog.js",
+    "seed:stock": "node seed/openingStock.js",
+    "seed:racks": "node seed/rackItems.js",
+    "seed:activity": "node seed/activity.js",
+    "seed:ledger": "node seed/activity.js --ledger"
   },
   "dependencies": {
     "@vercel/blob": "^2.8.0",

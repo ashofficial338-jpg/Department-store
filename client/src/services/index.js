@@ -8,11 +8,16 @@ export const dcMasterService = createResourceService('/distribution-centers');
 export const vendorService = { ...createResourceService('/vendors'), dashboard: (id) => api.get(`/vendors/${id}/dashboard`).then((r) => r.data) };
 export const supplierService = createResourceService('/suppliers');
 export const accountService = { ...createResourceService('/accounts'), ledger: (id, params) => api.get(`/accounts/${id}/ledger`, { params }).then((r) => r.data) };
+export const rackItemService = createResourceService('/rack-items');
 
 export const authService = {
   login: (payload) => api.post('/auth/login', payload).then((r) => r.data),
   me: () => api.get('/auth/me').then((r) => r.data),
-  changePassword: (payload) => api.post('/auth/change-password', payload).then((r) => r.data),
+  // The server signs out other sessions on a password change and returns a fresh token for this one.
+  changePassword: (payload) => api.post('/auth/change-password', payload).then((r) => {
+    if (r.data?.token) { try { localStorage.setItem('aurelia_token', r.data.token); } catch { /* storage unavailable */ } }
+    return r.data;
+  }),
 };
 
 export const userService = {
@@ -31,6 +36,13 @@ export const productService = {
   uploadImages: (id, formData) => api.post(`/products/${id}/images`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then((r) => r.data),
   setPrimaryImage: (id, imageId) => api.put(`/products/${id}/images/${imageId}/primary`).then((r) => r.data),
   deleteImage: (id, imageId) => api.delete(`/products/${id}/images/${imageId}`).then((r) => r.data),
+  exportFile: (format = 'xlsx') => downloadFile('/products/export', { format }, `products.${format}`),
+  importTemplate: () => downloadFile('/products/import/template', {}, 'product-import-template.xlsx'),
+  importFile: (file, { dryRun = false, onProgress } = {}) => {
+    const form = new FormData();
+    form.append('file', file);
+    return api.post('/products/import', form, { params: { dryRun }, timeout: 300000, onUploadProgress: (e) => onProgress?.(e.total ? e.loaded / e.total : 0) }).then((r) => r.data);
+  },
   extractFromImage: (formData) => api.post('/products/ai/extract-from-image', formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then((r) => r.data),
 };
 
@@ -154,6 +166,36 @@ async function downloadFile(url, params, fallbackName) {
   setTimeout(() => URL.revokeObjectURL(href), 1000);
 }
 
+// Advanced reporting module (Reports > Analytics & Exports).
+export const advancedReportService = {
+  meta: () => api.get('/reports/advanced/meta').then((r) => r.data),
+  overview: (params) => api.get('/reports/advanced/overview', { params, timeout: 60000 }).then((r) => r.data),
+  section: (key, params) => api.get(`/reports/advanced/section/${key}`, { params, timeout: 60000 }).then((r) => r.data),
+  // Returns { blob, name } so the caller can preview or save it; onProgress gets 0..1 while downloading.
+  exportFile: async (body, { onProgress } = {}) => {
+    const res = await api.post('/reports/advanced/export', body, {
+      responseType: 'blob', timeout: 300000,
+      onDownloadProgress: (e) => onProgress?.(e.total ? e.loaded / e.total : null),
+    });
+    const disposition = res.headers['content-disposition'] || '';
+    return { blob: res.data, name: /filename="?([^";]+)"?/.exec(disposition)?.[1] || `report.${body.format}` };
+  },
+  createTemplate: (payload) => api.post('/reports/advanced/templates', payload).then((r) => r.data),
+  updateTemplate: (id, payload) => api.put(`/reports/advanced/templates/${id}`, payload).then((r) => r.data),
+  deleteTemplate: (id) => api.delete(`/reports/advanced/templates/${id}`).then((r) => r.data),
+};
+
+export function saveBlob(blob, name) {
+  const href = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = href;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(href), 1000);
+}
+
 export const dashboardService = {
   kpis: (params) => api.get('/dashboard/kpis', { params }).then((r) => r.data),
   productRoi: (params) => api.get('/dashboard/product-roi', { params }).then((r) => r.data),
@@ -162,6 +204,7 @@ export const dashboardService = {
   details: (metric, params) => api.get(`/dashboard/details/${metric}`, { params, timeout: 60000 }).then((r) => r.data),
   exportFile: (metric, params, format) => downloadFile(`/dashboard/export/${metric}`, { ...params, format }, `${metric}.${format}`),
   topProducts: (params) => api.get('/dashboard/top-products', { params }).then((r) => r.data),
+  productCatalog: (params) => api.get('/dashboard/product-catalog', { params }).then((r) => r.data),
   salesTrend: (params) => api.get('/dashboard/sales-trend', { params }).then((r) => r.data),
   categoryBrandSales: (params) => api.get('/dashboard/category-brand-sales', { params }).then((r) => r.data),
 };

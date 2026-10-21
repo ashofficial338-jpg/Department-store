@@ -10,6 +10,9 @@ import { generateDocNumber } from '../utils/docNumber.js';
 import { round2 } from '../utils/gstCalculator.js';
 import { applyStockDelta, recordInventoryTransaction } from './inventoryController.js';
 import { postLedgerPair } from '../utils/ledger.js';
+import { literalRegex, requireId, positive, number, oneOf } from '../utils/validate.js';
+import Vendor from '../models/Vendor.js';
+import Inventory from '../models/Inventory.js';
 
 function computeItemTotals(item) {
   const taxableAmount = round2(item.quantity * item.unitPrice);
@@ -19,9 +22,23 @@ function computeItemTotals(item) {
 
 export const createPurchase = catchAsync(async (req, res) => {
   const { vendor, store, distributionCenter, items = [], notes } = req.body;
-  if (!items.length) throw new ApiError(400, 'Add at least one item to the purchase order.');
+  if (!Array.isArray(items) || !items.length) throw new ApiError(400, 'Add at least one item to the purchase order.');
+  requireId(vendor, 'Vendor');
+  if (!(await Vendor.exists({ _id: vendor }))) throw new ApiError(400, 'Selected vendor was not found.');
+  if (!store && !distributionCenter) throw new ApiError(400, 'Choose the store or distribution centre receiving the goods.');
 
-  const computedItems = items.map((i) => ({ ...i, ...computeItemTotals(i) }));
+  const computedItems = [];
+  for (const i of items) {
+    requireId(i?.product, 'Product');
+    if (!(await Product.exists({ _id: i.product }))) throw new ApiError(400, 'A product on this order was not found.');
+    const clean = {
+      product: i.product, batchNumber: i.batchNumber, manufacturingDate: i.manufacturingDate, expiryDate: i.expiryDate,
+      quantity: positive(i.quantity, 'Order quantity', { integer: true, max: 1000000 }),
+      unitPrice: number(i.unitPrice, 'Unit price', { min: 0, max: 10000000 }),
+      gstRate: number(i.gstRate ?? 0, 'GST rate', { min: 0, max: 100 }),
+    };
+    computedItems.push({ ...clean, ...computeItemTotals(clean) });
+  }
   const subtotal = computedItems.reduce((s, i) => s + i.taxableAmount, 0);
   const taxAmount = computedItems.reduce((s, i) => s + i.taxAmount, 0);
   const grandTotal = round2(subtotal + taxAmount);
@@ -42,7 +59,7 @@ export const listPurchases = catchAsync(async (req, res) => {
   const filter = {};
   if (req.query.status) filter.status = req.query.status;
   if (req.query.vendor) filter.vendor = req.query.vendor;
-  if (req.query.search) filter.poNumber = new RegExp(req.query.search, 'i');
+  if (req.query.search) filter.poNumber = literalRegex(req.query.search);
   const [docs, total] = await Promise.all([
     Purchase.find(filter).populate('vendor', 'name').sort({ createdAt: -1 }).skip(skip).limit(limit),
     Purchase.countDocuments(filter),
@@ -65,13 +82,20 @@ export const receiveGoods = catchAsync(async (req, res) => {
     throw new ApiError(400, 'This purchase has already been fully received.');
   }
 
-  let allReceived = true;
+  if (!Array.isArray(items) || !items.length) throw new ApiError(400, 'Enter the quantities received.');
+  // Validate every line before touching stock, so a bad line can't leave a half-received order.
+  for (const incoming of items) {
+    const line = purchase.items.find((l) => String(l.product) === String(incoming?.product));
+    if (!line) throw new ApiError(400, 'A received item is not on this purchase order.');
+    const qty = positive(incoming.receivedQuantity, 'Received quantity', { integer: true });
+    const left = line.quantity - (line.receivedQuantity || 0);
+    if (qty > left) throw new ApiError(400, `Only ${left} more can be received for this item (ordered ${line.quantity}).`);
+    incoming.receivedQuantity = qty;
+  }
 
   for (const incoming of items) {
     const line = purchase.items.find((l) => String(l.product) === String(incoming.product));
-    if (!line) continue;
     line.receivedQuantity = (line.receivedQuantity || 0) + incoming.receivedQuantity;
-    if (line.receivedQuantity < line.quantity) allReceived = false;
 
     const product = await Product.findById(incoming.product);
     const batch = await Batch.create({
@@ -97,6 +121,7 @@ export const receiveGoods = catchAsync(async (req, res) => {
     });
   }
 
+  const allReceived = purchase.items.every((l) => (l.receivedQuantity || 0) >= l.quantity);
   purchase.status = allReceived ? 'received' : 'partially_received';
   if (invoiceNumber) {
     purchase.invoiceNumber = invoiceNumber;
@@ -113,35 +138,64 @@ export const receiveGoods = catchAsync(async (req, res) => {
 });
 
 export const payVendor = catchAsync(async (req, res) => {
-  const { amount, method = 'bank_transfer' } = req.body;
+  const { method = 'bank_transfer' } = req.body;
+  oneOf(method, ['cash', 'bank_transfer', 'upi', 'card'], 'Payment method');
+  const amount = round2(positive(req.body.amount, 'Payment amount'));
   const purchase = await Purchase.findById(req.params.id);
   if (!purchase) throw new ApiError(404, 'Purchase order not found.');
+  if (['draft', 'cancelled'].includes(purchase.status)) throw new ApiError(400, `A ${purchase.status} purchase order cannot be paid.`);
+  const balance = round2((purchase.grandTotal || 0) - (purchase.amountPaid || 0));
+  if (amount > balance + 0.001) throw new ApiError(400, `Payment of ₹${amount} is more than the balance due of ₹${balance}.`);
 
-  purchase.amountPaid = round2((purchase.amountPaid || 0) + Number(amount));
-  await purchase.save();
+  // Conditional update so two simultaneous payments cannot together overpay the bill.
+  const updated = await Purchase.findOneAndUpdate(
+    { _id: purchase._id, amountPaid: purchase.amountPaid || 0 },
+    { $set: { amountPaid: round2((purchase.amountPaid || 0) + amount) } },
+    { new: true },
+  );
+  if (!updated) throw new ApiError(409, 'This bill was just updated by someone else. Refresh and try again.');
 
   await postLedgerPair({
     debitKey: 'payable', creditKey: method === 'cash' ? 'cash' : 'bank',
-    amount: Number(amount), narration: `Payment for ${purchase.poNumber}`,
+    amount, narration: `Payment for ${purchase.poNumber}`,
     referenceType: 'Purchase', referenceId: purchase._id, userId: req.user._id,
   });
-
-  res.json({ success: true, data: purchase });
+  await recordAudit({ req, action: 'purchase.pay', entity: 'Purchase', entityId: purchase._id, newValue: { amount, method } });
+  res.json({ success: true, data: updated });
 });
 
 // ---------- Purchase Returns ----------
 
 export const createPurchaseReturn = catchAsync(async (req, res) => {
   const { purchaseId, items } = req.body;
+  requireId(purchaseId, 'Purchase');
   const purchase = await Purchase.findById(purchaseId);
   if (!purchase) throw new ApiError(404, 'Original purchase not found.');
-  if (!items?.length) throw new ApiError(400, 'Select at least one item to return.');
+  if (!Array.isArray(items) || !items.length) throw new ApiError(400, 'Select at least one item to return.');
+
+  // Validate first: items must be on the order, within what was received minus earlier returns,
+  // and in stock at the receiving location.
+  const already = new Map();
+  for (const r of await PurchaseReturn.find({ purchase: purchase._id }).lean()) {
+    for (const i of r.items) already.set(String(i.product), (already.get(String(i.product)) || 0) + i.quantity);
+  }
+  for (const item of items) {
+    const line = purchase.items.find((l) => String(l.product) === String(item?.product));
+    if (!line) throw new ApiError(400, 'A returned item is not on this purchase order.');
+    item.quantity = positive(item.quantity, 'Return quantity', { integer: true });
+    const left = (line.receivedQuantity || 0) - (already.get(String(line.product)) || 0);
+    if (item.quantity > left) throw new ApiError(400, `Only ${left} of this item can be returned (received minus earlier returns).`);
+    already.set(String(line.product), (already.get(String(line.product)) || 0) + item.quantity);
+    const loc = purchase.store ? { store: purchase.store } : { distributionCenter: purchase.distributionCenter };
+    const inv = await Inventory.findOne({ product: line.product, ...loc }).select('currentStock').lean();
+    if ((inv?.currentStock || 0) < item.quantity) throw new ApiError(400, 'Not enough stock on hand to return this quantity.');
+  }
 
   let totalAmount = 0;
   for (const item of items) {
     const line = purchase.items.find((l) => String(l.product) === String(item.product));
-    const unitPrice = line?.unitPrice || 0;
-    totalAmount += unitPrice * item.quantity;
+    // Returned value includes the GST charged on the bill.
+    totalAmount += line.unitPrice * item.quantity * (1 + (line.gstRate || 0) / 100);
 
     await applyStockDelta({ product: item.product, store: purchase.store, distributionCenter: purchase.distributionCenter, delta: -item.quantity });
     if (item.batch) await Batch.findByIdAndUpdate(item.batch, { $inc: { availableQuantity: -item.quantity } });
@@ -154,7 +208,8 @@ export const createPurchaseReturn = catchAsync(async (req, res) => {
 
   const returnNumber = await generateDocNumber('purchaseReturn');
   const purchaseReturn = await PurchaseReturn.create({
-    returnNumber, purchase: purchase._id, vendor: purchase.vendor, items,
+    returnNumber, purchase: purchase._id, vendor: purchase.vendor,
+    items: items.map((i) => ({ product: i.product, batch: i.batch, quantity: i.quantity, unitPrice: purchase.items.find((l) => String(l.product) === String(i.product)).unitPrice, reason: i.reason ? String(i.reason).slice(0, 200) : undefined })),
     totalAmount: round2(totalAmount), processedBy: req.user._id,
   });
 

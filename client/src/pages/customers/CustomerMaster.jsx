@@ -32,7 +32,7 @@ export function CustomerMaster() {
       .then((r) => { setRows(r.data); setPagination(r.pagination); })
       .finally(() => setLoading(false));
   }
-  useEffect(load, [debounced, page]); // eslint-disable-line
+  useEffect(load, [debounced, page]);  
 
   async function handleSubmit(e) {
     e.preventDefault();

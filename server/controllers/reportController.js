@@ -18,7 +18,8 @@ import { financialSummary } from '../services/analyticsService.js';
 export const salesReport = catchAsync(async (req, res) => {
   const { from, to } = parseDateRange(req.query);
   const filter = { createdAt: { $gte: from, $lte: to }, status: { $ne: 'cancelled' } };
-  const docs = await Sale.find(filter).populate('customer', 'name phone').populate('cashier', 'name').sort({ createdAt: -1 });
+  // Invoice headers only - line items made a month's report several megabytes.
+  const docs = await Sale.find(filter).select('-items').populate('customer', 'name phone').populate('cashier', 'name').sort({ createdAt: -1 });
 
   if (req.query.format === 'csv') {
     return sendCSV(res, 'sales-report.csv', docs, [

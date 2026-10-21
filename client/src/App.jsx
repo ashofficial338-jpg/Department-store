@@ -1,66 +1,72 @@
+import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import ProtectedRoute from './routes/ProtectedRoute.jsx';
 import DashboardLayout from './layouts/DashboardLayout.jsx';
 import RequirePermission from './routes/RequirePermission.jsx';
+import PageLoader from './components/ui/PageLoader.jsx';
+
+// Pages are code-split: each screen's code downloads the first time it is opened (sign-in stays in the main bundle).
 
 import Login from './pages/auth/Login.jsx';
-import Dashboard from './pages/Dashboard.jsx';
-import DashboardDetails from './pages/DashboardDetails.jsx';
-import ItrAnalysis from './pages/analytics/ItrAnalysis.jsx';
-import DataEntry from './pages/DataEntry.jsx';
+const Dashboard = lazy(() => import('./pages/Dashboard.jsx'));
+const DashboardDetails = lazy(() => import('./pages/DashboardDetails.jsx'));
+const ItrAnalysis = lazy(() => import('./pages/analytics/ItrAnalysis.jsx'));
+const DataEntry = lazy(() => import('./pages/DataEntry.jsx'));
 
-import POSBilling from './pages/pos/POSBilling.jsx';
-import SalesInvoices from './pages/sales/SalesInvoices.jsx';
-import SalesReturns from './pages/sales/SalesReturns.jsx';
-import SalesHistory from './pages/sales/SalesHistory.jsx';
+const POSBilling = lazy(() => import('./pages/pos/POSBilling.jsx'));
+const SalesInvoices = lazy(() => import('./pages/sales/SalesInvoices.jsx'));
+const SalesReturns = lazy(() => import('./pages/sales/SalesReturns.jsx'));
+const SalesHistory = lazy(() => import('./pages/sales/SalesHistory.jsx'));
 
-import ProductMaster from './pages/products/ProductMaster.jsx';
-import Categories from './pages/products/Categories.jsx';
-import Brands from './pages/products/Brands.jsx';
-import ProductFromImage from './pages/products/ProductFromImage.jsx';
-import Batches from './pages/products/Batches.jsx';
-import Pricing from './pages/products/Pricing.jsx';
+const ProductMaster = lazy(() => import('./pages/products/ProductMaster.jsx'));
+const Categories = lazy(() => import('./pages/products/Categories.jsx'));
+const Brands = lazy(() => import('./pages/products/Brands.jsx'));
+const ProductFromImage = lazy(() => import('./pages/products/ProductFromImage.jsx'));
+const Batches = lazy(() => import('./pages/products/Batches.jsx'));
+const Pricing = lazy(() => import('./pages/products/Pricing.jsx'));
 
-import StockOverview from './pages/inventory/StockOverview.jsx';
-import StockAdjustment from './pages/inventory/StockAdjustment.jsx';
-import StockTransfer from './pages/inventory/StockTransfer.jsx';
-import StockLedger from './pages/inventory/StockLedger.jsx';
-import LowStock from './pages/inventory/LowStock.jsx';
-import ExpiryManagement from './pages/inventory/ExpiryManagement.jsx';
+const StockOverview = lazy(() => import('./pages/inventory/StockOverview.jsx'));
+const StockAdjustment = lazy(() => import('./pages/inventory/StockAdjustment.jsx'));
+const StockTransfer = lazy(() => import('./pages/inventory/StockTransfer.jsx'));
+const StockLedger = lazy(() => import('./pages/inventory/StockLedger.jsx'));
+const LowStock = lazy(() => import('./pages/inventory/LowStock.jsx'));
+const ExpiryManagement = lazy(() => import('./pages/inventory/ExpiryManagement.jsx'));
+const RackLocator = lazy(() => import('./pages/inventory/RackLocator.jsx'));
 
-import InwardDC from './pages/dc/InwardDC.jsx';
-import OutwardDC from './pages/dc/OutwardDC.jsx';
-import DCHistory from './pages/dc/DCHistory.jsx';
-import DCStock from './pages/dc/DCStock.jsx';
+const InwardDC = lazy(() => import('./pages/dc/InwardDC.jsx'));
+const OutwardDC = lazy(() => import('./pages/dc/OutwardDC.jsx'));
+const DCHistory = lazy(() => import('./pages/dc/DCHistory.jsx'));
+const DCStock = lazy(() => import('./pages/dc/DCStock.jsx'));
 
-import PurchaseOrders from './pages/purchasing/PurchaseOrders.jsx';
-import PurchaseReturns from './pages/purchasing/PurchaseReturns.jsx';
-import Vendors from './pages/purchasing/Vendors.jsx';
-import Suppliers from './pages/purchasing/Suppliers.jsx';
+const PurchaseOrders = lazy(() => import('./pages/purchasing/PurchaseOrders.jsx'));
+const PurchaseReturns = lazy(() => import('./pages/purchasing/PurchaseReturns.jsx'));
+const Vendors = lazy(() => import('./pages/purchasing/Vendors.jsx'));
+const Suppliers = lazy(() => import('./pages/purchasing/Suppliers.jsx'));
 
-import CustomerMaster from './pages/customers/CustomerMaster.jsx';
-import Loyalty from './pages/customers/Loyalty.jsx';
-import Outstanding from './pages/customers/Outstanding.jsx';
+const CustomerMaster = lazy(() => import('./pages/customers/CustomerMaster.jsx'));
+const Loyalty = lazy(() => import('./pages/customers/Loyalty.jsx'));
+const Outstanding = lazy(() => import('./pages/customers/Outstanding.jsx'));
 
-import Accounts from './pages/finance/Accounts.jsx';
-import Receivables from './pages/finance/Receivables.jsx';
-import Payables from './pages/finance/Payables.jsx';
-import Expenses from './pages/finance/Expenses.jsx';
-import CashBank from './pages/finance/CashBank.jsx';
-import GST from './pages/finance/GST.jsx';
-import ProfitLoss from './pages/finance/ProfitLoss.jsx';
+const Accounts = lazy(() => import('./pages/finance/Accounts.jsx'));
+const Receivables = lazy(() => import('./pages/finance/Receivables.jsx'));
+const Payables = lazy(() => import('./pages/finance/Payables.jsx'));
+const Expenses = lazy(() => import('./pages/finance/Expenses.jsx'));
+const CashBank = lazy(() => import('./pages/finance/CashBank.jsx'));
+const GST = lazy(() => import('./pages/finance/GST.jsx'));
+const ProfitLoss = lazy(() => import('./pages/finance/ProfitLoss.jsx'));
 
-import ReportsCenter from './pages/reports/ReportsCenter.jsx';
+const ReportsCenter = lazy(() => import('./pages/reports/ReportsCenter.jsx'));
+const AdvancedReports = lazy(() => import('./pages/reports/AdvancedReports.jsx'));
 
-import UsersSettings from './pages/settings/UsersSettings.jsx';
-import RolesSettings from './pages/settings/RolesSettings.jsx';
-import StoresSettings from './pages/settings/StoresSettings.jsx';
-import TaxSettings from './pages/settings/TaxSettings.jsx';
-import InvoiceSettings from './pages/settings/InvoiceSettings.jsx';
-import SystemSettings from './pages/settings/SystemSettings.jsx';
+const UsersSettings = lazy(() => import('./pages/settings/UsersSettings.jsx'));
+const RolesSettings = lazy(() => import('./pages/settings/RolesSettings.jsx'));
+const StoresSettings = lazy(() => import('./pages/settings/StoresSettings.jsx'));
+const TaxSettings = lazy(() => import('./pages/settings/TaxSettings.jsx'));
+const InvoiceSettings = lazy(() => import('./pages/settings/InvoiceSettings.jsx'));
+const SystemSettings = lazy(() => import('./pages/settings/SystemSettings.jsx'));
 
-import AuditLogPage from './pages/AuditLog.jsx';
+const AuditLogPage = lazy(() => import('./pages/AuditLog.jsx'));
 
 export default function App() {
   return (
@@ -85,6 +91,7 @@ export default function App() {
           error: { iconTheme: { primary: '#E11D48', secondary: '#fff' } },
         }}
       />
+      <Suspense fallback={<PageLoader />}>
       <Routes>
         <Route path="/login" element={<Login />} />
 
@@ -108,6 +115,7 @@ export default function App() {
             <Route path="/products/batches" element={<RequirePermission any={['products']}><Batches /></RequirePermission>} />
             <Route path="/products/pricing" element={<RequirePermission any={['products']}><Pricing /></RequirePermission>} />
 
+            <Route path="/inventory/racks" element={<RequirePermission any={['inventory', 'products']}><RackLocator /></RequirePermission>} />
             <Route path="/inventory/overview" element={<RequirePermission any={['inventory']}><StockOverview /></RequirePermission>} />
             <Route path="/inventory/adjustment" element={<RequirePermission any={['inventory']}><StockAdjustment /></RequirePermission>} />
             <Route path="/inventory/transfer" element={<RequirePermission any={['inventory']}><StockTransfer /></RequirePermission>} />
@@ -139,6 +147,7 @@ export default function App() {
             <Route path="/finance/profit-loss" element={<RequirePermission any={['finance']}><ProfitLoss /></RequirePermission>} />
 
             <Route path="/reports" element={<RequirePermission any={['reports']}><ReportsCenter /></RequirePermission>} />
+            <Route path="/reports/analytics" element={<RequirePermission any={['reports']}><AdvancedReports /></RequirePermission>} />
 
             <Route path="/settings/users" element={<RequirePermission admin><UsersSettings /></RequirePermission>} />
             <Route path="/settings/roles" element={<RequirePermission admin><RolesSettings /></RequirePermission>} />
@@ -153,6 +162,7 @@ export default function App() {
 
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
+      </Suspense>
     </>
   );
 }

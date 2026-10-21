@@ -7,11 +7,12 @@ import Purchase from '../models/Purchase.js';
 import Batch from '../models/Batch.js';
 import catchAsync from '../utils/catchAsync.js';
 import ApiError from '../utils/ApiError.js';
+import { literalRegex } from '../utils/validate.js';
 
 export const globalSearch = catchAsync(async (req, res) => {
-  const q = (req.query.q || '').trim();
+  const q = String((Array.isArray(req.query.q) ? req.query.q[0] : req.query.q) || '').trim();
   if (!q) throw new ApiError(400, 'Enter a search term.');
-  const rx = new RegExp(q, 'i');
+  const rx = literalRegex(q);
 
   const [products, customers, vendors, suppliers, sales, purchases, batches] = await Promise.all([
     Product.find({ $or: [{ name: rx }, { sku: rx }, { barcode: rx }] }).limit(5).select('name sku'),

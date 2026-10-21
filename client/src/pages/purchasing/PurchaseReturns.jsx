@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { PageHeader, DataTable, Button, Modal, Select, Input, SearchBox } from '../../components/ui/index.js';
+import { PageHeader, DataTable, Button, Modal, Input, SearchBox } from '../../components/ui/index.js';
 import { purchaseService } from '../../services/index.js';
 import { formatCurrency, formatDate } from '../../utils/format.js';
 

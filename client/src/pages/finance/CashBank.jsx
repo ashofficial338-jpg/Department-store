@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { PageHeader, ChartCard } from '../../components/ui/index.js';
-import { FilterBar, FilterSelect } from '../../components/ui/FilterBar.jsx';
+import { FilterSelect } from '../../components/ui/FilterBar.jsx';
 import { accountService, reportService } from '../../services/index.js';
 import { formatCurrency } from '../../utils/format.js';
 

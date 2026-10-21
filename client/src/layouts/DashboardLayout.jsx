@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
+import PageLoader from '../components/ui/PageLoader.jsx';
 import { AnimatePresence, motion } from 'framer-motion';
 import Sidebar from './Sidebar.jsx';
 import Header from './Header.jsx';
@@ -55,7 +56,7 @@ export function DashboardLayout() {
               exit={{ opacity: 0, y: -6, filter: 'blur(4px)' }}
               transition={{ duration: 0.45, ease: EASE }}
             >
-              <Outlet />
+              <Suspense fallback={<PageLoader />}><Outlet /></Suspense>
             </motion.div>
           </AnimatePresence>
         </main>

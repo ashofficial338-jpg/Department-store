@@ -42,7 +42,7 @@ export function ProductFromImage() {
     <div>
       <PageHeader title="Create Product from Image" crumbs={[{ label: 'Products', to: '/products' }, { label: 'Create from Image' }]} />
 
-      <div className="flex items-center gap-2 mb-6">
+      <div className="flex flex-wrap items-center gap-2 mb-6">
         {STEPS.map((s, i) => (
           <div key={s} className="flex items-center gap-2">
             <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold ${i <= step ? 'bg-gold-500 text-graphite-950' : 'bg-graphite-100 text-graphite-400'}`}>{i + 1}</div>

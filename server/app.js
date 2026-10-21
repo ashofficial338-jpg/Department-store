@@ -21,7 +21,10 @@ app.set('trust proxy', 1);
 app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(cors({ origin: env.clientUrl, credentials: true }));
 app.use(compression());
-app.use(express.json({ limit: '2mb' }));
+// Report exports carry chart images rendered in the browser, so that one route accepts a larger body.
+const jsonDefault = express.json({ limit: '2mb' });
+const jsonLarge = express.json({ limit: '12mb' });
+app.use((req, res, next) => (req.path === '/api/reports/advanced/export' ? jsonLarge : jsonDefault)(req, res, next));
 app.use(express.urlencoded({ extended: true }));
 app.use(mongoSanitize());
 if (env.nodeEnv !== 'test') app.use(morgan(env.nodeEnv === 'development' ? 'dev' : 'combined'));

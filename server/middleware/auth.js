@@ -24,6 +24,9 @@ export const protect = catchAsync(async (req, res, next) => {
   if (!user || !user.isActive) {
     throw new ApiError(401, 'This account is no longer active.');
   }
+  if (user.passwordChangedAt && decoded.iat * 1000 < user.passwordChangedAt.getTime()) {
+    throw new ApiError(401, 'Your password was changed. Please log in again.');
+  }
   req.user = user;
   next();
 });

@@ -12,6 +12,7 @@ import { hasPermission } from '../utils/permissions.js';
 import { KPICard, ChartCard, PageHeader } from '../components/ui/index.js';
 import DashboardFilters from '../components/dashboard/DashboardFilters.jsx';
 import ExportMenu from '../components/dashboard/ExportMenu.jsx';
+import ProductCatalog from '../components/dashboard/ProductCatalog.jsx';
 import { readFilters, toQueryString } from '../components/dashboard/filters.js';
 import { dashboardService } from '../services/index.js';
 import { formatCurrency, formatNumber, formatDate } from '../utils/format.js';
@@ -198,6 +199,14 @@ export function Dashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
             {allow.sales && <KPICard delay={0.1} label="Revenue" value={p.revenue?.value} prefix="₹" icon={IndianRupee} loading={loading} hint={p.revenue?.invoices != null ? `${formatNumber(p.revenue.invoices)} invoices` : 'Selected products'} onClick={opener('sales')} />}
             {allow.expenses && <KPICard delay={0.15} label="Expenses" value={p.expenses?.value} prefix="₹" icon={Receipt} loading={loading} accent="graphite" hint={`${formatNumber(p.expenses?.count || 0)} entries`} onClick={opener('expenses')} />}
+            {allow.financials && <KPICard delay={0.18} label="Purchases" value={p.purchases?.value} prefix="₹" icon={ShoppingBag} loading={loading} hint={`${formatNumber(p.purchases?.count || 0)} purchase orders`} onClick={opener('purchases')} />}
+            {allow.financials && (
+              <KPICard delay={0.19}
+                label="Net Profit" value={p.netProfit?.value} prefix="₹" icon={TrendingUp} loading={loading}
+                hint="Gross profit − expenses" onClick={opener('ebitda')}
+                title={p.netProfit ? `Gross profit ${formatCurrency(p.netProfit.grossProfit)} − expenses ${formatCurrency(p.netProfit.expenses)}` : undefined}
+              />
+            )}
             {allow.financials && (
               <KPICard delay={0.2}
                 label="EBITDA" value={p.ebitda?.value} prefix="₹" icon={Landmark} loading={loading}
@@ -264,6 +273,10 @@ export function Dashboard() {
             </ChartCard>
           </div>
         </>
+      )}
+
+      {(allow.sales || allow.inventory) && (
+        <ProductCatalog filters={filters} onOpenProduct={allow.financials && canFilter ? (id) => opener('product-roi', { extra: { product: id } })() : undefined} />
       )}
 
       {allow.financials && roi && (

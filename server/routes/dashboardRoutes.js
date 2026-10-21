@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import {
-  kpis, topProducts, productRoi, salesTrend, categoryBrandSales, filterOptions, itrAnalysisReport, metricDetails, exportMetric,
+  kpis, topProducts, productCatalog, productRoi, salesTrend, categoryBrandSales, filterOptions, itrAnalysisReport, metricDetails, exportMetric,
 } from '../controllers/dashboardController.js';
 import { protect, requirePermission } from '../middleware/auth.js';
 
@@ -11,6 +11,7 @@ router.use(protect, requirePermission('dashboard'));
 // are checked inside each handler, since one response can combine several sections.
 router.get('/kpis', kpis);
 router.get('/top-products', topProducts);
+router.get('/product-catalog', productCatalog);
 router.get('/product-roi', productRoi);
 router.get('/sales-trend', salesTrend);
 router.get('/category-brand-sales', categoryBrandSales);

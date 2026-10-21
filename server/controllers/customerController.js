@@ -4,16 +4,18 @@ import ApiError from '../utils/ApiError.js';
 import catchAsync from '../utils/catchAsync.js';
 import recordAudit from '../utils/audit.js';
 import { getPagination, buildPaginatedResponse } from '../utils/pagination.js';
+import { literalRegex, pick } from '../utils/validate.js';
+import Counter from '../models/Counter.js';
 
 export const listCustomers = catchAsync(async (req, res) => {
   const { page, limit, skip } = getPagination(req.query);
   const filter = {};
   if (req.query.search) {
     filter.$or = [
-      { name: new RegExp(req.query.search, 'i') },
-      { phone: new RegExp(req.query.search, 'i') },
-      { email: new RegExp(req.query.search, 'i') },
-      { customerId: new RegExp(req.query.search, 'i') },
+      { name: literalRegex(req.query.search) },
+      { phone: literalRegex(req.query.search) },
+      { email: literalRegex(req.query.search) },
+      { customerId: literalRegex(req.query.search) },
     ];
   }
   // Deleted (inactive) customers are hidden unless a status is asked for explicitly.
@@ -33,18 +35,34 @@ export const getCustomer = catchAsync(async (req, res) => {
   res.json({ success: true, data: customer });
 });
 
+// Fields staff may set. Balances and loyalty points only change through sales, receipts and returns;
+// credit limits and tiers are an administrator decision (see updateCustomer).
+const CREATE_FIELDS = ['name', 'phone', 'email', 'address', 'gstin', 'customerType'];
+const ADMIN_FIELDS = [...CREATE_FIELDS, 'creditLimit', 'loyaltyTier', 'status'];
+
+// Sequential CUST00001 ids from a counter (a document count repeats ids when two customers are added at once).
+async function nextCustomerId() {
+  const key = 'customer';
+  if (!(await Counter.exists({ key }))) {
+    const last = await Customer.findOne({ customerId: /^CUST\d+$/ }).sort({ customerId: -1 }).select('customerId').lean();
+    await Counter.updateOne({ key }, { $setOnInsert: { seq: Number(last?.customerId?.slice(4) || 0) } }, { upsert: true });
+  }
+  const c = await Counter.findOneAndUpdate({ key }, { $inc: { seq: 1 } }, { new: true });
+  return `CUST${String(c.seq).padStart(5, '0')}`;
+}
+
 export const createCustomer = catchAsync(async (req, res) => {
-  const count = await Customer.countDocuments();
-  const customerId = `CUST${String(count + 1).padStart(5, '0')}`;
-  const customer = await Customer.create({ ...req.body, customerId });
+  const customerId = await nextCustomerId();
+  const customer = await Customer.create({ ...pick(req.body, CREATE_FIELDS), customerId });
   await recordAudit({ req, action: 'customer.create', entity: 'Customer', entityId: customer._id, newValue: { name: customer.name, phone: customer.phone } });
   res.status(201).json({ success: true, data: customer });
 });
 
 export const updateCustomer = catchAsync(async (req, res) => {
-  const customer = await Customer.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+  const update = pick(req.body, ADMIN_FIELDS);
+  const customer = await Customer.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true });
   if (!customer) throw new ApiError(404, 'Customer not found.');
-  await recordAudit({ req, action: 'customer.update', entity: 'Customer', entityId: customer._id, newValue: req.body });
+  await recordAudit({ req, action: 'customer.update', entity: 'Customer', entityId: customer._id, newValue: update });
   res.json({ success: true, data: customer });
 });
 

@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import Product from '../models/Product.js';
 import TaxRate from '../models/TaxRate.js';
 import Inventory from '../models/Inventory.js';
@@ -6,6 +7,7 @@ import catchAsync from '../utils/catchAsync.js';
 import recordAudit from '../utils/audit.js';
 import { getPagination, buildPaginatedResponse } from '../utils/pagination.js';
 import { extractProductInfoFromImage } from '../services/aiImageService.js';
+import { literalRegex, escapeRegex } from '../utils/validate.js';
 
 export const listProducts = catchAsync(async (req, res) => {
   const { page, limit, skip } = getPagination(req.query);
@@ -13,9 +15,9 @@ export const listProducts = catchAsync(async (req, res) => {
 
   if (req.query.search) {
     filter.$or = [
-      { name: new RegExp(req.query.search, 'i') },
-      { sku: new RegExp(req.query.search, 'i') },
-      { barcode: new RegExp(req.query.search, 'i') },
+      { name: literalRegex(req.query.search) },
+      { sku: literalRegex(req.query.search) },
+      { barcode: literalRegex(req.query.search) },
     ];
   }
   if (req.query.category) filter.category = req.query.category;
@@ -23,7 +25,7 @@ export const listProducts = catchAsync(async (req, res) => {
   if (req.query.supplier) filter.primarySupplier = req.query.supplier;
   if (req.query.status) filter.status = req.query.status;
   if (req.query.letter && req.query.letter !== 'ALL') {
-    filter.name = new RegExp(`^${req.query.letter}`, 'i');
+    filter.name = new RegExp(`^${escapeRegex(String(req.query.letter).slice(0, 1))}`, 'i');
   }
   if (req.query.minPrice || req.query.maxPrice) {
     filter.sellingPrice = {};
@@ -35,6 +37,7 @@ export const listProducts = catchAsync(async (req, res) => {
     Product.find(filter)
       .populate('category', 'name')
       .populate('brand', 'name')
+      .populate('primarySupplier', 'name')
       .sort({ name: 1 })
       .skip(skip)
       .limit(limit),
@@ -44,7 +47,8 @@ export const listProducts = catchAsync(async (req, res) => {
   if (req.query.withStock === 'true') {
     const ids = docs.map((d) => d._id);
     const inv = await Inventory.aggregate([
-      { $match: { product: { $in: ids } } },
+      // With ?store=, stock is for that store only (what the POS can actually sell); otherwise all locations.
+      { $match: { product: { $in: ids }, ...(req.query.store && mongoose.isValidObjectId(req.query.store) ? { store: new mongoose.Types.ObjectId(String(req.query.store)) } : {}) } },
       { $group: { _id: '$product', stock: { $sum: '$currentStock' } } },
     ]);
     const stockMap = new Map(inv.map((i) => [String(i._id), i.stock]));

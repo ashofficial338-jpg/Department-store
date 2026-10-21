@@ -54,10 +54,13 @@ const saleSchema = new mongoose.Schema(
     status: { type: String, enum: ['held', 'completed', 'cancelled', 'returned', 'partially_returned'], default: 'completed' },
     cashier: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     notes: { type: String },
+    // Idempotency key sent by the POS for each bill attempt, so a retried or double-submitted bill is created once.
+    clientRequestId: { type: String, trim: true, maxlength: 100 },
   },
   { timestamps: true }
 );
 
+saleSchema.index({ clientRequestId: 1 }, { unique: true, partialFilterExpression: { clientRequestId: { $type: 'string' } } });
 saleSchema.index({ customer: 1 });
 saleSchema.index({ createdAt: -1 });
 saleSchema.index({ status: 1 });

@@ -26,6 +26,8 @@ const userSchema = new mongoose.Schema(
     distributionCenter: { type: mongoose.Schema.Types.ObjectId, ref: 'DistributionCenter' },
     isActive: { type: Boolean, default: true },
     lastLoginAt: { type: Date },
+    // Sessions (JWTs) issued before this moment are rejected, so changing a password signs out other devices.
+    passwordChangedAt: { type: Date },
   },
   { timestamps: true }
 );
@@ -33,6 +35,7 @@ const userSchema = new mongoose.Schema(
 userSchema.pre('save', async function hashPassword(next) {
   if (!this.isModified('password')) return next();
   this.password = await bcrypt.hash(this.password, 10);
+  if (!this.isNew) this.passwordChangedAt = new Date(Date.now() - 1000);
   next();
 });
 

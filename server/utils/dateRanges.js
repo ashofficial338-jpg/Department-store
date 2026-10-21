@@ -27,6 +27,29 @@ export function parseDateRange(query) {
       const end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
       return { from: start, to: end };
     }
+    case 'last_7_days': {
+      const s = new Date(now); s.setDate(s.getDate() - 6);
+      return { from: startOfDay(s), to: endOfDay(now) };
+    }
+    case 'last_30_days': {
+      const s = new Date(now); s.setDate(s.getDate() - 29);
+      return { from: startOfDay(s), to: endOfDay(now) };
+    }
+    case 'previous_week': {
+      const end = startOfWeek(now); end.setMilliseconds(-1);
+      return { from: startOfWeek(end), to: end };
+    }
+    // Indian financial-year quarters: Q1 = Apr-Jun, Q2 = Jul-Sep, Q3 = Oct-Dec, Q4 = Jan-Mar.
+    case 'this_quarter': {
+      const q = Math.floor(now.getMonth() / 3) * 3;
+      return { from: new Date(now.getFullYear(), q, 1), to: endOfDay(now) };
+    }
+    case 'previous_quarter': {
+      const q = Math.floor(now.getMonth() / 3) * 3;
+      return { from: new Date(now.getFullYear(), q - 3, 1), to: new Date(now.getFullYear(), q, 0, 23, 59, 59, 999) };
+    }
+    case 'last_12_months':
+      return { from: new Date(now.getFullYear(), now.getMonth() - 11, 1), to: endOfDay(now) };
     case 'this_year': {
       const { start, end } = getFinancialYearRange(now);
       return { from: start, to: end };

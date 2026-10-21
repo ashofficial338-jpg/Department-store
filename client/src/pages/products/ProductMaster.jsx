@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Plus, Pencil, Trash2, ImageOff } from 'lucide-react';
+import { Plus, Pencil, Trash2, ImageOff, Upload, Download } from 'lucide-react';
+import ProductImportDialog from '../../components/products/ProductImportDialog.jsx';
 import { PageHeader, DataTable, Button, Modal, SearchBox, StatusBadge, Input, Select, CurrencyInput, ConfirmDialog } from '../../components/ui/index.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { isAdmin } from '../../utils/permissions.js';
@@ -39,6 +41,9 @@ export function ProductMaster() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [params, setParams] = useSearchParams();
+  const [importOpen, setImportOpen] = useState(params.get('import') === '1');
+  const [exporting, setExporting] = useState(null);
 
   const debouncedSearch = useDebounce(search);
 
@@ -94,9 +99,29 @@ export function ProductMaster() {
 
   const mainCategories = categories.filter((c) => !c.parent);
 
+  async function exportAll(format) {
+    setExporting(format);
+    try { await productService.exportFile(format); toast.success('Product list downloaded.'); } catch (err) { toast.error(err.message); } finally { setExporting(null); }
+  }
+  function closeImport() {
+    setImportOpen(false);
+    if (params.get('import')) { params.delete('import'); setParams(params, { replace: true }); }
+  }
+
   return (
     <div>
-      <PageHeader title="Product Master" actions={<Button icon={Plus} onClick={openCreate}>Add Product</Button>} />
+      <PageHeader
+        title="Product Master"
+        actions={(
+          <>
+            <Button variant="outline" icon={Download} loading={exporting === 'xlsx'} onClick={() => exportAll('xlsx')}>Export Excel</Button>
+            <Button variant="outline" icon={Download} loading={exporting === 'csv'} onClick={() => exportAll('csv')}>CSV</Button>
+            <Button variant="outline" icon={Upload} onClick={() => setImportOpen(true)}>Import</Button>
+            <Button icon={Plus} onClick={openCreate}>Add Product</Button>
+          </>
+        )}
+      />
+      <ProductImportDialog open={importOpen} onClose={closeImport} onImported={load} canUpdate={canManage} />
 
       <FilterBar>
         <SearchBox value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Search by name, SKU, barcode..." className="w-72" />
@@ -127,10 +152,25 @@ export function ProductMaster() {
               </div>
             ),
           },
-          { key: 'category', header: 'Category', render: (r) => r.category?.name || '-' },
           { key: 'brand', header: 'Brand', render: (r) => r.brand?.name || '-' },
-          { key: 'sellingPrice', header: 'Price', render: (r) => formatCurrency(r.sellingPrice) },
-          { key: 'mrp', header: 'MRP', render: (r) => formatCurrency(r.mrp) },
+          { key: 'category', header: 'Category', render: (r) => r.category?.name || '-' },
+          { key: 'supplier', header: 'Manufacturer', render: (r) => <span className="text-xs">{r.primarySupplier?.name || '-'}</span> },
+          {
+            key: 'sellingPrice', header: 'Selling Price', render: (r) => (
+              <div>
+                <div>{formatCurrency(r.sellingPrice * (1 + (r.gstRate || 0) / 100), { decimals: 2 })}</div>
+                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{formatCurrency(r.sellingPrice, { decimals: 2 })} + GST · MRP {formatCurrency(r.mrp)}</div>
+              </div>
+            ),
+          },
+          { key: 'purchasePrice', header: 'Purchase Price', render: (r) => formatCurrency(r.purchasePrice, { decimals: 2 }) },
+          { key: 'gstRate', header: 'GST', render: (r) => `${r.gstRate ?? 0}%` },
+          {
+            key: 'margin', header: 'Margin', render: (r) => {
+              const m = r.sellingPrice ? ((r.sellingPrice - r.purchasePrice) / r.sellingPrice) * 100 : null;
+              return m === null ? '-' : <span className={m < 0 ? 'text-rose-600 font-medium' : m < 10 ? 'text-amber-600' : 'text-emerald-600'}>{m.toFixed(1)}%</span>;
+            },
+          },
           { key: 'stock', header: 'Stock', render: (r) => <span className={r.stock <= r.reorderLevel ? 'text-rose-600 font-medium' : ''}>{r.stock ?? 0}</span> },
           { key: 'status', header: 'Status', render: (r) => <StatusBadge status={r.status} /> },
           {

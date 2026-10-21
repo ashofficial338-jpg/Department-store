@@ -66,7 +66,7 @@ export function GlobalSearch({ open, onClose }) {
       {loading && <p className="text-sm text-center py-6" style={{ color: 'var(--text-muted)' }}>Searching...</p>}
 
       {nothingFound && (
-        <p className="text-sm text-center py-6" style={{ color: 'var(--text-muted)' }}>No matches for "{query}".</p>
+        <p className="text-sm text-center py-6" style={{ color: 'var(--text-muted)' }}>No matches for &ldquo;{query}&rdquo;.</p>
       )}
 
       <div className="space-y-4 max-h-[50vh] overflow-y-auto">

@@ -21,7 +21,7 @@ export function SalesInvoices() {
       .then((r) => { setRows(r.data); setPagination(r.pagination); })
       .finally(() => setLoading(false));
   }
-  useEffect(load, [debounced, page]); // eslint-disable-line
+  useEffect(load, [debounced, page]);  
 
   async function openDetail(row) {
     const res = await salesService.getOne(row._id);

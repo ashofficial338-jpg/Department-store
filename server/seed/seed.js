@@ -491,10 +491,14 @@ async function run() {
     { category: 'salaries', amount: [138000, 152000], day: 1 },
     { category: 'utilities', amount: [26000, 38000], day: 8 },
     { category: 'marketing', amount: [8000, 14000], day: 12 },
-    { category: 'logistics', amount: [8000, 12000], day: 15 },
     { category: 'maintenance', amount: [3000, 7000], day: 20 },
-    { category: 'supplies', amount: [5500, 8500], day: 10 },
-    { category: 'other', amount: [2500, 5000], day: 25 },
+  ];
+  // Small day-to-day running costs (delivery fuel, carry bags, staff tea...) so every day shows expenses.
+  // They replace the old monthly logistics/supplies/other bills, keeping the monthly total about the same.
+  const DAILY_COSTS = [
+    { category: 'logistics', amount: [250, 800] },
+    { category: 'supplies', amount: [180, 600] },
+    { category: 'other', amount: [80, 300] },
   ];
   const BELOW_THE_LINE = [
     { category: 'interest', description: 'Working capital loan interest', amount: 12000 },
@@ -516,6 +520,15 @@ async function run() {
     for (const item of BELOW_THE_LINE) {
       expenseRows.push({ ...item, paymentMethod: 'bank_transfer', store: stores[0]._id, expenseDate: monthStart, recordedBy: accountant._id });
     }
+  }
+  for (let d = 364; d >= 0; d -= 1) {
+    const day = daysAgo(d);
+    DAILY_COSTS.forEach((c, i) => {
+      if (i > 0 && Math.random() < 0.4) return; // at least one entry every day
+      const expenseDate = new Date(day); expenseDate.setHours(randomInt(9, 12), randomInt(0, 59), 0, 0);
+      if (expenseDate > new Date()) return;
+      expenseRows.push({ category: c.category, description: pick(EXPENSE_DESCRIPTIONS[c.category]), amount: round2(randomFloat(c.amount[0], c.amount[1])), paymentMethod: pick(['cash', 'cash', 'upi']), store: pick(stores)._id, expenseDate, recordedBy: accountant._id });
+    });
   }
   await Expense.insertMany(expenseRows);
   console.log(`[seed] Expenses: ${expenseRows.length}`);

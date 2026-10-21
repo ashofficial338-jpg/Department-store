@@ -4,8 +4,6 @@ import { FilterBar, FilterSelect } from '../../components/ui/FilterBar.jsx';
 import { salesService } from '../../services/index.js';
 import { formatCurrency, formatDateTime } from '../../utils/format.js';
 
-const RANGE_OPTIONS = [{ value: '', label: 'All Time' }, { value: 'today', label: 'Today' }, { value: 'this_week', label: 'This Week' }, { value: 'this_month', label: 'This Month' }];
-
 export function SalesHistory() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);

@@ -1,6 +1,6 @@
 import CrudManager from '../../components/CrudManager.jsx';
 import { storeService } from '../../services/index.js';
-import { Input, Select } from '../../components/ui/index.js';
+import { Input } from '../../components/ui/index.js';
 import StatusBadge from '../../components/ui/StatusBadge.jsx';
 
 export function StoresSettings() {

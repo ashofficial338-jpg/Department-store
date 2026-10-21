@@ -47,6 +47,12 @@ export function ReceiptView({ sale }) {
       ))}
       {sale.roundOff ? <div className="flex justify-between"><span>Round Off</span><span>{money(sale.roundOff)}</span></div> : null}
       <div className="flex justify-between font-semibold text-sm pt-1"><span>Total</span><span>{money(sale.grandTotal)}</span></div>
+      {(sale.payments || []).map((p, i) => (
+        <div key={i}>
+          <div className="flex justify-between capitalize"><span>Paid by {String(p.method).replace('_', ' ')}</span><span>{money(p.cashReceived ?? p.amount)}</span></div>
+          {p.changeReturned > 0 && <div className="flex justify-between"><span>Change returned</span><span>{money(p.changeReturned)}</span></div>}
+        </div>
+      ))}
       <div className="text-center pt-3" style={{ color: 'var(--text-muted)' }}>Thank you for shopping with us!</div>
     </div>
   );

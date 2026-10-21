@@ -13,6 +13,7 @@ export function Pagination({ page, totalPages, total, limit, onPageChange }) {
       </span>
       <div className="flex items-center gap-1.5">
         <button
+          aria-label="Previous page"
           disabled={page <= 1}
           onClick={() => onPageChange(page - 1)}
           className="p-2 rounded-xl border transition-all duration-300 disabled:opacity-40 enabled:hover:border-gold-400 enabled:hover:text-gold-700 enabled:hover:-translate-y-px"
@@ -22,6 +23,7 @@ export function Pagination({ page, totalPages, total, limit, onPageChange }) {
         </button>
         <span className="text-xs px-2" style={{ color: 'var(--text-secondary)' }}>Page {page} of {totalPages}</span>
         <button
+          aria-label="Next page"
           disabled={page >= totalPages}
           onClick={() => onPageChange(page + 1)}
           className="p-2 rounded-xl border transition-all duration-300 disabled:opacity-40 enabled:hover:border-gold-400 enabled:hover:text-gold-700 enabled:hover:-translate-y-px"

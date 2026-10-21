@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Download } from 'lucide-react';
 import { PageHeader, DataTable, Button } from '../../components/ui/index.js';
-import { FilterBar, FilterSelect } from '../../components/ui/FilterBar.jsx';
+import { FilterSelect } from '../../components/ui/FilterBar.jsx';
 import { reportService } from '../../services/index.js';
 import { formatCurrency, formatDate } from '../../utils/format.js';
 

@@ -1,13 +1,14 @@
 import AuditLog from '../models/AuditLog.js';
 import catchAsync from '../utils/catchAsync.js';
 import { getPagination, buildPaginatedResponse } from '../utils/pagination.js';
+import { literalRegex } from '../utils/validate.js';
 
 export const listAuditLogs = catchAsync(async (req, res) => {
   const { page, limit, skip } = getPagination(req.query);
   const filter = {};
   if (req.query.entity) filter.entity = req.query.entity;
   if (req.query.user) filter.user = req.query.user;
-  if (req.query.action) filter.action = new RegExp(req.query.action, 'i');
+  if (req.query.action) filter.action = literalRegex(req.query.action);
   if (req.query.from || req.query.to) {
     filter.createdAt = {};
     if (req.query.from) filter.createdAt.$gte = new Date(req.query.from);

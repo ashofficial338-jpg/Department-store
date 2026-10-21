@@ -11,6 +11,7 @@ import catchAsync from '../utils/catchAsync.js';
 import recordAudit from '../utils/audit.js';
 import { getPagination, buildPaginatedResponse } from '../utils/pagination.js';
 import { generateDocNumber } from '../utils/docNumber.js';
+import { literalRegex, requireId, number, positive, oneOf } from '../utils/validate.js';
 
 // Adjust the aggregated Inventory doc for (product, store|dc) by `delta` units.
 export async function applyStockDelta({ product, store, distributionCenter, delta, field = 'currentStock' }) {
@@ -38,7 +39,7 @@ export const stockOverview = catchAsync(async (req, res) => {
 
   let productFilter = {};
   if (req.query.search) {
-    productFilter = { $or: [{ name: new RegExp(req.query.search, 'i') }, { sku: new RegExp(req.query.search, 'i') }] };
+    productFilter = { $or: [{ name: literalRegex(req.query.search) }, { sku: literalRegex(req.query.search) }] };
   }
   if (req.query.category) productFilter.category = new mongoose.Types.ObjectId(req.query.category);
 
@@ -94,15 +95,30 @@ export const stockLedger = catchAsync(async (req, res) => {
 
 // Manual correction of stock quantity (damage found, stock count mismatch, etc.)
 export const adjustStock = catchAsync(async (req, res) => {
-  const { product, store, distributionCenter, quantity, type = 'stock_adjustment', notes } = req.body;
-  if (!product || !quantity) throw new ApiError(400, 'Product and quantity are required for a stock adjustment.');
+  const { product, store, distributionCenter, type = 'stock_adjustment', notes } = req.body;
+  requireId(product, 'Product');
   if (!store && !distributionCenter) throw new ApiError(400, 'Select a store or distribution center for this adjustment.');
+  oneOf(type, ['stock_adjustment', 'damage', 'expiry_writeoff', 'opening_stock'], 'Adjustment type');
+  const quantity = number(req.body.quantity, 'Quantity', { min: -1000000, max: 1000000, integer: true });
+  if (quantity === 0) throw new ApiError(400, 'Quantity cannot be zero.');
+  if (!notes || !String(notes).trim()) throw new ApiError(400, 'Give a reason for the adjustment (it is kept in the stock ledger).');
 
   const prod = await Product.findById(product);
   if (!prod) throw new ApiError(404, 'Product not found.');
 
   const field = type === 'damage' ? 'damagedStock' : 'currentStock';
-  const inv = await applyStockDelta({ product, store, distributionCenter, delta: Number(quantity), field });
+  const loc = store ? { store } : { distributionCenter };
+  let inv;
+  if (quantity < 0) {
+    // Conditional decrement: stock can never go below zero.
+    inv = await Inventory.findOneAndUpdate({ product, ...loc, [field]: { $gte: -quantity } }, { $inc: { [field]: quantity } }, { new: true });
+    if (!inv) {
+      const have = (await Inventory.findOne({ product, ...loc }).lean())?.[field] || 0;
+      throw new ApiError(400, `Only ${have} in stock - you cannot remove ${-quantity}.`);
+    }
+  } else {
+    inv = await applyStockDelta({ product, store, distributionCenter, delta: quantity, field });
+  }
 
   await recordInventoryTransaction({
     product, quantity: Number(quantity), type,
@@ -118,7 +134,29 @@ export const adjustStock = catchAsync(async (req, res) => {
 
 export const createStockTransfer = catchAsync(async (req, res) => {
   const { sourceType, source, destinationType, destination, items, notes } = req.body;
-  if (!items?.length) throw new ApiError(400, 'Add at least one item to transfer.');
+  if (!Array.isArray(items) || !items.length) throw new ApiError(400, 'Add at least one item to transfer.');
+  oneOf(sourceType, ['Store', 'DistributionCenter'], 'Source type');
+  oneOf(destinationType, ['Store', 'DistributionCenter'], 'Destination type');
+  requireId(source, 'Source'); requireId(destination, 'Destination');
+  if (sourceType === destinationType && String(source) === String(destination)) throw new ApiError(400, 'Source and destination must be different locations.');
+  const srcKey = sourceType === 'Store' ? 'store' : 'distributionCenter';
+  for (const item of items) {
+    requireId(item?.product, 'Product');
+    item.quantity = positive(item.quantity, 'Transfer quantity', { integer: true, max: 1000000 });
+  }
+
+  // Reserve the stock at the source atomically; undo everything if any line is short.
+  const taken = [];
+  for (const item of items) {
+    const inv = await Inventory.findOneAndUpdate({ product: item.product, [srcKey]: source, currentStock: { $gte: item.quantity } }, { $inc: { currentStock: -item.quantity } });
+    if (!inv) {
+      for (const t of taken) await Inventory.updateOne({ _id: t.id }, { $inc: { currentStock: t.qty } });
+      const have = (await Inventory.findOne({ product: item.product, [srcKey]: source }).lean())?.currentStock || 0;
+      const name = (await Product.findById(item.product).select('name').lean())?.name || 'an item';
+      throw new ApiError(400, `Only ${have} of ${name} at the source - cannot transfer ${item.quantity}.`);
+    }
+    taken.push({ id: inv._id, qty: item.quantity });
+  }
 
   const transferNumber = await generateDocNumber('stockTransfer');
   const transfer = await StockTransfer.create({
@@ -127,12 +165,6 @@ export const createStockTransfer = catchAsync(async (req, res) => {
   });
 
   for (const item of items) {
-    await applyStockDelta({
-      product: item.product,
-      store: sourceType === 'Store' ? source : undefined,
-      distributionCenter: sourceType === 'DistributionCenter' ? source : undefined,
-      delta: -item.quantity,
-    });
     await recordInventoryTransaction({
       product: item.product, batch: item.batch, quantity: -item.quantity, type: 'stock_transfer_out',
       source, sourceModel: sourceType, destination, destinationModel: destinationType,
@@ -146,7 +178,10 @@ export const createStockTransfer = catchAsync(async (req, res) => {
 export const completeStockTransfer = catchAsync(async (req, res) => {
   const transfer = await StockTransfer.findById(req.params.id);
   if (!transfer) throw new ApiError(404, 'Stock transfer not found.');
-  if (transfer.status === 'completed') throw new ApiError(400, 'This transfer has already been completed.');
+  if (transfer.status !== 'in_transit' && transfer.status !== 'pending') throw new ApiError(400, `This transfer is already ${transfer.status.replace('_', ' ')}.`);
+  // Claim it first so two clicks cannot both add the stock at the destination.
+  const claimed = await StockTransfer.findOneAndUpdate({ _id: transfer._id, status: transfer.status }, { status: 'completed' });
+  if (!claimed) throw new ApiError(409, 'This transfer was just updated by someone else. Refresh and try again.');
 
   for (const item of transfer.items) {
     await applyStockDelta({

@@ -5,6 +5,7 @@ import catchAsync from '../utils/catchAsync.js';
 import recordAudit from '../utils/audit.js';
 import { getPagination, buildPaginatedResponse } from '../utils/pagination.js';
 import { ensureRolePermissions } from '../services/permissionService.js';
+import { literalRegex } from '../utils/validate.js';
 
 // Only a Super Admin may create or promote another Super Admin, and a Super Admin can only be changed by one.
 async function assertRoleAssignable(req, role, target) {
@@ -24,8 +25,8 @@ export const listUsers = catchAsync(async (req, res) => {
   if (req.query.role) filter.role = req.query.role;
   if (req.query.search) {
     filter.$or = [
-      { name: new RegExp(req.query.search, 'i') },
-      { email: new RegExp(req.query.search, 'i') },
+      { name: literalRegex(req.query.search) },
+      { email: literalRegex(req.query.search) },
     ];
   }
   const [docs, total] = await Promise.all([

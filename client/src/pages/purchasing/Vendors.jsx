@@ -30,7 +30,7 @@ export function Vendors() {
           { key: 'status', header: 'Status', render: (r) => <StatusBadge status={r.status} /> },
         ]}
         extraActions={(row) => (
-          <button onClick={(e) => { e.stopPropagation(); openDashboard(row); }} className="p-1.5 rounded-lg hover:bg-gold-50 text-gold-600">
+          <button onClick={(e) => { e.stopPropagation(); openDashboard(row); }} title="View vendor dashboard" aria-label={`View ${row.name} dashboard`} className="p-1.5 rounded-lg hover:bg-gold-50 text-gold-600">
             <Eye size={14} />
           </button>
         )}

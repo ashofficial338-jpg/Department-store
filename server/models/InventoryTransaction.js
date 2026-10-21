@@ -30,6 +30,8 @@ const inventoryTransactionSchema = new mongoose.Schema(
 
 inventoryTransactionSchema.index({ product: 1, createdAt: -1 });
 inventoryTransactionSchema.index({ type: 1 });
+// Opening/closing stock for ITR sums movements after a date across all products.
+inventoryTransactionSchema.index({ createdAt: -1 });
 inventoryTransactionSchema.index({ referenceType: 1, referenceId: 1 });
 
 const InventoryTransaction = mongoose.model('InventoryTransaction', inventoryTransactionSchema);

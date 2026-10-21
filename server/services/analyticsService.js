@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import Sale from '../models/Sale.js';
+import SalesReturn from '../models/SalesReturn.js';
 import Purchase from '../models/Purchase.js';
 import Product from '../models/Product.js';
 import Inventory from '../models/Inventory.js';
@@ -25,7 +26,10 @@ export const BELOW_THE_LINE = { interest: 'interest', taxes: 'income_tax', depre
 export const STOCK_STATUSES = ['in_stock', 'low_stock', 'out_of_stock'];
 export const PAYMENT_METHODS = ['cash', 'upi', 'card', 'bank_transfer', 'credit'];
 export const EXPENSE_CATEGORIES = Expense.schema.path('category').enumValues;
-export const RANGE_KEYS = ['today', 'yesterday', 'this_week', 'this_month', 'previous_month', 'this_year', 'previous_year', 'custom'];
+export const RANGE_KEYS = [
+  'today', 'yesterday', 'this_week', 'previous_week', 'last_7_days', 'this_month', 'last_30_days', 'previous_month',
+  'this_quarter', 'previous_quarter', 'last_12_months', 'this_year', 'previous_year', 'custom',
+];
 export const FILTER_KEYS = ['range', 'from', 'to', 'product', 'category', 'brand', 'stockStatus', 'expenseCategory', 'paymentMethod'];
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -154,6 +158,10 @@ export async function purchasesTotal(from, to) {
   return round2(rows[0]?.total || 0);
 }
 
+export async function purchaseCount(from, to) {
+  return Purchase.countDocuments({ createdAt: { $gte: from, $lte: to }, status: { $ne: 'draft' } });
+}
+
 export async function expensesTotal(from, to, { expenseCategory } = {}) {
   const match = { expenseDate: { $gte: from, $lte: to } };
   if (expenseCategory) match.category = expenseCategory;
@@ -247,18 +255,19 @@ export async function financialSummary(from, to) {
       { $match: saleMatch(from, to) },
       { $group: { _id: null, grossSales: { $sum: '$subtotal' }, discounts: { $sum: '$discount' } } },
     ]),
-    Sale.aggregate([
-      { $match: { createdAt: { $gte: from, $lte: to }, status: { $in: ['returned', 'partially_returned'] } } },
-      { $lookup: { from: 'salesreturns', localField: '_id', foreignField: 'sale', as: 'ret' } },
-      { $unwind: '$ret' },
-      { $group: { _id: null, returns: { $sum: '$ret.totalRefund' } } },
+    // Returns count on the day the refund was issued (credit-note date), matching the reports module.
+    SalesReturn.aggregate([
+      { $match: { createdAt: { $gte: from, $lte: to } } },
+      { $group: { _id: null, returns: { $sum: '$totalRefund' } } },
     ]),
     Sale.aggregate([
       { $match: saleMatch(from, to) },
       { $unwind: '$items' },
-      { $lookup: { from: 'products', localField: 'items.product', foreignField: '_id', as: 'p' } },
+      // Units per product first, then one product lookup each (instead of one per invoice line).
+      { $group: { _id: '$items.product', units: { $sum: '$items.quantity' } } },
+      { $lookup: { from: 'products', localField: '_id', foreignField: '_id', as: 'p' } },
       { $unwind: '$p' },
-      { $group: { _id: null, cogs: { $sum: { $multiply: ['$items.quantity', '$p.purchasePrice'] } } } },
+      { $group: { _id: null, cogs: { $sum: { $multiply: ['$units', '$p.purchasePrice'] } } } },
     ]),
     Purchase.aggregate([
       { $match: { createdAt: { $gte: from, $lte: to }, status: { $ne: 'draft' } } },
@@ -320,6 +329,6 @@ export function todayAndYesterday() {
 }
 
 export default {
-  parseFilters, hasFilterParams, resolveProductScope, salesByProduct, salesTotal, purchasesTotal, expensesTotal,
+  parseFilters, hasFilterParams, resolveProductScope, salesByProduct, salesTotal, purchasesTotal, purchaseCount, expensesTotal,
   productProfitability, inventoryAnalysis, financialSummary, receivablesTotal, payablesTotal, pctChange, todayAndYesterday,
 };

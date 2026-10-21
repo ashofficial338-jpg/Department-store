@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Search, Moon, Sun, LogOut, ChevronDown, Menu, ShoppingCart, ShieldCheck, LayoutDashboard } from 'lucide-react';
+import { Search, Moon, Sun, LogOut, ChevronDown, Menu, ShoppingCart, ShieldCheck, LayoutDashboard, KeyRound } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useTheme } from '../context/ThemeContext.jsx';
 import GlobalSearch from '../components/GlobalSearch.jsx';
 import NotificationBell from '../components/NotificationBell.jsx';
+import ChangePasswordDialog from '../components/ChangePasswordDialog.jsx';
 import { hasPermission, isAdmin } from '../utils/permissions.js';
 
 function roleLabel(role) {
@@ -23,6 +24,7 @@ export function Header({ onMenuClick }) {
   const { theme, toggleTheme } = useTheme();
   const [searchOpen, setSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const menuRef = useRef(null);
 
@@ -161,6 +163,14 @@ export function Header({ onMenuClick }) {
                     </button>
                     <button
                       role="menuitem"
+                      onClick={() => { setMenuOpen(false); setPasswordOpen(true); }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-colors hover:bg-[var(--hover-tint)]"
+                      style={{ color: 'var(--text-primary)' }}
+                    >
+                      <KeyRound size={15} className="text-gold-600" /> Change password
+                    </button>
+                    <button
+                      role="menuitem"
                       onClick={logout}
                       className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-rose-600 transition-colors hover:bg-rose-50"
                     >
@@ -174,6 +184,7 @@ export function Header({ onMenuClick }) {
         </div>
       </header>
       <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
+      <ChangePasswordDialog open={passwordOpen} onClose={() => setPasswordOpen(false)} />
     </>
   );
 }

@@ -2,12 +2,12 @@ import {
   LayoutDashboard, FilePlus2, ShoppingCart, ReceiptText, Undo2, History,
   Package, Tags, Award, Images, Layers, Tag,
   Boxes, SlidersHorizontal, ArrowLeftRight, ScrollText, AlertTriangle, CalendarClock,
-  Truck, LogIn, LogOut as LogOutIcon, ListChecks, CheckSquare, Warehouse,
+  LogIn, LogOut as LogOutIcon, ListChecks, Warehouse,
   ClipboardList, FileText, RotateCcw, Building2, Factory,
-  Users, UserCircle, Star, Wallet,
-  Landmark, ArrowDownCircle, ArrowUpCircle, Receipt, Coins, Building, CreditCard, Percent, TrendingUp,
-  BarChart3, FileBarChart, RefreshCcw,
-  UserCog, ShieldCheck, Store, Percent as PercentIcon, Banknote, FileCog, Settings as SettingsIcon,
+  Users, Star, Wallet,
+  Landmark, ArrowDownCircle, ArrowUpCircle, Receipt, Coins, Percent, TrendingUp,
+  BarChart3, FileBarChart, RefreshCcw, MapPin,
+  UserCog, ShieldCheck, Store, Percent as PercentIcon, FileCog, Settings as SettingsIcon,
 } from 'lucide-react';
 
 // module: used by requireModule() permission checks on the client (mirrors server config/permissions.js)
@@ -46,6 +46,7 @@ export const NAV_SECTIONS = [
     label: 'Inventory',
     module: 'inventory',
     items: [
+      { label: 'Rack Locator', to: '/inventory/racks', icon: MapPin, module: 'inventory' },
       { label: 'Stock Overview', to: '/inventory/overview', icon: Boxes, module: 'inventory' },
       { label: 'Stock Adjustment', to: '/inventory/adjustment', icon: SlidersHorizontal, module: 'inventory' },
       { label: 'Stock Transfer', to: '/inventory/transfer', icon: ArrowLeftRight, module: 'inventory' },
@@ -100,7 +101,10 @@ export const NAV_SECTIONS = [
   {
     label: 'Reports',
     module: 'reports',
-    items: [{ label: 'Reports Center', to: '/reports', icon: FileBarChart, module: 'reports' }],
+    items: [
+      { label: 'Analytics & Exports', to: '/reports/analytics', icon: BarChart3, module: 'reports' },
+      { label: 'Reports Center', to: '/reports', icon: FileBarChart, module: 'reports' },
+    ],
   },
   {
     label: 'Settings',
