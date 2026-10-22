@@ -66,6 +66,8 @@ npm run dev      # http://localhost:5173 (proxies /api to localhost:5000)
 
 Production build: `npm run build` (outputs to `client/dist`), preview with `npm run preview`.
 
+**Run both together:** from the project root, `npm run dev` starts the API server and the client in one terminal (output prefixed `[server]` / `[client]`). Ctrl+C stops both.
+
 ## 5. Demo Logins
 
 The Super Admin logs in with **`AshwinLav@gmail.com`** / **`Admin@123`**. All other seeded users share the password **`Password@123`**.
