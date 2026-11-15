@@ -18,7 +18,7 @@ React (Vite) + Tailwind CSS frontend, Node.js/Express REST API, MongoDB/Mongoose
 save a file → validate → auto-commit → push to GitHub → Vercel build (re-validates) → production → live smoke test
 ```
 
-- **Start it:** `npm run deploy:watch` from the project root (or double-click `auto-deploy.bat`) and leave it running while you work. `npm run deploy:once` publishes whatever is pending and exits.
+- **Start it:** it starts automatically at Windows login (minimized window, via the *Aurelia Auto-Deploy* shortcut in `shell:startup`; delete that shortcut to disable). To start it by hand: `npm run deploy:watch` or double-click `auto-deploy.bat`. Only one copy runs at a time. `npm run deploy:once` publishes whatever is pending and exits.
 - **Validation** (`npm run verify`): client lint, client production build, server load check, GST unit tests. If anything fails, nothing is committed or pushed; the watcher retries on your next save.
 - **Commits** get descriptive messages generated from the changed files (e.g. *Update Pos page, auth API*) with the file list in the body. `.env` files are never committed.
 - **Vercel** (GitHub integration) deploys every push to `main` and promotes it to the same URL, https://aurelia-department-store.vercel.app. Its build command is `node scripts/verify.mjs`, so a failing change is never promoted. The URL keeps serving the last good version.

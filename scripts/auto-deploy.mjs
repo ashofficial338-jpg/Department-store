@@ -217,6 +217,28 @@ function schedule() {
   timer = setTimeout(deploy, DEBOUNCE_MS);
 }
 
+// Single instance: the login auto-start and a manual launch must not both commit the same changes.
+const LOCK = path.join(ROOT, '.git', 'auto-deploy.pid');
+try {
+  const other = Number(fs.readFileSync(LOCK, 'utf8'));
+  if (other && other !== process.pid) {
+    process.kill(other, 0); // throws if that process is gone
+    log(`Auto-deploy is already running (PID ${other}) — this window can be closed.`);
+    process.exit(0);
+  }
+} catch {
+  /* no lock, or stale lock */
+}
+fs.writeFileSync(LOCK, String(process.pid));
+const releaseLock = () => {
+  try {
+    if (fs.readFileSync(LOCK, 'utf8') === String(process.pid)) fs.unlinkSync(LOCK);
+  } catch { /* already gone */ }
+};
+process.on('exit', releaseLock);
+process.on('SIGINT', () => process.exit(0));
+process.on('SIGTERM', () => process.exit(0));
+
 if (ONCE) {
   await deploy();
 } else {
