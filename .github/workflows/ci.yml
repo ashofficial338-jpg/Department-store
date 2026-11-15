@@ -1,0 +1,46 @@
+name: CI / CD
+
+# Vercel's GitHub integration builds every push and promotes `main` to
+# https://aurelia-department-store.vercel.app. This workflow adds:
+#   1. validation on every push / PR (lint, build, server load, unit tests)
+#   2. a live smoke test after each successful Vercel production deployment
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  deployment_status:
+  workflow_dispatch:
+
+jobs:
+  validate:
+    if: github.event_name != 'deployment_status'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            client/package-lock.json
+            server/package-lock.json
+      - name: Install
+        run: npm ci --include=dev --prefix client && npm ci --prefix server
+      - name: Lint, build and test
+        run: node scripts/verify.mjs
+
+  smoke-test-production:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'deployment_status' &&
+       github.event.deployment_status.state == 'success' &&
+       github.event.deployment.environment == 'Production')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Smoke test live site
+        run: node scripts/smoke-test.mjs https://aurelia-department-store.vercel.app

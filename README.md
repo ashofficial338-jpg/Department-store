@@ -4,13 +4,26 @@ A premium, enterprise-grade Department Store Management / ERP / POS web applicat
 
 - **Live site:** https://aurelia-department-store.vercel.app ([sign in](https://aurelia-department-store.vercel.app/login) · [API health](https://aurelia-department-store.vercel.app/api/health))
 - **Repository:** https://github.com/ashofficial338-jpg/Department-store
-- **Deployment:** Vercel builds and deploys `main` automatically on every push (config in `vercel.json`).
+- **Deployment:** fully automated — see [Continuous Deployment](#continuous-deployment) below.
 
 Fully responsive: phones get a bottom navigation bar, stacked-card tables, bottom-sheet dialogs and a sticky POS checkout bar; tablets and desktops get the full sidebar layout.
 
 React (Vite) + Tailwind CSS frontend, Node.js/Express REST API, MongoDB/Mongoose backend. Covers authentication & role-based permissions, an executive dashboard, POS billing with GST, product/category/brand/batch management, inventory & DC (distribution center) workflows, vendors/suppliers/customers, purchasing, finance (accounts, GST, P&L), a reports center with CSV export, and an audit log.
 
 > Branding ("AURELIA") is a placeholder — update `client/src/index.css`, `client/index.html`, `client/public/favicon.svg` and `server/seed/seed.js` company info to rebrand.
+
+## Continuous Deployment
+
+```
+save a file → validate → auto-commit → push to GitHub → Vercel build (re-validates) → production → live smoke test
+```
+
+- **Start it:** `npm run deploy:watch` from the project root (or double-click `auto-deploy.bat`) and leave it running while you work. `npm run deploy:once` publishes whatever is pending and exits.
+- **Validation** (`npm run verify`): client lint, client production build, server load check, GST unit tests. If anything fails, nothing is committed or pushed; the watcher retries on your next save.
+- **Commits** get descriptive messages generated from the changed files (e.g. *Update Pos page, auth API*) with the file list in the body. `.env` files are never committed.
+- **Vercel** (GitHub integration) deploys every push to `main` and promotes it to the same URL, https://aurelia-department-store.vercel.app. Its build command is `node scripts/verify.mjs`, so a failing change is never promoted. The URL keeps serving the last good version.
+- **After deploy**, the watcher waits for Vercel's status on the commit and runs `npm run smoke` against the live site: pages, SPA routes, bundles, API health, MongoDB connectivity and auth protection.
+- **GitHub Actions** (`.github/workflows/ci.yml`) runs the same validation on every push/PR and the smoke test after every successful production deployment.
 
 ## 1. Requirements
 

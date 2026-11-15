@@ -1,52 +1,208 @@
-// Watches the project and automatically commits + pushes changes to GitHub,
-// which triggers the hosting provider's deploy of the live site.
+// Continuous deployment watcher.
 //
-// Usage (from the project root):  node scripts/auto-deploy.mjs
+//   file change → validate (lint/build/tests) → commit → push to GitHub
+//   → Vercel builds & promotes to https://aurelia-department-store.vercel.app → live smoke test
+//
+// Vercel's GitHub integration deploys every push to `main` to the same production URL, and only
+// promotes a deployment once its build succeeds, so the live URL never points at a broken build.
+//
+// Usage (from the project root):  npm run deploy:watch     (or double-click auto-deploy.bat)
+// Options:  --once   validate + commit + push whatever is pending, wait for the deploy, then exit
 // Stop with Ctrl+C.
 
 import { watch } from 'node:fs';
-import { execSync } from 'node:child_process';
+import { execSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import fs from 'node:fs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const DEBOUNCE_MS = 5000; // wait for edits to settle before deploying
-const IGNORED = ['.git', 'node_modules', 'dist', 'build', 'uploads', '.env', '.vscode', '.idea'];
+const REPO = 'ashofficial338-jpg/Department-store';
+const BRANCH = 'main';
+const PROD_URL = 'https://aurelia-department-store.vercel.app';
+const DEBOUNCE_MS = 8000; // wait for edits to settle before deploying
+const DEPLOY_TIMEOUT_MS = 10 * 60 * 1000;
+const ONCE = process.argv.includes('--once');
+const IGNORED = ['.git', 'node_modules', 'dist', 'build', 'uploads', '.vercel', '.vscode', '.idea', 'coverage'];
 
 let timer = null;
 let running = false;
 let pending = false;
 
-const git = (cmd) => execSync(`git ${cmd}`, { cwd: ROOT, encoding: 'utf8', stdio: 'pipe' }).trim();
+const sh = (cmd) => execSync(cmd, { cwd: ROOT, encoding: 'utf8', stdio: 'pipe' }).trim();
+const git = (args) => sh(`git ${args}`);
 const log = (msg) => console.log(`[${new Date().toLocaleTimeString()}] ${msg}`);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function isIgnored(file) {
   if (!file) return true;
   const parts = file.split(/[\\/]/);
-  return parts.some((p) => IGNORED.includes(p) || p.startsWith('.env') || p.endsWith('~') || p.endsWith('.swp'));
+  return parts.some(
+    (p) => IGNORED.includes(p) || p.startsWith('.env') || p.endsWith('~') || p.endsWith('.swp') || p.endsWith('.tmp'),
+  );
 }
 
-function deploy() {
+// ---------- commit message ----------
+
+function describe(file) {
+  const f = file.replace(/\\/g, '/');
+  const base = path.basename(f).replace(/\.(jsx?|tsx?|mjs|css|json|md)$/, '');
+  let m;
+  if ((m = f.match(/^client\/src\/pages\/(?:.*\/)?([^/]+)\.\w+$/))) return `${m[1]} page`;
+  if ((m = f.match(/^client\/src\/components\/(?:.*\/)?([^/]+)\.\w+$/))) return `${m[1]} component`;
+  if (/^client\/src\/.*\.css$/.test(f)) return 'styles';
+  if (/^client\/src\/(api|services)\//.test(f)) return 'client API layer';
+  if ((m = f.match(/^server\/routes\/([^/]+)\.js$/))) return `${base.replace(/Routes?$/i, '')} routes`;
+  if ((m = f.match(/^server\/controllers\/([^/]+)\.js$/))) return `${base.replace(/Controller$/i, '')} API`;
+  if ((m = f.match(/^server\/models\/([^/]+)\.js$/))) return `${base} model`;
+  if (/^server\/tests\//.test(f)) return 'tests';
+  if (/^server\/seed\//.test(f)) return 'seed data';
+  if (/(^|\/)package(-lock)?\.json$/.test(f)) return 'dependencies';
+  if (/^(vercel\.json|\.github\/|scripts\/)/.test(f)) return 'deployment tooling';
+  if (/\.md$/.test(f)) return 'docs';
+  return base;
+}
+
+function commitMessage(entries) {
+  const verbs = { A: 'Add', M: 'Update', D: 'Remove', R: 'Rename' };
+  const groups = new Map(); // verb -> Set(subject)
+  for (const { status, file } of entries) {
+    const verb = verbs[status[0]] || 'Update';
+    if (!groups.has(verb)) groups.set(verb, new Set());
+    groups.get(verb).add(describe(file));
+  }
+  const parts = [];
+  for (const [verb, subjects] of groups) {
+    const list = [...subjects];
+    const shown = list.length > 3 ? `${list.slice(0, 3).join(', ')} and ${list.length - 3} more` : list.join(', ');
+    parts.push(`${verb} ${shown}`);
+  }
+  let subject = parts.join('; ');
+  if (subject.length > 72) subject = `${subject.slice(0, 69).trimEnd()}...`;
+  const body = entries.map(({ status, file }) => `${status[0]}  ${file}`).join('\n');
+  return `${subject}\n\n${body}\n\nAuto-committed by scripts/auto-deploy.mjs after passing validation.`;
+}
+
+// ---------- deploy tracking ----------
+
+async function waitForVercel(sha) {
+  const started = Date.now();
+  log('Waiting for Vercel production build...');
+  while (Date.now() - started < DEPLOY_TIMEOUT_MS) {
+    await sleep(20000);
+    try {
+      const res = await fetch(`https://api.github.com/repos/${REPO}/commits/${sha}/statuses`, {
+        headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'auto-deploy-script' },
+      });
+      if (res.status === 403 || res.status === 429) {
+        log('GitHub API rate limit reached — skipping deploy tracking (Vercel still deploys).');
+        return 'unknown';
+      }
+      const statuses = await res.json();
+      const vercel = Array.isArray(statuses) ? statuses.find((s) => s.context === 'Vercel') : null;
+      if (vercel && vercel.state !== 'pending') {
+        log(`Vercel: ${vercel.description} (${vercel.state})`);
+        if (vercel.state !== 'success') log(`Build logs: ${vercel.target_url}`);
+        return vercel.state;
+      }
+    } catch (err) {
+      log(`Could not read deploy status: ${err.message}`);
+    }
+  }
+  log('Timed out waiting for Vercel — check the Vercel dashboard.');
+  return 'timeout';
+}
+
+function smokeTest() {
+  const r = spawnSync(process.execPath, [path.join(ROOT, 'scripts', 'smoke-test.mjs'), PROD_URL], {
+    cwd: ROOT,
+    encoding: 'utf8',
+  });
+  console.log((r.stdout || '') + (r.stderr || ''));
+  return r.status === 0;
+}
+
+// ---------- main pipeline ----------
+
+function inProgressGitOperation() {
+  const gitDir = path.join(ROOT, '.git');
+  return ['MERGE_HEAD', 'rebase-merge', 'rebase-apply', 'CHERRY_PICK_HEAD'].some((f) => fs.existsSync(path.join(gitDir, f)));
+}
+
+async function deploy() {
   if (running) {
     pending = true;
     return;
   }
   running = true;
   try {
-    git('add -A');
-    const changed = git('diff --cached --name-only');
-    if (!changed) {
+    if (inProgressGitOperation()) {
+      log('A merge/rebase is in progress — resolve it first; will retry on next change.');
+      return;
+    }
+    if (git('rev-parse --abbrev-ref HEAD') !== BRANCH) {
+      log(`Not on ${BRANCH} — auto-deploy only publishes ${BRANCH}.`);
+      return;
+    }
+
+    const porcelain = git('status --porcelain');
+    const unpushed = Number(git(`rev-list --count origin/${BRANCH}..HEAD`) || 0);
+    if (!porcelain && !unpushed) {
       log('No changes to deploy.');
       return;
     }
-    const files = changed.split('\n');
-    const summary = files.length <= 3 ? files.join(', ') : `${files.length} files`;
-    git(`commit -m "Auto-deploy: update ${summary.replace(/"/g, "'")}"`);
-    log(`Committed: ${summary}`);
-    git('push');
-    log('Pushed to GitHub — live site will redeploy shortly.');
+
+    if (porcelain) {
+      const changed = porcelain.split('\n').map((l) => l.slice(3));
+      const areas = new Set(changed.map((f) => (f.startsWith('client/') ? 'client' : f.startsWith('server/') ? 'server' : 'all')));
+      const scope = areas.size === 1 && !areas.has('all') ? [...areas][0] : '';
+      log(`Validating ${changed.length} changed file(s)${scope ? ` (${scope})` : ''}...`);
+      const v = spawnSync(process.execPath, [path.join(ROOT, 'scripts', 'verify.mjs'), ...(scope ? [scope] : [])], {
+        cwd: ROOT,
+        encoding: 'utf8',
+      });
+      console.log((v.stdout || '').trim());
+      if (v.status !== 0) {
+        log('Validation failed — NOT committing or pushing. Fix the errors above; it retries on the next save.');
+        return;
+      }
+
+      git('add -A');
+      const entries = git('diff --cached --name-status')
+        .split('\n')
+        .filter(Boolean)
+        .map((l) => {
+          const [status, ...rest] = l.split('\t');
+          return { status, file: rest[rest.length - 1] };
+        });
+      const secret = entries.find((e) => /(^|\/)\.env(\.|$)/.test(e.file));
+      if (secret) {
+        git('reset -q');
+        log(`Refusing to commit secrets file ${secret.file}. Add it to .gitignore.`);
+        return;
+      }
+      const msgFile = path.join(ROOT, '.git', 'AUTO_DEPLOY_MSG');
+      fs.writeFileSync(msgFile, commitMessage(entries));
+      git(`commit -q -F "${msgFile}"`);
+      fs.unlinkSync(msgFile);
+      log(`Committed: ${git('log -1 --format=%s')}`);
+    }
+
+    // Bring in anything pushed from elsewhere (e.g. GitHub web edits) so the push never gets rejected.
+    git(`pull --rebase --autostash -q origin ${BRANCH}`);
+    git(`push -q origin ${BRANCH}`);
+    const sha = git('rev-parse HEAD');
+    log(`Pushed ${sha.slice(0, 7)} to GitHub — Vercel is deploying to ${PROD_URL}`);
+
+    const state = await waitForVercel(sha);
+    if (state === 'success') {
+      log('Running live smoke test...');
+      log(smokeTest() ? `LIVE: ${PROD_URL} is serving ${sha.slice(0, 7)}.` : 'Smoke test FAILED on the live site — investigate now.');
+    } else if (state === 'failure' || state === 'error') {
+      log(`Vercel build failed — production URL still serves the previous good version.`);
+    }
   } catch (err) {
-    log(`Deploy failed:\n${err.stderr || err.message}`);
+    log(`Deploy step failed:\n${(err.stderr || err.message || '').toString().trim()}`);
   } finally {
     running = false;
     if (pending) {
@@ -61,11 +217,15 @@ function schedule() {
   timer = setTimeout(deploy, DEBOUNCE_MS);
 }
 
-watch(ROOT, { recursive: true }, (_event, file) => {
-  if (isIgnored(file)) return;
-  log(`Change detected: ${file}`);
-  schedule();
-});
-
-log(`Watching ${ROOT} — changes will be committed and pushed automatically.`);
-deploy(); // push anything already changed before the watcher started
+if (ONCE) {
+  await deploy();
+} else {
+  watch(ROOT, { recursive: true }, (_event, file) => {
+    if (isIgnored(file)) return;
+    log(`Change detected: ${file}`);
+    schedule();
+  });
+  log(`Watching ${ROOT}`);
+  log(`Changes are validated, committed, pushed, and deployed to ${PROD_URL} automatically.`);
+  deploy(); // publish anything already changed before the watcher started
+}
