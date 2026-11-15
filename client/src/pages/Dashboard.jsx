@@ -9,7 +9,9 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { hasPermission } from '../utils/permissions.js';
-import { KPICard, ChartCard, PageHeader } from '../components/ui/index.js';
+import { KPICard, ChartCard, HeroBanner, StatusPill } from '../components/ui/index.js';
+import { useServer } from '../context/ServerStatusContext.jsx';
+import useNow, { greetingFor } from '../hooks/useNow.js';
 import DashboardFilters from '../components/dashboard/DashboardFilters.jsx';
 import ExportMenu from '../components/dashboard/ExportMenu.jsx';
 import ProductCatalog from '../components/dashboard/ProductCatalog.jsx';
@@ -37,12 +39,6 @@ const QUICK_ACTIONS = [
 const DATE_KEYS = ['range', 'from', 'to'];
 const EASE = [0.22, 1, 0.36, 1];
 
-function greeting() {
-  const h = new Date().getHours();
-  if (h < 12) return 'Good morning';
-  if (h < 17) return 'Good afternoon';
-  return 'Good evening';
-}
 
 function SectionTitle({ children, aside }) {
   return (
@@ -58,6 +54,8 @@ function SectionTitle({ children, aside }) {
 
 export function Dashboard() {
   const { user } = useAuth();
+  const { status, recheck } = useServer();
+  const now = useNow(15000);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -120,16 +118,23 @@ export function Dashboard() {
 
   return (
     <div>
-      <PageHeader
-        title={<>{greeting()}, <span className="text-gold-gradient italic">{user?.name?.split(' ')[0] || 'there'}</span></>}
-        subtitle={new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+      <HeroBanner
+        eyebrow="AURELIA workspace"
+        title={<>{greetingFor(now)}, <em className="text-gold-gradient italic pr-1">{user?.name?.split(' ')[0] || 'there'}</em></>}
+        meta={(
+          <>
+            <span>{now.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</span>
+            <span className="opacity-40">·</span>
+            <span className="tabular-nums">{now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
+            <StatusPill status={status} onRetry={recheck} tone="dark" />
+          </>
+        )}
         actions={(
           <>
             <button
               type="button"
               onClick={() => setRefreshTick((x) => x + 1)}
-              className="inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-sm font-semibold transition-all duration-300 hover:border-gold-400 hover:-translate-y-px"
-              style={{ borderColor: 'var(--border-strong)', color: 'var(--text-primary)', background: 'var(--bg-surface)' }}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/[0.06] px-3.5 py-2 text-sm font-semibold text-white backdrop-blur transition-all duration-300 hover:border-gold-400/60 hover:bg-white/10 hover:-translate-y-px"
               title="Recalculate with the latest data"
             >
               <RefreshCw size={15} className={loading ? 'animate-spin' : ''} /> Refresh

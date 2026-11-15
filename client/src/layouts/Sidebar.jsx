@@ -2,10 +2,22 @@ import { useEffect, useMemo, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronsLeft, ChevronsRight, ChevronDown, Search, X } from 'lucide-react';
+import { ChevronsLeft, ChevronsRight, ChevronDown, LogOut, Search, X } from 'lucide-react';
 import NAV_SECTIONS from '../routes/navConfig.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { hasPermission } from '../utils/permissions.js';
+import { useServer } from '../context/ServerStatusContext.jsx';
+import StatusPill from '../components/ui/StatusPill.jsx';
+
+const roleLabel = (role) => (role || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+const initials = (name) => (name || '?').split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase();
+
+// Cursor-following glow on the dark rail (CSS variables, no re-render).
+function trackGlow(e) {
+  const r = e.currentTarget.getBoundingClientRect();
+  e.currentTarget.style.setProperty('--mx', `${e.clientX - r.left}px`);
+  e.currentTarget.style.setProperty('--my', `${e.clientY - r.top}px`);
+}
 
 const OPEN_KEY = 'aurelia_sidebar_open_sections';
 
@@ -18,7 +30,8 @@ function loadOpenSections() {
 }
 
 export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }) {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const { status, recheck } = useServer();
   const { pathname } = useLocation();
   const [filter, setFilter] = useState('');
   const [openSections, setOpenSections] = useState(loadOpenSections);
@@ -44,12 +57,14 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }) {
 
   const nav = (
     <aside
-      className={clsx('relative h-screen flex flex-col transition-[width] duration-500 ease-luxe shrink-0 overflow-hidden', expanded ? 'w-64' : 'w-[76px]')}
+      className={clsx('group/side relative h-screen h-[100dvh] flex flex-col transition-[width] duration-500 ease-luxe shrink-0 overflow-hidden', expanded ? 'w-64' : 'w-[76px]')}
       style={{ background: 'var(--sidebar-bg)' }}
+      onMouseMove={trackGlow}
     >
       {/* Ambient champagne glow and a hairline edge give the rail depth. */}
-      <div className="pointer-events-none absolute -top-24 -left-16 w-64 h-64 rounded-full bg-gold-500/10 blur-3xl" />
-      <div className="pointer-events-none absolute bottom-0 right-0 w-48 h-48 rounded-full bg-gold-500/5 blur-3xl" />
+      <div className="pointer-events-none absolute -top-24 -left-16 w-64 h-64 rounded-full bg-gold-500/15 blur-3xl animate-aurora motion-reduce:animate-none" />
+      <div className="pointer-events-none absolute bottom-0 right-0 w-56 h-56 rounded-full bg-[#7E90B0]/10 blur-3xl animate-aurora-slow motion-reduce:animate-none" />
+      <div className="pointer-events-none absolute inset-0 opacity-0 group-hover/side:opacity-100 transition-opacity duration-500" style={{ background: 'radial-gradient(260px circle at var(--mx, 50%) var(--my, 30%), rgba(210,170,108,0.10), transparent 65%)' }} />
       <div className="pointer-events-none absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-white/10 to-transparent" />
       <div className="relative flex items-center justify-between gap-2.5 px-5 h-[72px] shrink-0">
         <div className="relative flex items-center gap-3">
@@ -155,6 +170,34 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }) {
           <p className="px-3 py-4 text-xs text-graphite-500">No page matches &ldquo;{filter}&rdquo;.</p>
         )}
       </nav>
+
+      {/* Signed-in user + live server status */}
+      <div className={clsx('relative shrink-0 border-t border-white/5', expanded ? 'p-3' : 'py-3 flex flex-col items-center gap-2')}>
+        {expanded ? (
+          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3">
+            <div className="flex items-center gap-2.5">
+              <span className="relative shrink-0 p-[2px] rounded-full bg-gold-gradient">
+                <span className="w-8 h-8 rounded-full bg-graphite-900 text-white text-[11px] font-bold flex items-center justify-center">{initials(user?.name)}</span>
+              </span>
+              <div className="min-w-0 flex-1 leading-tight">
+                <div className="text-[13px] font-semibold text-white truncate">{user?.name}</div>
+                <div className="text-[10.5px] text-graphite-400 truncate">{roleLabel(user?.role)}</div>
+              </div>
+              <button onClick={logout} title="Sign out" aria-label="Sign out" className="p-2 rounded-lg text-graphite-400 hover:text-rose-300 hover:bg-white/5 transition-colors">
+                <LogOut size={15} />
+              </button>
+            </div>
+            <StatusPill status={status} onRetry={recheck} tone="dark" className="mt-2.5 w-full justify-center" />
+          </div>
+        ) : (
+          <>
+            <StatusPill status={status} onRetry={recheck} tone="dark" compact />
+            <span title={user?.name} className="p-[2px] rounded-full bg-gold-gradient">
+              <span className="w-8 h-8 rounded-full bg-graphite-900 text-white text-[11px] font-bold flex items-center justify-center">{initials(user?.name)}</span>
+            </span>
+          </>
+        )}
+      </div>
 
       <button
         onClick={onToggle}

@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
+import { MotionConfig } from 'framer-motion';
 import ProtectedRoute from './routes/ProtectedRoute.jsx';
 import DashboardLayout from './layouts/DashboardLayout.jsx';
 import RequirePermission from './routes/RequirePermission.jsx';
@@ -70,9 +71,9 @@ const AuditLogPage = lazy(() => import('./pages/AuditLog.jsx'));
 
 export default function App() {
   return (
-    <>
+    <MotionConfig reducedMotion="user">
       <Toaster
-        position="top-right"
+        position={typeof window !== 'undefined' && window.matchMedia('(max-width: 639px)').matches ? 'top-center' : 'top-right'}
         gutter={10}
         toastOptions={{
           duration: 3500,
@@ -163,6 +164,6 @@ export default function App() {
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
       </Suspense>
-    </>
+    </MotionConfig>
   );
 }

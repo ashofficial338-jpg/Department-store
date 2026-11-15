@@ -52,7 +52,7 @@ export function Vendors() {
       <Modal open={!!dashboard} onClose={() => setDashboard(null)} title={dashboard?.vendor?.name || 'Vendor'} size="lg">
         {dashboard && (
           <div>
-            <div className="grid grid-cols-3 gap-4 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6">
               <Stat label="Total Purchases" value={formatCurrency(dashboard.totalPurchases)} />
               <Stat label="Paid" value={formatCurrency(dashboard.paidAmount)} />
               <Stat label="Outstanding" value={formatCurrency(dashboard.outstandingAmount)} accent />

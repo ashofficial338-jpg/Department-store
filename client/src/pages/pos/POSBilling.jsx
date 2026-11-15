@@ -170,10 +170,10 @@ export function POSBilling() {
   }
 
   return (
-    <div className="lg:h-[calc(100vh-6rem)] flex flex-col">
+    <div className="lg:h-[calc(100vh-6rem)] flex flex-col pb-20 lg:pb-0">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <h1 className="font-display text-2xl font-semibold">POS Billing</h1>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 w-full sm:w-auto [&>label]:col-span-2 sm:[&>label]:col-span-1">
           <Select value={store} onChange={(e) => setStore(e.target.value)} className="text-sm">
             {stores.map((s) => <option key={s._id} value={s._id}>{s.name}</option>)}
           </Select>
@@ -194,12 +194,12 @@ export function POSBilling() {
               style={{ borderColor: 'var(--border-subtle)' }}
             />
           </div>
-          <div className="flex gap-1.5 flex-wrap mb-2">
+          <div className="scroll-row sm:flex-wrap mb-2 -mx-1 px-1 pb-1 sm:pb-0">
             <Chip active={!category} onClick={() => setCategory('')}>All</Chip>
             {categories.map((c) => <Chip key={c._id} active={category === c._id} onClick={() => setCategory(c._id)}>{c.name}</Chip>)}
           </div>
           <AlphabetFilter value={letter} onChange={setLetter} />
-          <div className="flex-1 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 gap-3 pr-1 max-h-[55vh] lg:max-h-none">
+          <div className="flex-1 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3 pr-1 max-h-[60vh] lg:max-h-none overscroll-contain">
             {products.map((p) => (
               <button
                 key={p._id} type="button" onClick={() => addToCart(p)} disabled={(p.stock ?? 0) <= 0}
@@ -218,7 +218,7 @@ export function POSBilling() {
         </div>
 
         {/* CENTER: cart */}
-        <div className="surface-card rounded-xl2 shadow-premium p-4 flex flex-col lg:min-h-0 min-h-[160px]">
+        <div id="pos-cart" className="scroll-mt-20 surface-card rounded-xl2 shadow-premium p-4 flex flex-col lg:min-h-0 min-h-[160px]">
           <h3 className="font-display text-base font-semibold mb-3">Cart ({cart.length})</h3>
           <div className="flex-1 overflow-y-auto space-y-2">
             {cart.map((item) => (
@@ -238,7 +238,7 @@ export function POSBilling() {
         </div>
 
         {/* RIGHT: billing */}
-        <div className="surface-card rounded-xl2 shadow-premium p-4 flex flex-col lg:min-h-0">
+        <div id="pos-billing" className="scroll-mt-20 surface-card rounded-xl2 shadow-premium p-4 flex flex-col lg:min-h-0">
           <div className="mb-3">
             {customer ? (
               <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-gold-50 text-sm">
@@ -277,10 +277,10 @@ export function POSBilling() {
           <div className="space-y-2 mb-3">
             {payments.map((p, idx) => (
               <div key={idx} className="flex items-center gap-2">
-                <select aria-label={`Payment ${idx + 1} method`} value={p.method} onChange={(e) => setPayments((prev) => prev.map((x, i) => i === idx ? { ...x, method: e.target.value } : x))} className="rounded-lg border px-2 py-1.5 text-xs" style={{ borderColor: 'var(--border-subtle)' }}>
+                <select aria-label={`Payment ${idx + 1} method`} value={p.method} onChange={(e) => setPayments((prev) => prev.map((x, i) => i === idx ? { ...x, method: e.target.value } : x))} className="rounded-lg border px-2 py-2 sm:py-1.5 text-xs" style={{ borderColor: 'var(--border-subtle)' }}>
                   {PAYMENT_METHODS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
                 </select>
-                <input type="number" min="0" step="0.01" inputMode="decimal" aria-label={`Payment ${idx + 1} amount`} value={p.amount} onChange={(e) => setPayments((prev) => prev.map((x, i) => i === idx ? { ...x, amount: e.target.value } : x))} className="flex-1 rounded-lg border px-2 py-1.5 text-xs" style={{ borderColor: 'var(--border-subtle)' }} />
+                <input type="number" min="0" step="0.01" inputMode="decimal" aria-label={`Payment ${idx + 1} amount`} value={p.amount} onChange={(e) => setPayments((prev) => prev.map((x, i) => i === idx ? { ...x, amount: e.target.value } : x))} className="flex-1 min-w-0 rounded-lg border px-2 py-2 sm:py-1.5 text-xs" style={{ borderColor: 'var(--border-subtle)' }} />
                 {payments.length > 1 && <button type="button" aria-label={`Remove payment ${idx + 1}`} onClick={() => setPayments((prev) => prev.filter((_, i) => i !== idx))} className="p-1.5"><X size={13} /></button>}
               </div>
             ))}
@@ -295,6 +295,17 @@ export function POSBilling() {
           </div>
 
           <Button className="w-full mt-auto" size="lg" loading={completing} disabled={!cart.length} onClick={completeSale}>Complete Sale</Button>
+        </div>
+      </div>
+
+      {/* Phones / tablets: sticky checkout bar above the bottom navigation */}
+      <div className="lg:hidden fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] z-30 px-3 pb-2 no-print">
+        <div className="glass max-w-xl mx-auto flex items-center gap-3 rounded-2xl border px-3 py-2.5 shadow-premium-lg" style={{ borderColor: 'var(--border-subtle)' }}>
+          <button type="button" onClick={() => document.getElementById('pos-cart')?.scrollIntoView({ behavior: 'smooth' })} className="flex-1 min-w-0 text-left">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.1em]" style={{ color: 'var(--text-muted)' }}>{cart.reduce((n, i) => n + i.quantity, 0)} item(s) · view cart</div>
+            <div className="font-display text-lg font-semibold leading-tight" style={{ color: 'var(--text-primary)' }}>{formatCurrency(summary.grandTotal)}</div>
+          </button>
+          <Button variant="gold" disabled={!cart.length} onClick={() => document.getElementById('pos-billing')?.scrollIntoView({ behavior: 'smooth' })}>Checkout</Button>
         </div>
       </div>
 
@@ -321,7 +332,7 @@ export function POSBilling() {
 
 function Chip({ active, children, onClick }) {
   return (
-    <button onClick={onClick} className={`px-2.5 py-1 rounded-full text-xs font-medium ${active ? 'bg-graphite-900 text-white' : 'border'}`} style={active ? {} : { borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}>
+    <button type="button" onClick={onClick} className={`px-3 py-1.5 sm:px-2.5 sm:py-1 rounded-full text-xs font-medium whitespace-nowrap ${active ? 'bg-graphite-900 text-white dark:bg-gold-500 dark:text-graphite-950' : 'border'}`} style={active ? {} : { borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}>
       {children}
     </button>
   );

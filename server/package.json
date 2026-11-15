@@ -17,7 +17,8 @@
     "seed:stock": "node seed/openingStock.js",
     "seed:racks": "node seed/rackItems.js",
     "seed:activity": "node seed/activity.js",
-    "seed:ledger": "node seed/activity.js --ledger"
+    "seed:ledger": "node seed/activity.js --ledger",
+    "seed:extras": "node seed/extras.js"
   },
   "dependencies": {
     "@vercel/blob": "^2.8.0",

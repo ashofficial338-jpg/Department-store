@@ -8,6 +8,10 @@ import GlobalSearch from '../components/GlobalSearch.jsx';
 import NotificationBell from '../components/NotificationBell.jsx';
 import ChangePasswordDialog from '../components/ChangePasswordDialog.jsx';
 import { hasPermission, isAdmin } from '../utils/permissions.js';
+import { useServer } from '../context/ServerStatusContext.jsx';
+import StatusPill from '../components/ui/StatusPill.jsx';
+import useNow from '../hooks/useNow.js';
+import { OPEN_SEARCH_EVENT } from './MobileNav.jsx';
 
 function roleLabel(role) {
   return (role || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
@@ -27,6 +31,8 @@ export function Header({ onMenuClick }) {
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const menuRef = useRef(null);
+  const { status, recheck } = useServer();
+  const now = useNow(15000);
 
   useEffect(() => {
     function onKey(e) {
@@ -40,8 +46,10 @@ export function Header({ onMenuClick }) {
         setMenuOpen(false);
       }
     }
+    const openSearch = () => setSearchOpen(true);
     document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
+    window.addEventListener(OPEN_SEARCH_EVENT, openSearch);
+    return () => { document.removeEventListener('keydown', onKey); window.removeEventListener(OPEN_SEARCH_EVENT, openSearch); };
   }, [canBill, navigate]);
 
   // The bar gains depth once content scrolls beneath it.
@@ -63,7 +71,7 @@ export function Header({ onMenuClick }) {
   return (
     <>
       <header
-        className="glass h-16 sticky top-0 z-30 flex items-center justify-between gap-3 px-4 md:px-8 border-b transition-shadow duration-500"
+        className="glass h-16 sticky top-0 z-30 flex items-center justify-between gap-2 sm:gap-3 px-3 sm:px-4 md:px-8 border-b transition-shadow duration-500"
         style={{
           borderColor: scrolled ? 'var(--border-subtle)' : 'transparent',
           boxShadow: scrolled ? '0 10px 30px -18px rgba(17,18,24,0.35)' : 'none',
@@ -85,11 +93,16 @@ export function Header({ onMenuClick }) {
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
+          <span className="hidden xl:inline-flex items-center text-xs tabular-nums mr-2" style={{ color: 'var(--text-muted)' }}>
+            {now.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
+            <span className="mx-1.5 opacity-50">·</span>
+            {now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+          </span>
           {canBill && (
             <button
               onClick={() => navigate('/pos')}
               title="New Bill (F2)"
-              className="sheen flex items-center gap-1.5 bg-gold-gradient text-graphite-950 rounded-xl px-3.5 py-2 text-sm font-semibold mr-1 shadow-gold transition-transform duration-300 ease-luxe hover:-translate-y-0.5 active:translate-y-0"
+              className="sheen hidden sm:flex items-center gap-1.5 bg-gold-gradient text-graphite-950 rounded-xl px-3.5 py-2 text-sm font-semibold mr-1 shadow-gold transition-transform duration-300 ease-luxe hover:-translate-y-0.5 active:translate-y-0"
             >
               <ShoppingCart size={15} />
               <span className="hidden sm:inline">New Bill</span>
@@ -110,6 +123,7 @@ export function Header({ onMenuClick }) {
               </motion.span>
             </AnimatePresence>
           </button>
+          <StatusPill status={status} onRetry={recheck} compact className="hidden sm:inline-flex !border-transparent !bg-transparent hover:!bg-[var(--hover-tint)]" />
           <NotificationBell />
 
           <div className="relative ml-1.5" ref={menuRef}>
