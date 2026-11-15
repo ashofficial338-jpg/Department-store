@@ -2,13 +2,19 @@
 
 A premium, enterprise-grade Department Store Management / ERP / POS web application.
 
+- **Live site:** https://aurelia-department-store.vercel.app ([sign in](https://aurelia-department-store.vercel.app/login) · [API health](https://aurelia-department-store.vercel.app/api/health))
+- **Repository:** https://github.com/ashofficial338-jpg/Department-store
+- **Deployment:** Vercel builds and deploys `main` automatically on every push (config in `vercel.json`).
+
+Fully responsive: phones get a bottom navigation bar, stacked-card tables, bottom-sheet dialogs and a sticky POS checkout bar; tablets and desktops get the full sidebar layout.
+
 React (Vite) + Tailwind CSS frontend, Node.js/Express REST API, MongoDB/Mongoose backend. Covers authentication & role-based permissions, an executive dashboard, POS billing with GST, product/category/brand/batch management, inventory & DC (distribution center) workflows, vendors/suppliers/customers, purchasing, finance (accounts, GST, P&L), a reports center with CSV export, and an audit log.
 
 > Branding ("AURELIA") is a placeholder — update `client/src/index.css`, `client/index.html`, `client/public/favicon.svg` and `server/seed/seed.js` company info to rebrand.
 
 ## 1. Requirements
 
-- Node.js 18+
+- Node.js 22 (matches `engines` in `package.json`)
 - MongoDB (local install, or a MongoDB Atlas cluster)
 
 ## 2. Project Structure
@@ -40,13 +46,18 @@ For MongoDB Atlas, replace `MONGODB_URI` with your Atlas connection string, e.g.
 MONGODB_URI=mongodb+srv://<user>:<password>@<cluster>.mongodb.net/department_store?retryWrites=true&w=majority
 ```
 
-**Seed demo data** (100+ products, categories, brands, vendors, suppliers, 60 customers, stores/DCs, ~60 days of sales & purchase history, expenses):
+**Seed demo data** (160+ products, categories, brands, vendors, suppliers, 60 customers, stores/DCs, a year of sales & purchase history, expenses). Run all four for data in every module:
 
 ```bash
-npm run seed
+npm run seed            # clears the database, then a year of sales, purchases and expenses
+npm run seed:activity   # returns, stock transfers, inward/outward DCs, payments, full ledger (run once per seed)
+npm run seed:racks      # rack locator items (safe to re-run)
+npm run seed:extras     # audit log entries and saved report templates (safe to re-run)
 ```
 
-To wipe the database instead: `npm run seed -- --destroy`
+Seeded dates end on the day you run it, so re-run the chain if "today" figures go empty.
+
+To wipe the database and keep only the Super Admin: `npm run seed:destroy && npm run seed:admin`
 
 **Run the API:**
 
@@ -66,7 +77,7 @@ npm run dev      # http://localhost:5173 (proxies /api to localhost:5000)
 
 Production build: `npm run build` (outputs to `client/dist`), preview with `npm run preview`.
 
-**Run both together:** from the project root, `npm run dev` starts the API server and the client in one terminal (output prefixed `[server]` / `[client]`). Ctrl+C stops both.
+**Run both together:** from the project root, `npm run dev` starts the API server and the client in one terminal (output prefixed `[server]` / `[client]`). The client starts once the API is listening on port 5000, so the dev proxy never hits a server that isn't up yet. Ctrl+C stops both.
 
 ## 5. Demo Logins
 
