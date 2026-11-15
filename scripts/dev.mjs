@@ -6,7 +6,6 @@
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import net from 'node:net';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const APPS = [
@@ -40,25 +39,7 @@ function shutdown(code = 0) {
   setTimeout(() => process.exit(code), 500);
 }
 
-// Resolves once something accepts TCP connections on host:port (polls every 500ms).
-function waitForPort(port, host = '127.0.0.1', timeoutMs = 120000) {
-  const started = Date.now();
-  return new Promise((resolve, reject) => {
-    const attempt = () => {
-      const socket = net.connect(port, host);
-      socket.once('connect', () => { socket.destroy(); resolve(); });
-      socket.once('error', () => {
-        socket.destroy();
-        if (shuttingDown) return;
-        if (Date.now() - started > timeoutMs) reject(new Error(`timed out waiting for ${host}:${port}`));
-        else setTimeout(attempt, 500);
-      });
-    };
-    attempt();
-  });
-}
-
-function start({ name, color }) {
+for (const { name, color } of APPS) {
   const label = `\x1b[${color}m[${name}]\x1b[0m`;
   const child = spawn('npm run dev', {
     cwd: path.join(ROOT, name),
@@ -74,16 +55,6 @@ function start({ name, color }) {
   });
   children.push(child);
 }
-
-// Start the API first and only launch Vite once the API is listening, so the dev proxy
-// never forwards /api requests to a server that isn't up yet (ECONNREFUSED 127.0.0.1:5000).
-const API_PORT = Number(process.env.PORT || 5000);
-const [server, client] = APPS;
-start(server);
-console.log(`\x1b[2m[dev] waiting for API on port ${API_PORT}...\x1b[0m`);
-waitForPort(API_PORT)
-  .then(() => { if (!shuttingDown) start(client); })
-  .catch((err) => { console.error(`[dev] ${err.message}`); shutdown(1); });
 
 process.on('SIGINT', () => shutdown(0));
 process.on('SIGTERM', () => shutdown(0));

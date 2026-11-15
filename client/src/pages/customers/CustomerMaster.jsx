@@ -124,7 +124,7 @@ export function CustomerMaster() {
       <Modal open={!!dashboard} onClose={() => setDashboard(null)} title={dashboard?.customer?.name} size="lg">
         {dashboard && (
           <div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+            <div className="grid grid-cols-4 gap-3 mb-6">
               <Stat label="Total Purchases" value={formatCurrency(dashboard.totalPurchases)} />
               <Stat label="Orders" value={dashboard.orderCount} />
               <Stat label="Avg Order Value" value={formatCurrency(dashboard.avgOrderValue)} />

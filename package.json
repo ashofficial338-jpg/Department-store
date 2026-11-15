@@ -6,10 +6,6 @@
     "node": "22.x"
   },
   "scripts": {
-    "dev": "node scripts/dev.mjs",
-    "verify": "node scripts/verify.mjs",
-    "smoke": "node scripts/smoke-test.mjs",
-    "deploy:watch": "node scripts/auto-deploy.mjs",
-    "deploy:once": "node scripts/auto-deploy.mjs --once"
+    "dev": "node scripts/dev.mjs"
   }
 }

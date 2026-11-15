@@ -13,5 +13,3 @@ export { default as Pagination } from './Pagination.jsx';
 export { default as AlphabetFilter } from './AlphabetFilter.jsx';
 export { default as DataTable } from './DataTable.jsx';
 export { default as PageHeader } from './PageHeader.jsx';
-export { default as StatusPill } from './StatusPill.jsx';
-export { default as HeroBanner } from './HeroBanner.jsx';

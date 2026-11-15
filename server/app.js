@@ -1,4 +1,3 @@
-import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
@@ -19,29 +18,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 
 app.set('trust proxy', 1);
-app.use(compression());
-
-// Single-service hosting (Render): serve the built client the way Vercel's static hosting does —
-// hashed bundles cached long-term, every other non-API route falls back to index.html.
-const clientDist = path.join(__dirname, '..', 'client', 'dist');
-const clientIndex = path.join(clientDist, 'index.html');
-if (env.serveClient && fs.existsSync(clientIndex)) {
-  app.use(
-    express.static(clientDist, {
-      index: false,
-      setHeaders: (res, file) => {
-        if (file.includes(`${path.sep}assets${path.sep}`)) res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-      },
-    }),
-  );
-  app.get(/^\/(?!(api|uploads|assets)(\/|$))/, (req, res) => {
-    res.setHeader('Cache-Control', 'no-cache');
-    res.sendFile(clientIndex);
-  });
-}
-
 app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(cors({ origin: env.clientUrl, credentials: true }));
+app.use(compression());
 // Report exports carry chart images rendered in the browser, so that one route accepts a larger body.
 const jsonDefault = express.json({ limit: '2mb' });
 const jsonLarge = express.json({ limit: '12mb' });
@@ -55,7 +34,7 @@ app.use('/api', apiLimiter);
 
 app.use('/uploads', express.static(path.join(__dirname, env.uploadDir)));
 
-app.get('/api/health', (req, res) => res.json({ success: true, status: 'ok', env: env.nodeEnv, commit: env.commit }));
+app.get('/api/health', (req, res) => res.json({ success: true, status: 'ok', env: env.nodeEnv }));
 
 // Ensure the database is connected before any API route runs.
 app.use('/api', async (req, res, next) => {

@@ -304,14 +304,14 @@ export function AdvancedReports() {
               </div>
               <div className="text-[11px] font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--text-muted)' }}>Cash flow in this period</div>
               {data?.cashflow?.hasLedger ? (
-                <div className="grid grid-cols-1 min-[420px]:grid-cols-3 gap-2 mb-3">
+                <div className="grid grid-cols-3 gap-2 mb-3">
                   <Stat label="Money in" value={formatCurrency(data.cashflow.inflow)} tone="text-emerald-600" />
                   <Stat label="Money out" value={formatCurrency(data.cashflow.outflow)} tone="text-rose-600" />
                   <Stat label="Net" value={formatCurrency(data.cashflow.net)} tone={data.cashflow.net >= 0 ? 'text-emerald-600' : 'text-rose-600'} />
                 </div>
               ) : <p className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>No ledger postings yet - cash flow appears once payments are recorded.</p>}
               <div className="text-[11px] font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--text-muted)' }}>GST summary</div>
-              <div className="grid grid-cols-1 min-[420px]:grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <Stat label="Output GST" value={formatCurrency(data?.gst?.output)} sub="Collected on sales" />
                 <Stat label="Input credit" value={formatCurrency(data?.gst?.input)} sub="Paid on purchases" />
                 <Stat label={(data?.gst?.net ?? 0) >= 0 ? 'Net payable' : 'ITC carry forward'} value={formatCurrency(Math.abs(data?.gst?.net || 0))} tone={(data?.gst?.net ?? 0) >= 0 ? 'text-rose-600' : 'text-emerald-600'} />

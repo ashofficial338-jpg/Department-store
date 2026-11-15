@@ -194,8 +194,8 @@ export function ProductMaster() {
         open={modalOpen} onClose={() => setModalOpen(false)} size="lg" title={editing ? 'Edit Product' : 'Add Product'}
         footer={<><Button variant="outline" onClick={() => setModalOpen(false)}>Cancel</Button><Button type="submit" form="product-form" loading={saving}>Save Product</Button></>}
       >
-        <form id="product-form" onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Input label="Product Name" required className="sm:col-span-2" value={form.name} onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))} />
+        <form id="product-form" onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
+          <Input label="Product Name" required className="col-span-2" value={form.name} onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))} />
           <Input label="SKU" required value={form.sku} onChange={(e) => setForm((s) => ({ ...s, sku: e.target.value }))} />
           <Input label="Barcode" value={form.barcode} onChange={(e) => setForm((s) => ({ ...s, barcode: e.target.value }))} />
 
@@ -239,7 +239,7 @@ export function ProductMaster() {
             {vendors.map((v) => <option key={v._id} value={v._id}>{v.name}</option>)}
           </Select>
 
-          <div className="sm:col-span-2">
+          <div className="col-span-2">
             <span className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Description</span>
             <textarea
               rows={3} value={form.description} onChange={(e) => setForm((s) => ({ ...s, description: e.target.value }))}
@@ -249,7 +249,7 @@ export function ProductMaster() {
           </div>
 
           {editing && (
-            <div className="sm:col-span-2 pt-2 border-t flex justify-end" style={{ borderColor: 'var(--border-subtle)' }}>
+            <div className="col-span-2 pt-2 border-t flex justify-end" style={{ borderColor: 'var(--border-subtle)' }}>
               <Button type="button" variant="danger" size="sm" onClick={() => handleDeactivate(editing)}>Discontinue Product</Button>
             </div>
           )}

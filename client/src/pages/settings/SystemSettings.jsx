@@ -30,13 +30,13 @@ export function SystemSettings() {
         <h3 className="font-display text-base font-semibold">Company Information</h3>
         <Input label="Company Name" value={form.companyName} onChange={(e) => setForm((s) => ({ ...s, companyName: e.target.value }))} />
         <Textarea label="Address" value={form.address} onChange={(e) => setForm((s) => ({ ...s, address: e.target.value }))} />
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-4">
           <Input label="GSTIN" value={form.gstin} onChange={(e) => setForm((s) => ({ ...s, gstin: e.target.value }))} />
           <Input label="PAN" value={form.pan} onChange={(e) => setForm((s) => ({ ...s, pan: e.target.value }))} />
         </div>
 
         <h3 className="font-display text-base font-semibold pt-2">Regional Settings</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-4">
           <Input label="Currency Code" value={form.currency} onChange={(e) => setForm((s) => ({ ...s, currency: e.target.value }))} />
           <Input label="Currency Symbol" value={form.currencySymbol} onChange={(e) => setForm((s) => ({ ...s, currencySymbol: e.target.value }))} />
         </div>

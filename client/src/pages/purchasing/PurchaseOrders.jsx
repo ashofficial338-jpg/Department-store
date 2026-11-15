@@ -112,7 +112,7 @@ export function PurchaseOrders() {
         footer={<><Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button><Button type="submit" form="po-form" loading={saving}>Create PO ({formatCurrency(total)})</Button></>}
       >
         <form id="po-form" onSubmit={handleCreate} className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <Select label="Vendor" required value={vendor} onChange={(e) => setVendor(e.target.value)}>
               <option value="">Select vendor</option>
               {vendors.map((v) => <option key={v._id} value={v._id}>{v.name}</option>)}

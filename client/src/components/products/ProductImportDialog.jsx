@@ -85,7 +85,7 @@ export function ProductImportDialog({ open, onClose, onImported, canUpdate }) {
               {report.errors.length ? <AlertTriangle size={16} className="text-amber-500" /> : <CheckCircle2 size={16} className="text-emerald-600" />}
               {result ? 'Import finished' : 'File checked - nothing has been saved yet'}
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+            <div className="grid grid-cols-4 gap-2 text-center">
               {[['Rows', report.total], [result ? 'Added' : 'Will add', report.created], [result ? 'Updated' : 'Will update', report.updated], ['Skipped', report.skipped]].map(([l, v]) => (
                 <div key={l} className="rounded-lg p-2" style={{ background: 'var(--bg-surface-muted)' }}>
                   <div className="text-lg font-display font-semibold" style={{ color: 'var(--text-primary)' }}>{v}</div>
