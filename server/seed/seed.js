@@ -525,9 +525,8 @@ async function run() {
     const day = daysAgo(d);
     DAILY_COSTS.forEach((c, i) => {
       if (i > 0 && Math.random() < 0.4) return; // at least one entry every day
-      let expenseDate = new Date(day); expenseDate.setHours(randomInt(9, 12), randomInt(0, 59), 0, 0);
-      // Seeding before 9am would otherwise leave today with no expenses; back-date to earlier today.
-      if (expenseDate > new Date()) expenseDate = new Date(Math.max(new Date(day).setHours(0, 0, 0, 0), Date.now() - randomInt(5, 60) * 60000));
+      const expenseDate = new Date(day); expenseDate.setHours(randomInt(9, 12), randomInt(0, 59), 0, 0);
+      if (expenseDate > new Date()) return;
       expenseRows.push({ category: c.category, description: pick(EXPENSE_DESCRIPTIONS[c.category]), amount: round2(randomFloat(c.amount[0], c.amount[1])), paymentMethod: pick(['cash', 'cash', 'upi']), store: pick(stores)._id, expenseDate, recordedBy: accountant._id });
     });
   }
