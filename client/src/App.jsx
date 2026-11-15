@@ -65,6 +65,7 @@ const StoresSettings = lazy(() => import('./pages/settings/StoresSettings.jsx'))
 const TaxSettings = lazy(() => import('./pages/settings/TaxSettings.jsx'));
 const InvoiceSettings = lazy(() => import('./pages/settings/InvoiceSettings.jsx'));
 const SystemSettings = lazy(() => import('./pages/settings/SystemSettings.jsx'));
+const DatabaseMigration = lazy(() => import('./pages/settings/DatabaseMigration.jsx'));
 
 const AuditLogPage = lazy(() => import('./pages/AuditLog.jsx'));
 
@@ -155,6 +156,7 @@ export default function App() {
             <Route path="/settings/tax" element={<RequirePermission admin><TaxSettings /></RequirePermission>} />
             <Route path="/settings/invoice" element={<RequirePermission admin><InvoiceSettings /></RequirePermission>} />
             <Route path="/settings/system" element={<RequirePermission admin><SystemSettings /></RequirePermission>} />
+            <Route path="/settings/database" element={<RequirePermission admin><DatabaseMigration /></RequirePermission>} />
 
             <Route path="/audit-log" element={<RequirePermission any={['audit']}><AuditLogPage /></RequirePermission>} />
           </Route>

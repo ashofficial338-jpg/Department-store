@@ -232,3 +232,19 @@ export const searchService = {
 };
 
 export default api;
+
+// Database status, backups and restore from a backup file (administrators only).
+export const databaseService = {
+  status: () => api.get('/database/status').then((r) => r.data),
+  runs: () => api.get('/database/runs').then((r) => r.data),
+  run: (id) => api.get(`/database/runs/${id}`).then((r) => r.data),
+  backups: () => api.get('/database/backups').then((r) => r.data),
+  restore: (payload) => api.post('/database/restore', payload).then((r) => r.data),
+  backup: (payload) => api.post('/database/backups', payload).then((r) => r.data),
+  download: (name) => api.get(`/database/backups/${encodeURIComponent(name)}/download`, { responseType: 'blob', timeout: 0 }).then((r) => r.data),
+  upload: (file) => {
+    const form = new FormData();
+    form.append('file', file);
+    return api.post('/database/backups/upload', form, { timeout: 0 }).then((r) => r.data);
+  },
+};

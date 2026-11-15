@@ -26,6 +26,7 @@ import settingsRoutes from './settingsRoutes.js';
 import notificationRoutes from './notificationRoutes.js';
 import searchRoutes from './searchRoutes.js';
 import rackItemRoutes from './rackItemRoutes.js';
+import databaseRoutes from './databaseRoutes.js';
 
 const router = Router();
 
@@ -55,5 +56,6 @@ router.use('/settings', settingsRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/search', searchRoutes);
 router.use('/rack-items', rackItemRoutes);
+router.use('/database', databaseRoutes);
 
 export default router;

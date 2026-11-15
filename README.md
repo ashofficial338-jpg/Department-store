@@ -9,7 +9,7 @@ React (Vite) + Tailwind CSS frontend, Node.js/Express REST API, MongoDB/Mongoose
 ## 1. Requirements
 
 - Node.js 18+
-- MongoDB (local install, or a MongoDB Atlas cluster)
+- A MongoDB Atlas cluster
 
 ## 2. Project Structure
 
@@ -30,15 +30,23 @@ Edit `server/.env`:
 
 ```env
 PORT=5000
-MONGODB_URI=mongodb://127.0.0.1:27017/department_store
+MONGODB_URI=mongodb+srv://<user>:<password>@<cluster>.mongodb.net/department_store?retryWrites=true&w=majority
 JWT_SECRET=replace_with_a_long_random_string
 ```
 
-For MongoDB Atlas, replace `MONGODB_URI` with your Atlas connection string, e.g.:
+**MongoDB Atlas is the primary database.** `MONGODB_URI` must be an Atlas connection string; every read and write goes there. There is no fallback: if it is missing, points at a local MongoDB, or Atlas cannot be reached, the API answers `503` with the connection error instead of switching databases. If the connection string has no database name, `department_store` is used (override with `MONGODB_DB`).
 
-```env
-MONGODB_URI=mongodb+srv://<user>:<password>@<cluster>.mongodb.net/department_store?retryWrites=true&w=majority
-```
+The app does not connect to a local MongoDB. **Settings > Database Backup** (administrators only) offers:
+
+- Connection status for Atlas, with collection names and document counts.
+- **Backup Atlas**, for the complete database or selected collections, with live progress and a log.
+- Download (export) of a backup, import of a backup file, and **Restore to Atlas** with successful / skipped / failed counts.
+- Three restore modes: add missing records only (default, never changes Atlas data), overwrite matching records, or replace whole collections. The last two need a typed confirmation.
+- A backup of the affected Atlas collections before every restore, then a verification pass and a completion report. Backup files are written to `server/backups/` (git-ignored).
+
+Record IDs, references, timestamps and indexes are copied unchanged. Backup and restore need the server running on your own computer; the hosted site only shows the Atlas status.
+
+Because the seed scripts use the same connection, `npm run seed` now clears and re-seeds the **Atlas** database.
 
 **Seed demo data** (100+ products, categories, brands, vendors, suppliers, 60 customers, stores/DCs, ~60 days of sales & purchase history, expenses):
 

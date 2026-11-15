@@ -7,7 +7,7 @@ import {
   Users, Star, Wallet,
   Landmark, ArrowDownCircle, ArrowUpCircle, Receipt, Coins, Percent, TrendingUp,
   BarChart3, FileBarChart, RefreshCcw, MapPin,
-  UserCog, ShieldCheck, Store, Percent as PercentIcon, FileCog, Settings as SettingsIcon,
+  UserCog, ShieldCheck, Store, Percent as PercentIcon, FileCog, Settings as SettingsIcon, DatabaseZap,
 } from 'lucide-react';
 
 // module: used by requireModule() permission checks on the client (mirrors server config/permissions.js)
@@ -116,6 +116,7 @@ export const NAV_SECTIONS = [
       { label: 'Tax Settings', to: '/settings/tax', icon: PercentIcon, module: 'settings' },
       { label: 'Invoice Settings', to: '/settings/invoice', icon: FileCog, module: 'settings' },
       { label: 'System Settings', to: '/settings/system', icon: SettingsIcon, module: 'settings' },
+      { label: 'Database Backup', to: '/settings/database', icon: DatabaseZap, module: 'settings' },
     ],
   },
   {
