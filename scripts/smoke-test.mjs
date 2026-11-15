@@ -1,9 +1,11 @@
 // Post-deploy smoke test against the live site: pages, static assets, API, and database connectivity.
 //
-// Usage:  node scripts/smoke-test.mjs [baseUrl]
-// Default baseUrl is the production URL.
+// Usage:  node scripts/smoke-test.mjs [vercel|render|baseUrl]
+// Default is the Vercel production URL (see deploy.config.json).
 
-const BASE = (process.argv[2] || process.env.SMOKE_URL || 'https://aurelia-department-store.vercel.app').replace(/\/$/, '');
+import { resolveUrl, summarize } from './deploy-targets.mjs';
+
+const BASE = resolveUrl(process.argv[2] || process.env.SMOKE_URL);
 const ATTEMPTS = 3;
 
 const results = [];
@@ -87,4 +89,5 @@ await check('Protected API rejects anonymous access', async () => {
 
 const failed = results.filter((r) => !r.ok).length;
 console.log(failed ? `\n${failed} smoke check(s) FAILED.` : '\nAll smoke checks passed.');
+summarize(failed ? `- ❌ ${BASE} failed ${failed} smoke check(s)` : `- ✅ Live: ${BASE}`);
 process.exit(failed ? 1 : 0);

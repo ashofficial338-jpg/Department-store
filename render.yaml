@@ -1,0 +1,24 @@
+# Render Blueprint: one web service that runs the Express API and serves the built React client.
+#
+# First-time setup (once): https://dashboard.render.com/blueprint/new?repo=https://github.com/ashofficial338-jpg/Department-store
+# After that, every push to `main` is built and deployed automatically. A failed build is never
+# promoted, so the URL keeps serving the last good version.
+
+services:
+  - type: web
+    name: aurelia-department-store
+    runtime: node
+    plan: free
+    region: singapore
+    branch: main
+    autoDeployTrigger: commit
+    buildCommand: npm ci --include=dev --prefix client && npm ci --prefix server && node scripts/verify.mjs
+    startCommand: node server/server.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false # asked for once in the Render dashboard; use the same Atlas connection string as Vercel
+      - key: JWT_SECRET
+        generateValue: true

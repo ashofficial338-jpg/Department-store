@@ -15,11 +15,13 @@ import { execSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import fs from 'node:fs';
+import { TARGETS } from './deploy-targets.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const REPO = 'ashofficial338-jpg/Department-store';
 const BRANCH = 'main';
-const PROD_URL = 'https://aurelia-department-store.vercel.app';
+const PROD_URL = TARGETS.vercel;
+const RENDER_URL = TARGETS.render;
 const DEBOUNCE_MS = 8000; // wait for edits to settle before deploying
 const DEPLOY_TIMEOUT_MS = 10 * 60 * 1000;
 const ONCE = process.argv.includes('--once');
@@ -113,13 +115,26 @@ async function waitForVercel(sha) {
   return 'timeout';
 }
 
-function smokeTest() {
-  const r = spawnSync(process.execPath, [path.join(ROOT, 'scripts', 'smoke-test.mjs'), PROD_URL], {
+function smokeTest(url = PROD_URL) {
+  const r = spawnSync(process.execPath, [path.join(ROOT, 'scripts', 'smoke-test.mjs'), url], {
     cwd: ROOT,
     encoding: 'utf8',
   });
   console.log((r.stdout || '') + (r.stderr || ''));
   return r.status === 0;
+}
+
+// Render builds the same push on its own; wait until its URL reports this commit, then smoke test it.
+function checkRender(sha) {
+  if (!RENDER_URL) return;
+  log(`Waiting for Render to deploy to ${RENDER_URL}...`);
+  const r = spawnSync(process.execPath, [path.join(ROOT, 'scripts', 'wait-for-deploy.mjs'), RENDER_URL, sha], {
+    cwd: ROOT,
+    encoding: 'utf8',
+  });
+  if (r.status === 2) return log(`Render is not set up yet at ${RENDER_URL} — see README, "Continuous Deployment".`);
+  if (r.status !== 0) return log(`Render did not pick up ${sha.slice(0, 7)} in time — check the Render dashboard.`);
+  log(smokeTest(RENDER_URL) ? `LIVE: ${RENDER_URL} is serving ${sha.slice(0, 7)}.` : 'Smoke test FAILED on the Render site — investigate now.');
 }
 
 // ---------- main pipeline ----------
@@ -192,7 +207,7 @@ async function deploy() {
     git(`pull --rebase --autostash -q origin ${BRANCH}`);
     git(`push -q origin ${BRANCH}`);
     const sha = git('rev-parse HEAD');
-    log(`Pushed ${sha.slice(0, 7)} to GitHub — Vercel is deploying to ${PROD_URL}`);
+    log(`Pushed ${sha.slice(0, 7)} to GitHub — deploying to ${PROD_URL} (Vercel) and ${RENDER_URL} (Render)`);
 
     const state = await waitForVercel(sha);
     if (state === 'success') {
@@ -201,6 +216,7 @@ async function deploy() {
     } else if (state === 'failure' || state === 'error') {
       log(`Vercel build failed — production URL still serves the previous good version.`);
     }
+    checkRender(sha);
   } catch (err) {
     log(`Deploy step failed:\n${(err.stderr || err.message || '').toString().trim()}`);
   } finally {

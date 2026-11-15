@@ -15,7 +15,7 @@ React (Vite) + Tailwind CSS frontend, Node.js/Express REST API, MongoDB/Mongoose
 ## Continuous Deployment
 
 ```
-save a file → validate → auto-commit → push to GitHub → Vercel build (re-validates) → production → live smoke test
+save a file → validate → auto-commit → push to GitHub → Vercel + Render build (re-validate) → production → live smoke tests
 ```
 
 - **Start it:** it starts automatically at Windows login (minimized window, via the *Aurelia Auto-Deploy* shortcut in `shell:startup`; delete that shortcut to disable). To start it by hand: `npm run deploy:watch` or double-click `auto-deploy.bat`. Only one copy runs at a time. `npm run deploy:once` publishes whatever is pending and exits.
@@ -23,7 +23,17 @@ save a file → validate → auto-commit → push to GitHub → Vercel build (re
 - **Commits** get descriptive messages generated from the changed files (e.g. *Update Pos page, auth API*) with the file list in the body. `.env` files are never committed.
 - **Vercel** (GitHub integration) deploys every push to `main` and promotes it to the same URL, https://aurelia-department-store.vercel.app. Its build command is `node scripts/verify.mjs`, so a failing change is never promoted. The URL keeps serving the last good version.
 - **After deploy**, the watcher waits for Vercel's status on the commit and runs `npm run smoke` against the live site: pages, SPA routes, bundles, API health, MongoDB connectivity and auth protection.
-- **GitHub Actions** (`.github/workflows/ci.yml`) runs the same validation on every push/PR and the smoke test after every successful production deployment.
+- **Render** (`render.yaml`) deploys the same push as a second, independent copy of the app: one web service that runs the API and serves the built client. Its build also runs `node scripts/verify.mjs`, so a failing change is not promoted there either.
+- **Live URLs** are kept in `deploy.config.json`. Both hosts keep a fixed URL that always serves the latest successful deploy; `/api/health` reports the `commit` it is serving. `node scripts/wait-for-deploy.mjs render` (or `vercel`) waits until a URL is serving the current commit.
+- **GitHub Actions** (`.github/workflows/ci.yml`) runs the same validation on every push/PR, smoke tests Vercel after every successful production deployment, waits for Render to serve the pushed commit and smoke tests it, and lists the live URLs in the run summary.
+
+**One-time Render setup** (needs your Render login, so it can't be scripted):
+
+1. Open https://dashboard.render.com/blueprint/new?repo=https://github.com/ashofficial338-jpg/Department-store and sign in with GitHub.
+2. When asked for `MONGODB_URI`, paste the same Atlas connection string Vercel uses. `JWT_SECRET` is generated for you.
+3. Click **Apply**. If Render gives the service a different address than `https://aurelia-department-store.onrender.com`, put that address in `deploy.config.json`.
+
+The free Render plan sleeps after 15 minutes without traffic (the first request then takes about a minute) and has no persistent disk, so product images uploaded there are lost on redeploy unless `BLOB_READ_WRITE_TOKEN` is set.
 
 ## 1. Requirements
 
