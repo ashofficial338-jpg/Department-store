@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { useTheme } from '../context/ThemeContext.jsx';
 import HeaderSearch from '../components/HeaderSearch.jsx';
 import Brand from '../components/Brand.jsx';
+import { useCompanyName } from '../hooks/useCompanyName.js';
 import NotificationBell from '../components/NotificationBell.jsx';
 import ChangePasswordDialog from '../components/ChangePasswordDialog.jsx';
 import { hasPermission, isAdmin } from '../utils/permissions.js';
@@ -69,6 +70,7 @@ export function Header({ onMenuClick }) {
   }, []);
 
   const today = useToday().toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+  const companyName = useCompanyName();
   const iconBtn = 'relative w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-300 ease-luxe hover:bg-[var(--hover-tint)] active:scale-95';
 
   return (
@@ -85,7 +87,7 @@ export function Header({ onMenuClick }) {
             <Menu size={18} style={{ color: 'var(--text-secondary)' }} />
           </button>
           {/* The sidebar carries the brand on desktop; below lg the header does. */}
-          <Link to="/dashboard" className="lg:hidden shrink-0 min-w-0" aria-label="AURELIA, go to dashboard">
+          <Link to="/dashboard" className="lg:hidden shrink-0 min-w-0" aria-label={`${companyName}, go to dashboard`}>
             <Brand size="sm" className="[&>div:last-child]:hidden min-[420px]:[&>div:last-child]:block sm:[&>div:last-child]:hidden md:[&>div:last-child]:block" />
           </Link>
           <HeaderSearch />

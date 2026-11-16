@@ -4,6 +4,7 @@ import PageLoader from '../components/ui/PageLoader.jsx';
 import { AnimatePresence, motion } from 'framer-motion';
 import Sidebar from './Sidebar.jsx';
 import Header from './Header.jsx';
+import { useCompanyName } from '../hooks/useCompanyName.js';
 
 const EASE = [0.22, 1, 0.36, 1];
 
@@ -27,6 +28,7 @@ export function DashboardLayout() {
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('aurelia_sidebar_collapsed') === 'true');
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
+  const companyName = useCompanyName();
 
   useEffect(() => {
     localStorage.setItem('aurelia_sidebar_collapsed', String(collapsed));
@@ -61,7 +63,7 @@ export function DashboardLayout() {
           </AnimatePresence>
         </main>
         <footer className="px-4 md:px-8 pb-6 max-w-[1600px] w-full mx-auto text-[11px] flex items-center justify-between no-print" style={{ color: 'var(--text-muted)' }}>
-          <span>© {new Date().getFullYear()} AURELIA Department Store</span>
+          <span>© {new Date().getFullYear()} {companyName}</span>
           <span className="hidden sm:inline tracking-[0.2em] uppercase">Crafted for retail excellence</span>
         </footer>
       </div>
