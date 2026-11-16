@@ -18,6 +18,23 @@ function isPortOpen(port) {
   });
 }
 
+// Resolves once the API accepts connections, or after `timeoutMs` so a genuinely dead API still
+// surfaces as a proxy error. A recent successful probe is reused so requests are not slowed down.
+let apiSeenAt = 0;
+let apiWait = null;
+function waitForApi(timeoutMs = 30000) {
+  if (Date.now() - apiSeenAt < 500) return Promise.resolve();
+  apiWait ??= (async () => {
+    const deadline = Date.now() + timeoutMs;
+    while (!(await isPortOpen(API_PORT))) {
+      if (Date.now() > deadline) return;
+      await new Promise((r) => setTimeout(r, 200));
+    }
+    apiSeenAt = Date.now();
+  })().finally(() => { apiWait = null; });
+  return apiWait;
+}
+
 // Running `npm run dev` in client/ alone used to leave every /api call failing with ECONNREFUSED,
 // because nothing was listening on port 5000. This starts the API server alongside Vite whenever
 // it is not already running (e.g. from the root `npm run dev` or a separate terminal).
@@ -25,9 +42,17 @@ function startApiServer() {
   return {
     name: 'aurelia-start-api-server',
     apply: 'serve',
-    async configureServer() {
-      // globalThis survives Vite's config-change restarts, so the API is only ever spawned once.
-      if (globalThis.__aureliaApi || (await isPortOpen(API_PORT))) return;
+    async configureServer(server) {
+      // Hold /api and /uploads requests while the API is still booting (or nodemon is restarting
+      // it) instead of letting the proxy fail them with ECONNREFUSED. Runs before Vite's proxy.
+      server.middlewares.use(async (req, _res, next) => {
+        if (/^\/(api|uploads)(\/|\?|$)/.test(req.url || '')) await waitForApi();
+        next();
+      });
+
+      // The root `npm run dev` starts the API itself; globalThis survives Vite's config-change
+      // restarts, so the API is only ever spawned once.
+      if (process.env.AURELIA_API_MANAGED || globalThis.__aureliaApi || (await isPortOpen(API_PORT))) return;
 
       const label = '\x1b[36m[server]\x1b[0m';
       const child = spawn('npm run dev', { cwd: SERVER_DIR, shell: true, env: { ...process.env, FORCE_COLOR: '1' } });

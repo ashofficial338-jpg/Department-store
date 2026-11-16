@@ -44,7 +44,8 @@ for (const { name, color } of APPS) {
   const child = spawn('npm run dev', {
     cwd: path.join(ROOT, name),
     shell: true,
-    env: { ...process.env, FORCE_COLOR: '1' },
+    // AURELIA_API_MANAGED tells the client's Vite config not to spawn a second API server.
+    env: { ...process.env, FORCE_COLOR: '1', AURELIA_API_MANAGED: '1' },
   });
   pipe(child.stdout, label);
   pipe(child.stderr, label);
