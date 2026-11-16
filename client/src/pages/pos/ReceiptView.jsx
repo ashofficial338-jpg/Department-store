@@ -1,4 +1,5 @@
 import { formatCurrency, formatDateTime } from '../../utils/format.js';
+import { splitCompanyName, useCompanyName } from '../../hooks/useCompanyName.js';
 
 const money = (v) => formatCurrency(v, { decimals: 2 });
 
@@ -19,11 +20,12 @@ function gstBreakup(items) {
 
 export function ReceiptView({ sale }) {
   const breakup = gstBreakup(sale.items);
+  const { title, tagline } = splitCompanyName(useCompanyName());
   return (
     <div className="font-mono text-xs space-y-2" id="receipt">
       <div className="text-center mb-3">
-        <div className="font-display text-base font-semibold">AURELIA</div>
-        <div style={{ color: 'var(--text-muted)' }}>Department Store</div>
+        <div className="font-display text-base font-semibold">{title}</div>
+        {tagline && <div style={{ color: 'var(--text-muted)' }}>{tagline}</div>}
       </div>
       <div className="flex justify-between"><span>Invoice</span><span>{sale.invoiceNumber}</span></div>
       <div className="flex justify-between"><span>Date</span><span>{formatDateTime(sale.createdAt || new Date())}</span></div>

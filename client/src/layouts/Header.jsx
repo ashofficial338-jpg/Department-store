@@ -88,7 +88,7 @@ export function Header({ onMenuClick }) {
           </button>
           {/* The sidebar carries the brand on desktop; below lg the header does. */}
           <Link to="/dashboard" className="lg:hidden shrink-0 min-w-0" aria-label={`${companyName}, go to dashboard`}>
-            <Brand size="sm" className="[&>div:last-child]:hidden min-[420px]:[&>div:last-child]:block sm:[&>div:last-child]:hidden md:[&>div:last-child]:block" />
+            <Brand size="sm" className="max-w-[13rem] [&>div:last-child]:hidden min-[420px]:[&>div:last-child]:block sm:[&>div:last-child]:hidden min-[900px]:[&>div:last-child]:block" />
           </Link>
           <HeaderSearch />
         </div>

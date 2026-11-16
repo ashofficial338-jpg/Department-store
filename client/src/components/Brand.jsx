@@ -1,18 +1,11 @@
 import clsx from 'clsx';
-import { useCompanyName } from '../hooks/useCompanyName.js';
-
-// "AURELIA Department Store" reads best as a wordmark over a small descriptor; any other
-// company name is shown whole on one line.
-function splitName(name) {
-  const m = /^(.+?)\s+(department\s+store)$/i.exec(name);
-  return m ? { title: m[1], tagline: m[2] } : { title: name, tagline: '' };
-}
+import { splitCompanyName, useCompanyName } from '../hooks/useCompanyName.js';
 
 // The single company identity used across the app: gold monogram + the Company Name from
 // System Settings. `tone="dark"` is for dark surfaces (sidebar); `tone="auto"` follows the theme.
 export function Brand({ showName = true, tone = 'auto', size = 'md', className }) {
   const name = useCompanyName();
-  const { title, tagline } = splitName(name);
+  const { title, tagline } = splitCompanyName(name);
   const short = title.length <= 12;
   const mark = size === 'sm' ? 'w-8 h-8 rounded-[10px]' : 'w-10 h-10 rounded-xl';
   return (

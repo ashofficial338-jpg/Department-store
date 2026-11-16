@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext.jsx';
+import Brand from '../../components/Brand.jsx';
+import { splitCompanyName, useCompanyName } from '../../hooks/useCompanyName.js';
 
 const DEMO_ACCOUNTS = [
   { role: 'Super Admin', email: 'AshwinLav@gmail.com', password: 'Admin@123' },
@@ -41,6 +43,7 @@ function GlassCard({ className, float = 'animate-float', delay = 0, children }) 
 }
 
 export function Login() {
+  const companyName = useCompanyName();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -84,14 +87,7 @@ export function Login() {
         />
 
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: EASE }} className="relative flex items-center gap-3">
-          <div className="relative w-11 h-11 rounded-xl bg-gold-gradient flex items-center justify-center font-display font-bold text-xl text-graphite-950 shadow-gold">
-            A
-            <span className="absolute inset-0 rounded-xl ring-1 ring-inset ring-white/40" />
-          </div>
-          <div className="leading-none">
-            <div className="font-display text-xl font-semibold text-white tracking-[0.14em]">AURELIA</div>
-            <div className="text-[9px] tracking-[0.34em] uppercase text-gold-400/80 mt-1.5">Department Store</div>
-          </div>
+          <Brand tone="dark" />
         </motion.div>
 
         <div className="relative grid grid-cols-[1fr] gap-10">
@@ -172,7 +168,7 @@ export function Login() {
         </div>
 
         <div className="relative flex items-center justify-between text-xs text-graphite-500">
-          <span>© {new Date().getFullYear()} AURELIA Department Store</span>
+          <span>© {new Date().getFullYear()} {companyName}</span>
           <span className="tracking-[0.24em] uppercase text-[10px]">Crafted for retail excellence</span>
         </div>
       </div>
@@ -186,16 +182,13 @@ export function Login() {
           transition={{ duration: 0.7, ease: EASE, delay: 0.1 }}
           className="relative w-full max-w-[26rem]"
         >
-          <div className="lg:hidden flex items-center gap-3 mb-10">
-            <div className="w-10 h-10 rounded-xl bg-gold-gradient flex items-center justify-center font-display font-bold text-graphite-950 shadow-gold">A</div>
-            <span className="font-display text-xl font-semibold tracking-[0.12em]" style={{ color: 'var(--text-primary)' }}>AURELIA</span>
-          </div>
+          <Brand className="lg:hidden mb-10" />
 
           <div className="surface-card rounded-[1.75rem] p-8 sm:p-9 shadow-premium-lg relative overflow-hidden">
             <div className="absolute top-0 inset-x-10 h-px bg-gradient-to-r from-transparent via-gold-400 to-transparent" />
             <span className="eyebrow">Welcome back</span>
             <h2 className="font-display text-[2rem] leading-tight font-semibold mt-2 mb-1.5" style={{ color: 'var(--text-primary)' }}>Sign in</h2>
-            <p className="text-sm mb-8" style={{ color: 'var(--text-secondary)' }}>Access your AURELIA workspace.</p>
+            <p className="text-sm mb-8" style={{ color: 'var(--text-secondary)' }}>Access your {splitCompanyName(companyName).title} workspace.</p>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <label className="block">

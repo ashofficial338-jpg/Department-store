@@ -127,7 +127,7 @@ export function HeaderSearch() {
         ref={rootRef}
         className={clsx(
           expanded ? 'absolute inset-x-0 top-0 z-20 h-16 px-3 flex items-center bg-[var(--bg-surface)]' : 'hidden',
-          'sm:relative sm:inset-auto sm:z-auto sm:flex sm:items-center sm:h-auto sm:px-0 sm:bg-transparent sm:flex-1 sm:max-w-xl min-w-0',
+          'sm:relative sm:inset-auto sm:z-auto sm:flex sm:items-center sm:h-auto sm:px-0 sm:bg-transparent sm:flex-1 sm:max-w-xl min-w-0 sm:min-w-[11rem]',
         )}
       >
         <div className="relative w-full" role="search">
