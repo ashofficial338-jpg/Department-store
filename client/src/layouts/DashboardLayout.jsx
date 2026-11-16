@@ -4,6 +4,7 @@ import PageLoader from '../components/ui/PageLoader.jsx';
 import { AnimatePresence, motion } from 'framer-motion';
 import Sidebar from './Sidebar.jsx';
 import Header from './Header.jsx';
+import RouteErrorBoundary from '../components/RouteErrorBoundary.jsx';
 
 const EASE = [0.22, 1, 0.36, 1];
 
@@ -47,18 +48,13 @@ export function DashboardLayout() {
       <div className="flex-1 min-w-0 flex flex-col">
         <Header onMenuClick={() => setMobileOpen(true)} />
         <main className="flex-1 px-4 py-6 md:px-8 md:py-8 max-w-[1600px] w-full mx-auto">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={location.pathname}
-              initial={{ opacity: 0, y: 14, filter: 'blur(6px)' }}
-              // Clear the filter afterwards: a lingering filter would trap position:fixed children (POS bars, popovers).
-              animate={{ opacity: 1, y: 0, filter: 'blur(0px)', transitionEnd: { filter: 'none' } }}
-              exit={{ opacity: 0, y: -6, filter: 'blur(4px)' }}
-              transition={{ duration: 0.45, ease: EASE }}
-            >
+          {/* Keyed by path so each page mounts fresh and shows at once. The entrance is a CSS animation:
+              the new page never waits on the old one finishing an exit animation. */}
+          <div key={location.pathname} className="page-enter">
+            <RouteErrorBoundary>
               <Suspense fallback={<PageLoader />}><Outlet /></Suspense>
-            </motion.div>
-          </AnimatePresence>
+            </RouteErrorBoundary>
+          </div>
         </main>
         <footer className="px-4 md:px-8 pb-6 max-w-[1600px] w-full mx-auto text-[11px] flex items-center justify-between no-print" style={{ color: 'var(--text-muted)' }}>
           <span>© {new Date().getFullYear()} AURELIA Department Store</span>

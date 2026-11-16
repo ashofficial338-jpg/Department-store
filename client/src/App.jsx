@@ -1,10 +1,11 @@
-import { lazy, Suspense } from 'react';
+import { Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import ProtectedRoute from './routes/ProtectedRoute.jsx';
 import DashboardLayout from './layouts/DashboardLayout.jsx';
 import RequirePermission from './routes/RequirePermission.jsx';
 import PageLoader from './components/ui/PageLoader.jsx';
+import { lazyWithRetry as lazy } from './utils/lazyWithRetry.js';
 
 // Pages are code-split: each screen's code downloads the first time it is opened (sign-in stays in the main bundle).
 

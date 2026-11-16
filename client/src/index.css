@@ -183,6 +183,14 @@ h1, h2, h3 { letter-spacing: -0.015em; }
   z-index: 1;
 }
 .sheen:hover::after { animation: aurelia-sheen 1.1s var(--ease-luxe); }
+/* Page entrance. No fill-mode "forwards": once it ends the wrapper has no transform/filter left,
+   which would otherwise trap position:fixed children (POS bars, popovers). */
+@keyframes aurelia-page-enter {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+.page-enter { animation: aurelia-page-enter 0.32s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+
 @keyframes aurelia-sheen {
   from { transform: translateX(-120%) skewX(-20deg); }
   to { transform: translateX(260%) skewX(-20deg); }

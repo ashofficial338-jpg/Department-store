@@ -19,7 +19,9 @@ export function AuthProvider({ children }) {
     if (!token) { setLoading(false); return; }
     authService.me()
       .then((res) => { setUser(res.user); localStorage.setItem('aurelia_user', JSON.stringify(res.user)); })
-      .catch(() => { localStorage.removeItem('aurelia_token'); localStorage.removeItem('aurelia_user'); setUser(null); })
+      // An expired/invalid session (401) is cleared by the API interceptor. Any other failure - the API
+      // restarting, a dropped connection - must not sign the user out: keep the cached profile.
+      .catch(() => { if (!localStorage.getItem('aurelia_token')) setUser(null); })
       .finally(() => setLoading(false));
   }, []);
 
