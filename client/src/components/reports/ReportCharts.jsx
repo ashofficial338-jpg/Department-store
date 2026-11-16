@@ -7,10 +7,11 @@ import { formatCurrency } from '../../utils/format.js';
 // Report charts use fixed hex colours (not CSS variables) so the same SVG can be captured as a PNG
 // for the Excel workbook. Axis text uses a mid grey that reads in both light and dark themes.
 export const COLORS = {
-  revenue: '#C29A56', expenses: '#454856', purchases: '#7E90B0', netProfit: '#3F8F6D', grossProfit: '#8AA6A3', growth: '#B0725B', grid: '#8C8F99',
+  revenue: '#9085E9', expenses: '#D95926', purchases: '#3987E5', netProfit: '#199E70', grossProfit: '#C98500', growth: '#D55181', grid: '#8A90A8',
 };
-export const SERIES_PALETTE = ['#C29A56', '#454856', '#8AA6A3', '#B0725B', '#7E90B0', '#A98CC4', '#6FA687', '#C2745E', '#D4B98A', '#5E7A8C'];
-const AXIS = { fontSize: 11, fill: '#8C8F99' };
+// Validated categorical order (passes on both the light and dark surface); assign in order.
+export const SERIES_PALETTE = ['#9085E9', '#D95926', '#199E70', '#C98500', '#D55181', '#0CA30C', '#3987E5', '#E66767'];
+const AXIS = { fontSize: 11, fill: '#8A90A8' };
 
 export const compact = (v) => {
   const a = Math.abs(v); const s = v < 0 ? '-' : '';
@@ -61,7 +62,7 @@ export function ProfitTrendChart({ data, profitKey = 'netProfit' }) {
         <Area yAxisId="v" type="monotone" dataKey="grossProfit" name="Gross profit" stroke={COLORS.grossProfit} fill="none" strokeWidth={2} />
         {profitKey === 'netProfit' && <Area yAxisId="v" type="monotone" dataKey="netProfit" name="Net profit" stroke={COLORS.netProfit} fill="url(#rpProfitFill)" strokeWidth={2.5} />}
         <Bar yAxisId="g" dataKey="profitGrowth" name="Profit growth" maxBarSize={10} radius={[3, 3, 0, 0]}>
-          {data.map((d, i) => <Cell key={i} fill={(d.profitGrowth ?? 0) >= 0 ? '#9CC7B2' : '#E2A49B'} />)}
+          {data.map((d, i) => <Cell key={i} fill={(d.profitGrowth ?? 0) >= 0 ? '#199E70' : '#E66767'} />)}
         </Bar>
       </ComposedChart>
     </ResponsiveContainer>

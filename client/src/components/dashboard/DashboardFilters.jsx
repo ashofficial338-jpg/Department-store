@@ -3,13 +3,13 @@ import { SlidersHorizontal, RotateCcw } from 'lucide-react';
 import { dashboardService } from '../../services/index.js';
 import { RANGE_OPTIONS, humanize } from './filters.js';
 
-const selectClass = 'rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold-400 cursor-pointer max-w-[220px]';
+const selectClass = 'w-full sm:w-auto rounded-xl border px-3 py-2 text-sm font-medium hover:border-[var(--border-strong)] focus:outline-none focus:!border-brand-400 cursor-pointer sm:max-w-[220px]';
 const fieldStyle = { color: 'var(--text-primary)', borderColor: 'var(--border-subtle)', background: 'var(--bg-surface)' };
 
 function Field({ label, children }) {
   return (
-    <label className="flex flex-col gap-1">
-      <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{label}</span>
+    <label className="flex flex-col gap-1 w-full sm:w-auto">
+      <span className="text-[11px] font-medium" style={{ color: 'var(--text-muted)' }}>{label}</span>
       {children}
     </label>
   );
@@ -44,15 +44,16 @@ export function DashboardFilters({
 
   return (
     <div className="surface-card rounded-xl2 shadow-premium p-4 mb-6">
-      <div className="flex items-center gap-2 mb-3 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
-        <SlidersHorizontal size={14} className="text-gold-600" /> Filters
+      <div className="flex items-center gap-2 mb-3 text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+        <SlidersHorizontal size={15} className="text-brand-600" /> Filters
+        {active && <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-brand-50 text-brand-700">{Object.keys(value).length} active</span>}
         {active && (
-          <button type="button" onClick={() => onChange({})} className="ml-auto flex items-center gap-1 normal-case tracking-normal font-medium text-gold-600 hover:text-gold-500">
+          <button type="button" onClick={() => onChange({})} className="ml-auto flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-700">
             <RotateCcw size={12} /> Reset
           </button>
         )}
       </div>
-      <div className="flex flex-wrap items-end gap-3">
+      <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-end gap-3">
         {show.includes('range') && (
           <Select label="Date range" value={range} onChange={(v) => set(v === 'custom' ? { range: 'custom' } : { range: v, from: '', to: '' })}>
             {RANGE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}

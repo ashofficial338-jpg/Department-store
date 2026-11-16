@@ -11,11 +11,11 @@ export function ChartCard({ title, subtitle, actions, children, height = 300, on
       viewport={{ once: true, margin: '-40px' }}
       transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
       onMouseMove={trackSpotlight}
-      className={`group surface-card spotlight rounded-xl2 p-5 md:p-6 transition-shadow duration-500 hover-deep ${onOpen ? 'gold-ring' : ''}`}
+      className={`group surface-card spotlight rounded-xl2 p-5 md:p-6 transition-shadow duration-500 hover-deep ${onOpen ? 'brand-ring' : ''}`}
     >
-      <div className="relative flex items-start justify-between gap-3 mb-5">
-        <div>
-          <h3 className="font-display text-lg font-semibold leading-tight" style={{ color: 'var(--text-primary)' }}>{title}</h3>
+      <div className="relative flex flex-wrap items-start justify-between gap-3 mb-5">
+        <div className="min-w-0">
+          <h3 className="font-display text-base font-bold leading-tight" style={{ color: 'var(--text-primary)' }}>{title}</h3>
           {subtitle && <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{subtitle}</p>}
         </div>
         <div className="flex items-center gap-2">
@@ -24,7 +24,7 @@ export function ChartCard({ title, subtitle, actions, children, height = 300, on
             <button
               type="button"
               onClick={onOpen}
-              className="flex items-center gap-1 text-xs font-semibold text-gold-700 dark:text-gold-300 px-2.5 py-1.5 rounded-lg bg-gold-50 hover:bg-gold-100 transition-colors whitespace-nowrap"
+              className="flex items-center gap-1 text-xs font-semibold text-brand-700 dark:text-brand-300 px-2.5 py-1.5 rounded-lg bg-brand-50 hover:bg-brand-100 transition-colors whitespace-nowrap"
             >
               View details <ArrowUpRight size={13} className="transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
             </button>

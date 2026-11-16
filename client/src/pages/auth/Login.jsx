@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  Eye, EyeOff, ArrowRight, Mail, Lock, Loader2, TrendingUp, ShieldCheck, Sparkles, Boxes, BarChart3, Users,
+  Eye, EyeOff, ArrowRight, Mail, Lock, Loader2, TrendingUp, ShieldCheck, Sparkles, Boxes, BarChart3, Users, Moon, Sun,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext.jsx';
+import { useTheme } from '../../context/ThemeContext.jsx';
 
 const DEMO_ACCOUNTS = [
   { role: 'Super Admin', email: 'AshwinLav@gmail.com', password: 'Admin@123' },
@@ -15,10 +16,10 @@ const DEMO_ACCOUNTS = [
 
 const EASE = [0.22, 1, 0.36, 1];
 const FEATURES = [
-  { icon: BarChart3, label: 'Live analytics' },
-  { icon: Boxes, label: 'Smart inventory' },
-  { icon: ShieldCheck, label: 'Role-based security' },
-  { icon: Users, label: 'Customer loyalty' },
+  { icon: BarChart3, label: 'Live analytics', text: 'Revenue, margin and turnover in real time.' },
+  { icon: Boxes, label: 'Smart inventory', text: 'Racks, batches, expiry and low-stock alerts.' },
+  { icon: ShieldCheck, label: 'Role-based security', text: 'Every screen and action is permissioned.' },
+  { icon: Users, label: 'Customer loyalty', text: 'Points, outstanding and purchase history.' },
 ];
 
 // Decorative sparkline path for the preview card.
@@ -31,12 +32,22 @@ function GlassCard({ className, float = 'animate-float', delay = 0, children }) 
       initial={{ opacity: 0, y: 24, scale: 0.96 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.9, ease: EASE, delay }}
-      className={`absolute ${className}`}
+      className={className}
     >
-      <div className={`rounded-2xl border border-white/10 bg-white/[0.06] backdrop-blur-xl shadow-[0_30px_60px_-30px_rgba(0,0,0,0.8)] ${float}`}>
+      <div className={`rounded-2xl border border-white/15 bg-white/[0.08] backdrop-blur-xl shadow-[0_30px_60px_-30px_rgba(0,0,0,0.8)] ${float}`}>
         {children}
       </div>
     </motion.div>
+  );
+}
+
+function Logo({ size = 'md' }) {
+  const box = size === 'lg' ? 'w-11 h-11 text-xl' : 'w-10 h-10 text-lg';
+  return (
+    <div className={`relative ${box} rounded-xl bg-brand-gradient flex items-center justify-center font-display font-extrabold text-white shadow-brand shrink-0`}>
+      A
+      <span className="absolute inset-0 rounded-xl ring-1 ring-inset ring-white/30" />
+    </div>
   );
 }
 
@@ -46,6 +57,7 @@ export function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -62,19 +74,19 @@ export function Login() {
     }
   }
 
-  const inputWrap = 'group relative flex items-center rounded-xl border transition-all duration-300 focus-within:border-gold-400 focus-within:shadow-[0_0_0_4px_rgba(194,154,86,0.14)]';
+  const inputWrap = 'group relative flex items-center rounded-xl border transition-all duration-300 hover:border-[var(--border-strong)] focus-within:!border-brand-400 focus-within:shadow-[0_0_0_4px_var(--focus-ring)]';
 
   return (
-    <div className="min-h-screen flex bg-graphite-950">
+    <div className="min-h-screen flex" style={{ background: 'var(--bg-app)' }}>
       {/* ---------- Brand / showcase panel ---------- */}
-      <div className="hidden lg:flex flex-[1.15] relative overflow-hidden flex-col justify-between p-12 xl:p-16">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,#1E2028_0%,#0B0C10_60%)]" />
-        <div className="absolute -top-40 -right-32 w-[34rem] h-[34rem] rounded-full bg-gold-500/20 blur-[110px] animate-aurora" />
-        <div className="absolute -bottom-48 -left-24 w-[30rem] h-[30rem] rounded-full bg-[#7E90B0]/15 blur-[110px] animate-aurora-slow" />
-        <div className="absolute top-1/3 left-1/3 w-72 h-72 rounded-full bg-gold-300/10 blur-[90px] animate-aurora" />
+      <div className="hidden lg:flex flex-[1.1] relative overflow-hidden flex-col justify-between p-12 xl:p-16 m-3 rounded-[2rem] bg-[#0B0B24]">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,#2A237A_0%,#12103A_45%,#0A0A1F_100%)]" />
+        <div className="absolute -top-40 -right-32 w-[34rem] h-[34rem] rounded-full bg-brand-500/40 blur-[120px] animate-aurora" />
+        <div className="absolute -bottom-48 -left-24 w-[30rem] h-[30rem] rounded-full bg-accent-500/20 blur-[120px] animate-aurora-slow" />
+        <div className="absolute top-1/3 left-1/3 w-72 h-72 rounded-full bg-fuchsia-500/15 blur-[100px] animate-aurora" />
         {/* Fine grid, faded toward the edges. */}
         <div
-          className="absolute inset-0 opacity-[0.07]"
+          className="absolute inset-0 opacity-[0.08]"
           style={{
             backgroundImage: 'linear-gradient(rgba(255,255,255,0.6) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.6) 1px, transparent 1px)',
             backgroundSize: '56px 56px',
@@ -84,124 +96,141 @@ export function Login() {
         />
 
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: EASE }} className="relative flex items-center gap-3">
-          <div className="relative w-11 h-11 rounded-xl bg-gold-gradient flex items-center justify-center font-display font-bold text-xl text-graphite-950 shadow-gold">
-            A
-            <span className="absolute inset-0 rounded-xl ring-1 ring-inset ring-white/40" />
-          </div>
+          <Logo size="lg" />
           <div className="leading-none">
-            <div className="font-display text-xl font-semibold text-white tracking-[0.14em]">AURELIA</div>
-            <div className="text-[9px] tracking-[0.34em] uppercase text-gold-400/80 mt-1.5">Department Store</div>
+            <div className="font-display text-xl font-extrabold text-white tracking-[0.04em]">AURELIA</div>
+            <div className="text-[11px] text-white/55 mt-1.5">Department Store</div>
           </div>
         </motion.div>
 
-        <div className="relative grid grid-cols-[1fr] gap-10">
+        <div className="relative">
           <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9, ease: EASE, delay: 0.1 }} className="max-w-xl">
-            <span className="inline-flex items-center gap-2 text-[11px] font-semibold tracking-[0.2em] uppercase text-gold-300/90 px-3 py-1.5 rounded-full border border-gold-400/20 bg-gold-500/10 mb-6">
-              <Sparkles size={12} /> Retail intelligence platform
+            <span className="inline-flex items-center gap-2 text-xs font-medium text-white/85 px-3 py-1.5 rounded-full border border-white/15 bg-white/[0.07] backdrop-blur mb-6">
+              <Sparkles size={12} className="text-accent-300" /> Retail operations platform
             </span>
-            <h1 className="font-display text-5xl xl:text-[3.6rem] font-semibold text-white leading-[1.05] mb-6">
-              Run your store with <em className="text-gold-gradient font-display italic pr-1">effortless</em> clarity.
+            <h1 className="font-display text-[2.75rem] xl:text-[3.4rem] font-extrabold text-white leading-[1.06] mb-5">
+              Run your store with{' '}
+              <span className="bg-gradient-to-r from-[#A9ADFF] via-[#D4B0FF] to-[#67E8F9] bg-clip-text text-transparent">complete clarity.</span>
             </h1>
-            <p className="text-graphite-300 text-[15px] leading-relaxed max-w-md">
-              Sales, inventory, purchasing, distribution, finance and customers, unified in one beautifully crafted workspace.
+            <p className="text-white/65 text-[15px] leading-relaxed max-w-md">
+              Sales, inventory, purchasing, distribution, finance and customers, unified in one workspace.
             </p>
-            <div className="flex flex-wrap gap-2 mt-8">
-              {FEATURES.map((f, i) => (
-                <motion.span
-                  key={f.label}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, ease: EASE, delay: 0.35 + i * 0.08 }}
-                  className="inline-flex items-center gap-2 text-xs text-graphite-200 px-3 py-2 rounded-xl border border-white/10 bg-white/[0.04]"
-                >
-                  <f.icon size={13} className="text-gold-400" /> {f.label}
-                </motion.span>
-              ))}
-            </div>
           </motion.div>
 
-          {/* Floating product preview */}
-          <div className="relative h-56 max-w-xl">
-            <GlassCard className="left-0 top-2 w-72" delay={0.45}>
+          {/* Product preview */}
+          <div className="flex flex-wrap items-start gap-4 mt-9 max-w-xl">
+            <GlassCard className="w-72" delay={0.45}>
               <div className="p-5">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-[10px] tracking-[0.18em] uppercase text-graphite-400">Today&apos;s revenue</span>
-                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-300 bg-emerald-400/10 px-1.5 py-0.5 rounded-md"><TrendingUp size={11} /> 17.9%</span>
-              </div>
-              <div className="font-display text-3xl text-white mb-3">₹2,93,799</div>
-              <svg viewBox="0 0 180 42" className="w-full h-10" aria-hidden>
-                <defs>
-                  <linearGradient id="spark" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="0%" stopColor="#D2AA6C" stopOpacity="0.45" />
-                    <stop offset="100%" stopColor="#D2AA6C" stopOpacity="0" />
-                  </linearGradient>
-                </defs>
-                <path d={`${SPARK} L180 42 L0 42 Z`} fill="url(#spark)" />
-                <motion.path d={SPARK} fill="none" stroke="#D2AA6C" strokeWidth="2" strokeLinecap="round" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1.8, ease: EASE, delay: 0.8 }} />
-              </svg>
-              </div>
-            </GlassCard>
-            <GlassCard className="left-[17.5rem] top-0 w-56" float="animate-float-slow" delay={0.6}>
-              <div className="p-4">
-              <div className="text-[10px] tracking-[0.18em] uppercase text-graphite-400 mb-2">Inventory turnover</div>
-              <div className="flex items-end gap-1.5 h-14">
-                {[38, 52, 44, 66, 58, 74, 88].map((h, i) => (
-                  <motion.span
-                    key={i}
-                    initial={{ height: 0 }}
-                    animate={{ height: `${h}%` }}
-                    transition={{ duration: 0.9, ease: EASE, delay: 0.9 + i * 0.07 }}
-                    className="flex-1 rounded-t-md bg-gradient-to-t from-gold-700/60 to-gold-300"
-                  />
-                ))}
-              </div>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs text-white/60">Today&apos;s revenue</span>
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-300 bg-emerald-400/15 px-1.5 py-0.5 rounded-full"><TrendingUp size={11} /> 17.9%</span>
+                </div>
+                <div className="font-display text-3xl font-bold text-white mb-3">₹2,93,799</div>
+                <svg viewBox="0 0 180 42" className="w-full h-10" aria-hidden>
+                  <defs>
+                    <linearGradient id="spark" x1="0" x2="0" y1="0" y2="1">
+                      <stop offset="0%" stopColor="#A9ADFF" stopOpacity="0.45" />
+                      <stop offset="100%" stopColor="#A9ADFF" stopOpacity="0" />
+                    </linearGradient>
+                  </defs>
+                  <path d={`${SPARK} L180 42 L0 42 Z`} fill="url(#spark)" />
+                  <motion.path d={SPARK} fill="none" stroke="#A9ADFF" strokeWidth="2" strokeLinecap="round" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1.8, ease: EASE, delay: 0.8 }} />
+                </svg>
               </div>
             </GlassCard>
-            <GlassCard className="left-[19rem] top-[8.5rem] w-60" delay={0.75}>
-              <div className="p-4 flex items-center gap-3">
-              <span className="relative w-9 h-9 rounded-xl bg-emerald-400/15 flex items-center justify-center">
-                <ShieldCheck size={17} className="text-emerald-300" />
-              </span>
-              <div>
-                <div className="text-xs text-white font-semibold">Access secured</div>
-                <div className="text-[11px] text-graphite-400">Permissions enforced end-to-end</div>
-              </div>
-              </div>
-            </GlassCard>
+            <div className="flex flex-col gap-4">
+              <GlassCard className="w-56" float="animate-float-slow" delay={0.6}>
+                <div className="p-4">
+                  <div className="text-xs text-white/60 mb-2">Inventory turnover</div>
+                  <div className="flex items-end gap-1.5 h-12">
+                    {[38, 52, 44, 66, 58, 74, 88].map((h, i) => (
+                      <motion.span
+                        key={i}
+                        initial={{ height: 0 }}
+                        animate={{ height: `${h}%` }}
+                        transition={{ duration: 0.9, ease: EASE, delay: 0.9 + i * 0.07 }}
+                        className="flex-1 rounded-t-[4px] bg-gradient-to-t from-brand-500/70 to-accent-300"
+                      />
+                    ))}
+                  </div>
+                </div>
+              </GlassCard>
+              <GlassCard className="w-56" delay={0.75}>
+                <div className="p-3.5 flex items-center gap-3">
+                  <span className="w-9 h-9 rounded-xl bg-emerald-400/15 flex items-center justify-center shrink-0">
+                    <ShieldCheck size={17} className="text-emerald-300" />
+                  </span>
+                  <div>
+                    <div className="text-xs text-white font-semibold">Access secured</div>
+                    <div className="text-[11px] text-white/55">Permissions enforced end-to-end</div>
+                  </div>
+                </div>
+              </GlassCard>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-x-6 gap-y-4 mt-9 max-w-xl">
+            {FEATURES.map((f, i) => (
+              <motion.div
+                key={f.label}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, ease: EASE, delay: 0.5 + i * 0.08 }}
+                className="flex items-start gap-3"
+              >
+                <span className="w-8 h-8 rounded-lg bg-white/[0.08] border border-white/10 flex items-center justify-center shrink-0">
+                  <f.icon size={15} className="text-[#A9ADFF]" />
+                </span>
+                <div>
+                  <div className="text-[13px] font-semibold text-white">{f.label}</div>
+                  <div className="text-xs text-white/55 leading-snug">{f.text}</div>
+                </div>
+              </motion.div>
+            ))}
           </div>
         </div>
 
-        <div className="relative flex items-center justify-between text-xs text-graphite-500">
-          <span>© {new Date().getFullYear()} AURELIA Department Store</span>
-          <span className="tracking-[0.24em] uppercase text-[10px]">Crafted for retail excellence</span>
-        </div>
+        <div className="relative text-xs text-white/45">© {new Date().getFullYear()} AURELIA Department Store</div>
       </div>
 
       {/* ---------- Sign-in panel ---------- */}
-      <div className="flex-1 relative flex items-center justify-center p-6 sm:p-10" style={{ background: 'var(--bg-app)' }}>
-        <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(600px_300px_at_80%_0%,rgba(210,170,108,0.16),transparent_70%)]" />
+      <div className="flex-1 relative flex items-center justify-center p-5 sm:p-10">
+        <button
+          type="button"
+          onClick={toggleTheme}
+          aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+          title="Toggle theme"
+          className="absolute top-5 right-5 w-9 h-9 rounded-xl flex items-center justify-center border transition-colors hover:bg-[var(--hover-tint)]"
+          style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)', background: 'var(--bg-surface)' }}
+        >
+          {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
+        </button>
+
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, ease: EASE, delay: 0.1 }}
           className="relative w-full max-w-[26rem]"
         >
-          <div className="lg:hidden flex items-center gap-3 mb-10">
-            <div className="w-10 h-10 rounded-xl bg-gold-gradient flex items-center justify-center font-display font-bold text-graphite-950 shadow-gold">A</div>
-            <span className="font-display text-xl font-semibold tracking-[0.12em]" style={{ color: 'var(--text-primary)' }}>AURELIA</span>
+          <div className="lg:hidden flex items-center gap-3 mb-8">
+            <Logo />
+            <div className="leading-none">
+              <div className="font-display text-xl font-extrabold tracking-[0.04em]" style={{ color: 'var(--text-primary)' }}>AURELIA</div>
+              <div className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>Department Store</div>
+            </div>
           </div>
 
-          <div className="surface-card rounded-[1.75rem] p-8 sm:p-9 shadow-premium-lg relative overflow-hidden">
-            <div className="absolute top-0 inset-x-10 h-px bg-gradient-to-r from-transparent via-gold-400 to-transparent" />
-            <span className="eyebrow">Welcome back</span>
-            <h2 className="font-display text-[2rem] leading-tight font-semibold mt-2 mb-1.5" style={{ color: 'var(--text-primary)' }}>Sign in</h2>
-            <p className="text-sm mb-8" style={{ color: 'var(--text-secondary)' }}>Access your AURELIA workspace.</p>
+          <div className="glass-panel rounded-[1.75rem] p-7 sm:p-9 relative overflow-hidden">
+            <div className="absolute top-0 inset-x-10 h-px bg-gradient-to-r from-transparent via-brand-400 to-transparent" />
+            <div className="pointer-events-none absolute -top-24 -right-24 w-56 h-56 rounded-full bg-brand-400/15 blur-3xl" />
+            <h2 className="relative font-display text-[1.75rem] leading-tight font-extrabold mb-1.5" style={{ color: 'var(--text-primary)' }}>Welcome back</h2>
+            <p className="relative text-sm mb-7" style={{ color: 'var(--text-secondary)' }}>Sign in to your AURELIA workspace.</p>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="relative space-y-4">
               <label className="block">
                 <span className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text-secondary)' }}>Email address</span>
                 <div className={inputWrap} style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-surface)' }}>
-                  <Mail size={16} className="absolute left-3.5 text-graphite-400 transition-colors group-focus-within:text-gold-600" />
+                  <Mail size={16} className="absolute left-3.5 text-graphite-400 transition-colors group-focus-within:text-brand-600" />
                   <input
                     type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@aurelia.test"
@@ -213,7 +242,7 @@ export function Login() {
               <label className="block">
                 <span className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text-secondary)' }}>Password</span>
                 <div className={inputWrap} style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-surface)' }}>
-                  <Lock size={16} className="absolute left-3.5 text-graphite-400 transition-colors group-focus-within:text-gold-600" />
+                  <Lock size={16} className="absolute left-3.5 text-graphite-400 transition-colors group-focus-within:text-brand-600" />
                   <input
                     type={showPassword ? 'text' : 'password'} required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
@@ -224,7 +253,7 @@ export function Login() {
                     type="button"
                     onClick={() => setShowPassword((s) => !s)}
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
-                    className="absolute right-2.5 p-1.5 rounded-lg text-graphite-400 hover:text-gold-600 transition-colors"
+                    className="absolute right-2.5 p-1.5 rounded-lg text-graphite-400 hover:text-brand-600 transition-colors"
                   >
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
@@ -233,19 +262,23 @@ export function Login() {
 
               <button
                 type="submit" disabled={loading}
-                className="sheen group w-full flex items-center justify-center gap-2 bg-gold-gradient text-graphite-950 rounded-xl py-3 text-sm font-bold shadow-gold transition-all duration-300 ease-luxe hover:-translate-y-0.5 hover:shadow-gold-glow active:translate-y-0 disabled:opacity-70 disabled:hover:translate-y-0 mt-2"
+                className="sheen group w-full flex items-center justify-center gap-2 bg-brand-gradient text-white rounded-xl py-3 text-sm font-semibold shadow-brand transition-all duration-300 ease-luxe hover:-translate-y-0.5 hover:shadow-brand-glow active:translate-y-0 disabled:opacity-70 disabled:hover:translate-y-0 !mt-6"
               >
                 <span className="relative z-[2] flex items-center gap-2">
                   {loading ? <><Loader2 size={16} className="animate-spin" /> Signing in…</> : <>Sign in <ArrowRight size={16} className="transition-transform duration-300 group-hover:translate-x-1" /></>}
                 </span>
               </button>
             </form>
+
+            <p className="relative flex items-center justify-center gap-1.5 text-xs mt-5" style={{ color: 'var(--text-muted)' }}>
+              <ShieldCheck size={13} className="text-emerald-500" /> Encrypted sign-in · role-based access
+            </p>
           </div>
 
           <div className="mt-6">
             <div className="flex items-center gap-3 mb-3">
               <span className="h-px flex-1" style={{ background: 'var(--border-subtle)' }} />
-              <span className="eyebrow !text-[10px]">Demo accounts</span>
+              <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Demo accounts — click to fill</span>
               <span className="h-px flex-1" style={{ background: 'var(--border-subtle)' }} />
             </div>
             <div className="grid grid-cols-3 gap-2">
@@ -260,8 +293,8 @@ export function Login() {
                   whileTap={{ scale: 0.97 }}
                   onClick={() => { setEmail(acc.email); setPassword(acc.password); }}
                   title={acc.email}
-                  className={`surface-card rounded-xl px-2 py-2.5 text-xs font-semibold transition-colors hover:border-gold-400 ${email === acc.email ? '!border-gold-400 bg-gold-50' : ''}`}
-                  style={{ color: 'var(--text-primary)' }}
+                  className={`surface-card rounded-xl px-2 py-2.5 text-xs font-semibold transition-colors hover:border-brand-400 ${email === acc.email ? '!border-brand-400 bg-brand-50 text-brand-700' : ''}`}
+                  style={email === acc.email ? undefined : { color: 'var(--text-primary)' }}
                 >
                   {acc.role}
                 </motion.button>

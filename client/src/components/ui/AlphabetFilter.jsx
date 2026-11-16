@@ -11,7 +11,7 @@ export function AlphabetFilter({ value, onChange }) {
           onClick={() => onChange(letter)}
           className={clsx(
             'min-w-[28px] h-7 px-1.5 rounded-md text-xs font-medium transition-colors',
-            value === letter ? 'bg-graphite-900 text-white' : 'hover:bg-graphite-100'
+            value === letter ? 'bg-brand-gradient text-white shadow-brand' : 'hover:bg-graphite-100'
           )}
           style={value === letter ? {} : { color: 'var(--text-secondary)' }}
         >

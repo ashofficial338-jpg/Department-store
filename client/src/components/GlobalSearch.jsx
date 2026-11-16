@@ -58,8 +58,8 @@ export function GlobalSearch({ open, onClose }) {
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && pages.length) go(pages[0].to); }}
           placeholder="Type a page (e.g. low stock) or a product, customer, invoice..."
-          className="w-full rounded-lg border pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gold-400"
-          style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
+          className="w-full rounded-xl border pl-9 pr-4 py-3 text-sm focus:outline-none focus:!border-brand-400"
+          style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-primary)', background: 'var(--bg-surface-muted)' }}
         />
       </div>
 
@@ -67,6 +67,10 @@ export function GlobalSearch({ open, onClose }) {
 
       {nothingFound && (
         <p className="text-sm text-center py-6" style={{ color: 'var(--text-muted)' }}>No matches for &ldquo;{query}&rdquo;.</p>
+      )}
+
+      {!q && (
+        <p className="text-sm text-center py-6" style={{ color: 'var(--text-muted)' }}>Search pages, products, customers, vendors, invoices and purchase orders.</p>
       )}
 
       <div className="space-y-4 max-h-[50vh] overflow-y-auto">
@@ -78,9 +82,9 @@ export function GlobalSearch({ open, onClose }) {
                 <button
                   key={page.to}
                   onClick={() => go(page.to)}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-gold-50 text-left text-sm"
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-brand-50 text-left text-sm transition-colors"
                 >
-                  <page.icon size={15} className="text-gold-600 shrink-0" />
+                  <span className="w-7 h-7 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center shrink-0"><page.icon size={14} /></span>
                   <span className="flex-1" style={{ color: 'var(--text-primary)' }}>{page.label}</span>
                   {page.section && <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{page.section}</span>}
                 </button>
@@ -96,7 +100,7 @@ export function GlobalSearch({ open, onClose }) {
                 <button
                   key={item.id}
                   onClick={() => go(ROUTE_MAP[item.type]?.(item.id) || '/dashboard')}
-                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gold-50 text-left text-sm"
+                  className="w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl hover:bg-brand-50 text-left text-sm transition-colors"
                 >
                   <span style={{ color: 'var(--text-primary)' }}>{item.label}</span>
                   {item.sub && <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{item.sub}</span>}

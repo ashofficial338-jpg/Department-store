@@ -1,3 +1,11 @@
+// Brand accent: indigo-violet. `gold` is kept as an alias of `brand` so the many existing
+// `gold-*` utilities across the pages pick up the new accent without touching every file.
+const brand = {
+  50: '#F1F2FF', 100: '#E4E6FF', 200: '#CDD0FF', 300: '#A9ADFF',
+  400: '#8283FB', 500: '#6558F5', 600: '#5341E8', 700: '#4532CC',
+  800: '#392BA5', 900: '#312A82', 950: '#1E184D',
+};
+
 /** @type {import('tailwindcss').Config} */
 export default {
   // The theme is switched with <html data-theme="dark">, so `dark:` variants follow that attribute.
@@ -6,33 +14,34 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        display: ['"Playfair Display"', 'Georgia', 'serif'],
-        sans: ['"Plus Jakarta Sans"', 'Inter', 'system-ui', 'sans-serif'],
+        display: ['Manrope', 'Inter', 'system-ui', 'sans-serif'],
+        sans: ['Inter', 'system-ui', '-apple-system', '"Segoe UI"', 'sans-serif'],
       },
       colors: {
+        brand,
+        gold: brand,
+        // Cool slate neutrals.
         graphite: {
-          50: '#F6F6F7', 100: '#E9EAEC', 200: '#D2D4D9', 300: '#AEB1BA',
-          400: '#838795', 500: '#5F6373', 600: '#454856', 700: '#2F323E',
-          800: '#1E2028', 900: '#14151B', 950: '#0B0C10',
+          50: '#F7F8FC', 100: '#EEF0F7', 200: '#DFE2EE', 300: '#C3C8DA',
+          400: '#959BB5', 500: '#6B7190', 600: '#4A5068', 700: '#333850',
+          800: '#1F2337', 900: '#131627', 950: '#0A0C18',
         },
-        gold: {
-          50: '#FBF7EE', 100: '#F5EAD2', 200: '#EBD8AF', 300: '#DFC08A',
-          400: '#D2AA6C', 500: '#C29A56', 600: '#A67F42', 700: '#856436',
-          800: '#6B5230', 900: '#59442B',
-        },
+        accent: { 300: '#67E8F9', 400: '#22D3EE', 500: '#06B6D4', 600: '#0891B2' },
         surface: {
-          DEFAULT: '#FAF9F6', muted: '#F3F1EA', border: '#E7E3D8',
+          DEFAULT: '#FFFFFF', muted: '#F7F8FC', border: '#E6E8F1',
         },
       },
       boxShadow: {
-        premium: '0 1px 2px rgba(11,12,16,0.04), 0 8px 24px -10px rgba(11,12,16,0.10)',
-        'premium-lg': '0 2px 6px rgba(11,12,16,0.05), 0 24px 48px -18px rgba(11,12,16,0.22)',
-        gold: '0 10px 28px -10px rgba(194,154,86,0.55)',
-        'gold-glow': '0 0 0 1px rgba(210,170,108,0.35), 0 12px 32px -12px rgba(194,154,86,0.55)',
+        premium: '0 1px 2px rgba(15,18,34,0.04), 0 8px 24px -12px rgba(15,18,34,0.10)',
+        'premium-lg': '0 2px 6px rgba(15,18,34,0.05), 0 28px 56px -22px rgba(15,18,34,0.28)',
+        brand: '0 10px 26px -10px rgba(101,88,245,0.60)',
+        'brand-glow': '0 0 0 1px rgba(130,131,251,0.40), 0 14px 34px -12px rgba(101,88,245,0.65)',
+        gold: '0 10px 26px -10px rgba(101,88,245,0.60)',
+        'gold-glow': '0 0 0 1px rgba(130,131,251,0.40), 0 14px 34px -12px rgba(101,88,245,0.65)',
         'inner-hairline': 'inset 0 1px 0 rgba(255,255,255,0.6)',
       },
       borderRadius: {
-        xl2: '1.25rem',
+        xl2: '1.125rem',
       },
       transitionTimingFunction: {
         luxe: 'cubic-bezier(0.22, 1, 0.36, 1)',

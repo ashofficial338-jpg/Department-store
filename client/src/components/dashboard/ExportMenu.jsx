@@ -41,7 +41,7 @@ export function ExportMenu({ metric, filters, label = 'Export' }) {
         disabled={!!busy}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium bg-gold-500 text-graphite-950 hover:bg-gold-600 shadow-gold disabled:opacity-60"
+        className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium bg-gold-500 text-white hover:bg-gold-600 shadow-gold disabled:opacity-60"
       >
         {busy ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
         {busy ? 'Exporting…' : label}

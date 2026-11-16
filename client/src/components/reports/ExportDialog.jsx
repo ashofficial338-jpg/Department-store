@@ -143,7 +143,7 @@ export function ExportDialog({ open, onClose, meta, filters, initialFormat = 'pd
 
           {format === 'xlsx' && (
             <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
-              <input type="checkbox" className="accent-[#C29A56] w-4 h-4" checked={includeCharts} onChange={(e) => setIncludeCharts(e.target.checked)} />
+              <input type="checkbox" className="accent-brand-500 w-4 h-4" checked={includeCharts} onChange={(e) => setIncludeCharts(e.target.checked)} />
               Include the page&rsquo;s charts as images
             </label>
           )}
@@ -155,7 +155,7 @@ export function ExportDialog({ open, onClose, meta, filters, initialFormat = 'pd
               <Button size="sm" variant="outline" icon={Save} loading={saving} onClick={saveTemplate}>Save</Button>
             </div>
             <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
-              <input type="checkbox" className="accent-[#C29A56]" checked={shared} onChange={(e) => setShared(e.target.checked)} /> <Users size={13} /> Share with everyone who can open Reports
+              <input type="checkbox" className="accent-brand-500" checked={shared} onChange={(e) => setShared(e.target.checked)} /> <Users size={13} /> Share with everyone who can open Reports
             </label>
             {mine.length > 0 && (
               <ul className="pt-1 space-y-1">
@@ -187,7 +187,7 @@ export function ExportDialog({ open, onClose, meta, filters, initialFormat = 'pd
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5">
                   {bySheet[sheet].map((s) => (
                     <label key={s.key} className="flex items-start gap-2 cursor-pointer text-sm" title={s.description}>
-                      <input type="checkbox" className="accent-[#C29A56] w-4 h-4 mt-0.5" checked={selected.includes(s.key)} onChange={() => toggle(s.key)} />
+                      <input type="checkbox" className="accent-brand-500 w-4 h-4 mt-0.5" checked={selected.includes(s.key)} onChange={() => toggle(s.key)} />
                       <span>
                         <span style={{ color: 'var(--text-primary)' }}>{s.title}</span>
                         <span className="block text-[11px] leading-snug" style={{ color: 'var(--text-muted)' }}>{s.description}</span>

@@ -144,7 +144,7 @@ export function SectionExplorer({ sections, filters, onExportSection, exporting 
               </tbody>
               {data.totals && data.rows.length > 0 && (
                 <tfoot>
-                  <tr className="font-semibold" style={{ borderTop: '2px solid #D9B97A', background: 'rgba(194,154,86,0.08)' }}>
+                  <tr className="font-semibold" style={{ borderTop: '2px solid var(--brand-soft)', background: 'rgba(101,88,245,0.08)' }}>
                     {data.columns.map((c, i) => (
                       <td key={c.key} className={`px-3 py-2.5 whitespace-nowrap ${isNum(c.type) ? 'text-right tabular-nums' : ''}`}>
                         {i === 0 ? `Total${q ? ' (filtered)' : ''}` : data.totals[c.key] !== undefined ? cell(data.totals[c.key], c.type, {}) : ''}

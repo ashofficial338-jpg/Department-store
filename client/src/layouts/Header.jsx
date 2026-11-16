@@ -1,12 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Search, Moon, Sun, LogOut, ChevronDown, Menu, ShoppingCart, ShieldCheck, LayoutDashboard, KeyRound } from 'lucide-react';
+import { Search, Moon, Sun, LogOut, ChevronDown, ChevronRight, Menu, ShoppingCart, ShieldCheck, LayoutDashboard, KeyRound } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useTheme } from '../context/ThemeContext.jsx';
 import GlobalSearch from '../components/GlobalSearch.jsx';
 import NotificationBell from '../components/NotificationBell.jsx';
 import ChangePasswordDialog from '../components/ChangePasswordDialog.jsx';
+import NAV_SECTIONS from '../routes/navConfig.js';
 import { hasPermission, isAdmin } from '../utils/permissions.js';
 
 function roleLabel(role) {
@@ -15,6 +16,20 @@ function roleLabel(role) {
 
 function initials(name) {
   return (name || '?').split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase();
+}
+
+// Section + page name for the current route, taken from the navigation config (longest match wins).
+function useCurrentPage() {
+  const { pathname } = useLocation();
+  return useMemo(() => {
+    let best = null;
+    for (const section of NAV_SECTIONS) {
+      for (const item of section.items) {
+        if ((pathname === item.to || pathname.startsWith(`${item.to}/`)) && (!best || item.to.length > best.item.to.length)) best = { section: section.label, item };
+      }
+    }
+    return best;
+  }, [pathname]);
 }
 
 export function Header({ onMenuClick }) {
@@ -27,6 +42,7 @@ export function Header({ onMenuClick }) {
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const menuRef = useRef(null);
+  const page = useCurrentPage();
 
   useEffect(() => {
     function onKey(e) {
@@ -59,6 +75,7 @@ export function Header({ onMenuClick }) {
   }, []);
 
   const iconBtn = 'relative w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-300 ease-luxe hover:bg-[var(--hover-tint)] active:scale-95';
+  const menuItem = 'w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-colors hover:bg-[var(--hover-tint)]';
 
   return (
     <>
@@ -66,19 +83,34 @@ export function Header({ onMenuClick }) {
         className="glass h-16 sticky top-0 z-30 flex items-center justify-between gap-3 px-4 md:px-8 border-b transition-shadow duration-500"
         style={{
           borderColor: scrolled ? 'var(--border-subtle)' : 'transparent',
-          boxShadow: scrolled ? '0 10px 30px -18px rgba(17,18,24,0.35)' : 'none',
+          boxShadow: scrolled ? '0 10px 30px -20px rgba(15,18,34,0.35)' : 'none',
         }}
       >
-        <div className="flex items-center gap-2 min-w-0 flex-1">
-          <button onClick={onMenuClick} className={`lg:hidden ${iconBtn}`} aria-label="Open menu">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <button onClick={onMenuClick} className={`lg:hidden shrink-0 ${iconBtn}`} aria-label="Open menu">
             <Menu size={18} style={{ color: 'var(--text-secondary)' }} />
           </button>
+
+          {/* Where am I: section › page (desktop). */}
+          {page && (
+            <div className="hidden xl:flex items-center gap-1.5 text-sm shrink-0 mr-2" aria-label="Current page">
+              {page.section && (
+                <>
+                  <span style={{ color: 'var(--text-muted)' }}>{page.section}</span>
+                  <ChevronRight size={13} style={{ color: 'var(--text-muted)' }} />
+                </>
+              )}
+              <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{page.item.label}</span>
+            </div>
+          )}
+
           <button
             onClick={() => setSearchOpen(true)}
-            aria-label="Search" className="group flex items-center gap-2.5 px-3 sm:px-3.5 py-2 rounded-xl border text-sm min-w-0 sm:w-full sm:max-w-[22rem] transition-all duration-300 ease-luxe hover:border-gold-400/70 hover:shadow-[0_0_0_4px_rgba(194,154,86,0.10)]"
+            aria-label="Search"
+            className="group flex items-center gap-2.5 px-3 sm:px-3.5 py-2 rounded-xl border text-sm min-w-0 sm:w-full sm:max-w-[22rem] transition-all duration-300 ease-luxe hover:border-brand-400/70 hover:shadow-[0_0_0_4px_var(--focus-ring)]"
             style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)', background: 'var(--bg-surface)' }}
           >
-            <Search size={15} className="shrink-0 transition-colors group-hover:text-gold-600" />
+            <Search size={15} className="shrink-0 transition-colors group-hover:text-brand-600" />
             <span className="hidden sm:block flex-1 text-left truncate">Search pages, products, customers…</span>
             <kbd className="hidden sm:inline text-[10px] font-semibold px-1.5 py-0.5 rounded-md border" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-surface-muted)' }}>Ctrl K</kbd>
           </button>
@@ -89,11 +121,11 @@ export function Header({ onMenuClick }) {
             <button
               onClick={() => navigate('/pos')}
               title="New Bill (F2)"
-              className="sheen flex items-center gap-1.5 bg-gold-gradient text-graphite-950 rounded-xl px-3.5 py-2 text-sm font-semibold mr-1 shadow-gold transition-transform duration-300 ease-luxe hover:-translate-y-0.5 active:translate-y-0"
+              className="sheen flex items-center gap-1.5 bg-brand-gradient text-white rounded-xl px-3.5 py-2 text-sm font-semibold mr-1 shadow-brand transition-all duration-300 ease-luxe hover:-translate-y-0.5 hover:shadow-brand-glow active:translate-y-0"
             >
-              <ShoppingCart size={15} />
-              <span className="hidden sm:inline">New Bill</span>
-              <kbd className="hidden md:inline text-[10px] px-1 rounded bg-black/10">F2</kbd>
+              <ShoppingCart size={15} className="relative z-[2]" />
+              <span className="relative z-[2] hidden sm:inline">New Bill</span>
+              <kbd className="relative z-[2] hidden md:inline text-[10px] px-1 rounded bg-white/20">F2</kbd>
             </button>
           )}
           <button onClick={toggleTheme} className={iconBtn} aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'} title="Toggle theme">
@@ -106,7 +138,7 @@ export function Header({ onMenuClick }) {
                 transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
                 className="flex"
               >
-                {theme === 'light' ? <Moon size={17} style={{ color: 'var(--text-secondary)' }} /> : <Sun size={17} className="text-gold-400" />}
+                {theme === 'light' ? <Moon size={17} style={{ color: 'var(--text-secondary)' }} /> : <Sun size={17} className="text-amber-300" />}
               </motion.span>
             </AnimatePresence>
           </button>
@@ -119,8 +151,8 @@ export function Header({ onMenuClick }) {
               aria-expanded={menuOpen}
               className="flex items-center gap-2.5 pl-1 pr-2 py-1 rounded-xl transition-colors duration-300 hover:bg-[var(--hover-tint)]"
             >
-              <span className="relative p-[2px] rounded-full bg-gold-gradient">
-                <span className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold tracking-wide" style={{ background: 'var(--bg-surface)', color: 'var(--text-primary)' }}>
+              <span className="relative">
+                <span className="w-8 h-8 rounded-full bg-brand-gradient text-white flex items-center justify-center text-[11px] font-bold tracking-wide">
                   {initials(user?.name)}
                 </span>
                 <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2" style={{ '--tw-ring-color': 'var(--bg-surface)' }} />
@@ -128,7 +160,7 @@ export function Header({ onMenuClick }) {
               <div className="text-left hidden md:block">
                 <div className="text-xs font-semibold leading-tight" style={{ color: 'var(--text-primary)' }}>{user?.name}</div>
                 <div className="text-[10px] leading-tight mt-0.5 flex items-center gap-1" style={{ color: 'var(--text-muted)' }}>
-                  {isAdmin(user) && <ShieldCheck size={10} className="text-gold-600" />}
+                  {isAdmin(user) && <ShieldCheck size={10} className="text-brand-600" />}
                   {roleLabel(user?.role)}
                 </div>
               </div>
@@ -145,29 +177,19 @@ export function Header({ onMenuClick }) {
                   className="absolute right-0 mt-2 w-64 surface-card shadow-premium-lg rounded-2xl overflow-hidden origin-top-right"
                 >
                   <div className="px-4 py-4 border-b relative overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
-                    <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-gold-500/10 blur-2xl" />
+                    <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-brand-500/15 blur-2xl" />
                     <div className="relative text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{user?.name}</div>
                     <div className="relative text-xs truncate" style={{ color: 'var(--text-muted)' }}>{user?.email}</div>
-                    <span className="relative inline-flex items-center gap-1 mt-2 text-[10px] font-semibold uppercase tracking-[0.14em] px-2 py-0.5 rounded-full bg-gold-100 text-gold-800">
+                    <span className="relative inline-flex items-center gap-1 mt-2 text-[10px] font-semibold uppercase tracking-[0.08em] px-2 py-0.5 rounded-full bg-brand-100 text-brand-800">
                       {isAdmin(user) && <ShieldCheck size={10} />} {roleLabel(user?.role)}
                     </span>
                   </div>
                   <div className="p-1.5">
-                    <button
-                      role="menuitem"
-                      onClick={() => { setMenuOpen(false); navigate('/dashboard'); }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-colors hover:bg-[var(--hover-tint)]"
-                      style={{ color: 'var(--text-primary)' }}
-                    >
-                      <LayoutDashboard size={15} className="text-gold-600" /> Dashboard
+                    <button role="menuitem" onClick={() => { setMenuOpen(false); navigate('/dashboard'); }} className={menuItem} style={{ color: 'var(--text-primary)' }}>
+                      <LayoutDashboard size={15} className="text-brand-600" /> Dashboard
                     </button>
-                    <button
-                      role="menuitem"
-                      onClick={() => { setMenuOpen(false); setPasswordOpen(true); }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-colors hover:bg-[var(--hover-tint)]"
-                      style={{ color: 'var(--text-primary)' }}
-                    >
-                      <KeyRound size={15} className="text-gold-600" /> Change password
+                    <button role="menuitem" onClick={() => { setMenuOpen(false); setPasswordOpen(true); }} className={menuItem} style={{ color: 'var(--text-primary)' }}>
+                      <KeyRound size={15} className="text-brand-600" /> Change password
                     </button>
                     <button
                       role="menuitem"

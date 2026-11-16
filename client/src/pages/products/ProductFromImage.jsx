@@ -45,7 +45,7 @@ export function ProductFromImage() {
       <div className="flex flex-wrap items-center gap-2 mb-6">
         {STEPS.map((s, i) => (
           <div key={s} className="flex items-center gap-2">
-            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold ${i <= step ? 'bg-gold-500 text-graphite-950' : 'bg-graphite-100 text-graphite-400'}`}>{i + 1}</div>
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold ${i <= step ? 'bg-gold-500 text-white' : 'bg-graphite-100 text-graphite-400'}`}>{i + 1}</div>
             <span className="text-xs" style={{ color: i <= step ? 'var(--text-primary)' : 'var(--text-muted)' }}>{s}</span>
             {i < STEPS.length - 1 && <ArrowRight size={12} className="text-graphite-300 mx-1" />}
           </div>

@@ -6,7 +6,7 @@ const EASE = [0.22, 1, 0.36, 1];
 
 export function PageHeader({ title, subtitle, crumbs = [], actions }) {
   return (
-    <div className="flex flex-wrap items-end justify-between gap-4 mb-7">
+    <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
       <div className="min-w-0">
         {crumbs.length > 0 && (
           <motion.nav
@@ -14,13 +14,15 @@ export function PageHeader({ title, subtitle, crumbs = [], actions }) {
             initial={{ opacity: 0, x: -6 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.4, ease: EASE }}
-            className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] mb-2.5"
+            className="flex flex-wrap items-center gap-1.5 text-xs font-medium mb-2"
             style={{ color: 'var(--text-muted)' }}
           >
             {crumbs.map((c, i) => (
               <span key={i} className="flex items-center gap-1.5">
-                {c.to ? <Link to={c.to} className="transition-colors hover:text-gold-600">{c.label}</Link> : <span>{c.label}</span>}
-                {i < crumbs.length - 1 && <ChevronRight size={11} className="opacity-60" />}
+                {c.to
+                  ? <Link to={c.to} className="transition-colors hover:text-brand-600">{c.label}</Link>
+                  : <span style={i === crumbs.length - 1 ? { color: 'var(--text-secondary)' } : undefined}>{c.label}</span>}
+                {i < crumbs.length - 1 && <ChevronRight size={12} className="opacity-60" />}
               </span>
             ))}
           </motion.nav>
@@ -29,24 +31,17 @@ export function PageHeader({ title, subtitle, crumbs = [], actions }) {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: EASE, delay: 0.05 }}
-          className="font-display text-[1.75rem] md:text-[2rem] leading-tight font-semibold"
+          className="font-display text-2xl md:text-[1.75rem] leading-tight font-extrabold"
           style={{ color: 'var(--text-primary)' }}
         >
           {title}
         </motion.h1>
-        <motion.span
-          aria-hidden
-          initial={{ scaleX: 0 }}
-          animate={{ scaleX: 1 }}
-          transition={{ duration: 0.8, ease: EASE, delay: 0.2 }}
-          className="block h-[2px] w-12 mt-2.5 rounded-full bg-gold-gradient origin-left"
-        />
         {subtitle && (
           <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.15 }}
-            className="text-sm mt-2.5 max-w-2xl"
+            className="text-sm mt-1.5 max-w-2xl"
             style={{ color: 'var(--text-secondary)' }}
           >
             {subtitle}

@@ -88,7 +88,7 @@ export default function App() {
             border: '1px solid var(--border-subtle)',
             boxShadow: '0 20px 40px -20px rgba(17,18,24,0.45)',
           },
-          success: { iconTheme: { primary: '#C29A56', secondary: '#fff' } },
+          success: { iconTheme: { primary: '#6558F5', secondary: '#fff' } },
           error: { iconTheme: { primary: '#E11D48', secondary: '#fff' } },
         }}
       />

@@ -48,8 +48,8 @@ function SectionTitle({ children, aside }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 mb-3.5">
       <div className="flex items-center gap-2.5">
-        <span className="h-px w-6 bg-gold-gradient" />
-        <span className="eyebrow">{children}</span>
+        <span className="h-4 w-1 rounded-full bg-brand-gradient" />
+        <h2 className="font-display text-[15px] font-bold" style={{ color: 'var(--text-primary)' }}>{children}</h2>
       </div>
       {aside && <div className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>{aside}</div>}
     </div>
@@ -121,14 +121,14 @@ export function Dashboard() {
   return (
     <div>
       <PageHeader
-        title={<>{greeting()}, <span className="text-gold-gradient italic">{user?.name?.split(' ')[0] || 'there'}</span></>}
+        title={<>{greeting()}, <span className="text-brand-gradient">{user?.name?.split(' ')[0] || 'there'}</span></>}
         subtitle={new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
         actions={(
           <>
             <button
               type="button"
               onClick={() => setRefreshTick((x) => x + 1)}
-              className="inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-sm font-semibold transition-all duration-300 hover:border-gold-400 hover:-translate-y-px"
+              className="inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-sm font-semibold transition-all duration-300 hover:border-brand-400 hover:-translate-y-px"
               style={{ borderColor: 'var(--border-strong)', color: 'var(--text-primary)', background: 'var(--bg-surface)' }}
               title="Recalculate with the latest data"
             >
@@ -153,18 +153,18 @@ export function Dashboard() {
                 <Link
                   to={a.to}
                   className={a.primary
-                    ? 'sheen group h-full flex flex-col items-center justify-center gap-2 rounded-2xl py-4 px-2 text-sm font-semibold bg-gold-gradient text-graphite-950 shadow-gold lift'
-                    : 'group h-full surface-card gold-ring lift flex flex-col items-center justify-center gap-2.5 rounded-2xl py-4 px-2 text-sm font-medium'}
+                    ? 'sheen group h-full flex flex-col items-center justify-center gap-2 rounded-2xl py-4 px-2 text-sm font-semibold bg-brand-gradient text-white shadow-brand lift'
+                    : 'group h-full surface-card brand-ring lift flex flex-col items-center justify-center gap-2.5 rounded-2xl py-4 px-2 text-sm font-medium'}
                   style={a.primary ? undefined : { color: 'var(--text-primary)' }}
                 >
                   <span className={a.primary
-                    ? 'relative z-[2] w-10 h-10 rounded-xl bg-black/10 flex items-center justify-center'
-                    : 'w-10 h-10 rounded-xl bg-gold-50 text-gold-700 flex items-center justify-center transition-all duration-500 ease-luxe group-hover:bg-gold-gradient group-hover:text-graphite-950 group-hover:shadow-gold group-hover:-rotate-6 group-hover:scale-110'}
+                    ? 'relative z-[2] w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center'
+                    : 'w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center transition-all duration-500 ease-luxe group-hover:bg-brand-gradient group-hover:text-white group-hover:shadow-brand group-hover:-rotate-6 group-hover:scale-110'}
                   >
                     <a.icon size={19} />
                   </span>
                   <span className="relative z-[2] text-center leading-tight">{a.label}</span>
-                  {a.hint && <kbd className="relative z-[2] text-[10px] px-1.5 rounded-md bg-black/10 font-semibold">{a.hint}</kbd>}
+                  {a.hint && <kbd className="relative z-[2] text-[10px] px-1.5 rounded-md bg-white/20 font-semibold">{a.hint}</kbd>}
                 </Link>
               </motion.div>
             ))}
@@ -176,7 +176,7 @@ export function Dashboard() {
 
       {nothingVisible && (
         <div className="surface-card rounded-xl2 shadow-premium p-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
-          <Lock size={20} className="mx-auto mb-2 text-gold-600" />
+          <Lock size={20} className="mx-auto mb-2 text-brand-600" />
           Your role doesn&apos;t include any dashboard information yet. Ask an administrator to grant access in Roles &amp; Permissions.
         </div>
       )}
@@ -326,7 +326,7 @@ function DataGrid({ headers, rows, flush = false }) {
             <tr
               key={r.key}
               onClick={r.onClick ? (e) => { e.stopPropagation(); r.onClick(); } : undefined}
-              className={r.onClick ? 'cursor-pointer hover:bg-gold-500/5' : undefined}
+              className={r.onClick ? 'cursor-pointer hover:!bg-[var(--brand-tint)]' : undefined}
               style={{ borderBottom: '1px solid var(--border-subtle)' }}
             >
               {r.cells.map((c, i) => <td key={i} className="px-4 py-2.5 whitespace-nowrap">{c}</td>)}

@@ -3,53 +3,82 @@
 @tailwind utilities;
 
 /* ============================================================
-   AURELIA design tokens — "champagne & onyx"
+   AURELIA design tokens — "indigo aurora"
+   Brand accent is indigo-violet; `gold` names are kept as aliases
+   of the brand accent so older markup stays in step.
    ============================================================ */
 :root {
-  --bg-app: #F4F1EA;
+  --bg-app: #F4F5FB;
   --bg-surface: #FFFFFF;
-  --bg-surface-muted: #FAF8F3;
-  --bg-elevated: rgba(255, 255, 255, 0.72);
-  --border-subtle: #E8E3D7;
-  --border-strong: #D9D1BF;
-  --text-primary: #14151B;
-  --text-secondary: #565A69;
-  --text-muted: #868A97;
-  --sidebar-bg: #101117;
-  --sidebar-text: #B9BCC6;
-  --hover-tint: rgba(20, 21, 27, 0.04);
-  --gold-tint: rgba(194, 154, 86, 0.10);
+  --bg-surface-muted: #F7F8FC;
+  --bg-elevated: rgba(255, 255, 255, 0.74);
+  --border-subtle: #E6E8F1;
+  --border-strong: #D2D6E4;
+  --text-primary: #0F1222;
+  --text-secondary: #4A5068;
+  --text-muted: #7A809A;
+  --sidebar-bg: rgba(255, 255, 255, 0.82);
+  --sidebar-text: #4A5068;
+  --sidebar-text-strong: #0F1222;
+  --sidebar-muted: #8A90A8;
+  --sidebar-hover: rgba(15, 18, 34, 0.05);
+  --sidebar-active-text: #4532CC;
+  --hover-tint: rgba(15, 18, 34, 0.045);
+  --brand: #6558F5;
+  --brand-strong: #5341E8;
+  --brand-soft: #8283FB;
+  --brand-tint: rgba(101, 88, 245, 0.09);
+  --gold-tint: var(--brand-tint);
+  --focus-ring: rgba(101, 88, 245, 0.18);
   --hairline-highlight: rgba(255, 255, 255, 0.9);
-  --glow-a: rgba(210, 170, 108, 0.20);
-  --glow-b: rgba(126, 144, 176, 0.12);
-  --grain-opacity: 0.035;
-  --shadow-card: 0 1px 2px rgba(17, 18, 24, 0.04), 0 10px 30px -14px rgba(17, 18, 24, 0.14);
-  --shadow-card-hover: 0 2px 6px rgba(17, 18, 24, 0.05), 0 26px 50px -20px rgba(17, 18, 24, 0.26);
-  --gold-gradient: linear-gradient(135deg, #E9CF9A 0%, #C29A56 45%, #A67F42 100%);
+  --glow-a: rgba(101, 88, 245, 0.14);
+  --glow-b: rgba(34, 211, 238, 0.10);
+  --shadow-card: 0 1px 2px rgba(15, 18, 34, 0.04), 0 10px 28px -16px rgba(15, 18, 34, 0.14);
+  --shadow-card-hover: 0 2px 6px rgba(15, 18, 34, 0.05), 0 26px 50px -22px rgba(63, 52, 170, 0.30);
+  --brand-gradient: linear-gradient(135deg, #5B5BF7 0%, #7A4EF5 55%, #A44CEC 100%);
+  --gold-gradient: var(--brand-gradient);
   --ease-luxe: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Chart series (validated categorical order) and chart neutrals. */
+  --viz-1: #6250D6; --viz-2: #EB6834; --viz-3: #1BAF7A; --viz-4: #EDA100;
+  --viz-5: #E87BA4; --viz-6: #008300; --viz-7: #2A78D6; --viz-8: #E34948;
+  --viz-neutral: #6B7190;
+  --itr-3: #C77D14; --itr-6: #2F6FB3; --itr-12: #1F9E78;
   color-scheme: light;
 }
 
 :root[data-theme='dark'] {
-  --bg-app: #0A0B0F;
-  --bg-surface: #131419;
-  --bg-surface-muted: #181A21;
-  --bg-elevated: rgba(22, 23, 30, 0.72);
-  --border-subtle: #262833;
-  --border-strong: #353846;
-  --text-primary: #F3F1EC;
-  --text-secondary: #B3B6C2;
-  --text-muted: #7D808D;
-  --sidebar-bg: #08090C;
-  --sidebar-text: #A9ACB8;
-  --hover-tint: rgba(255, 255, 255, 0.05);
-  --gold-tint: rgba(210, 170, 108, 0.12);
+  --bg-app: #080A14;
+  --bg-surface: #10131F;
+  --bg-surface-muted: #151929;
+  --bg-elevated: rgba(16, 19, 31, 0.74);
+  --border-subtle: #222739;
+  --border-strong: #333A52;
+  --text-primary: #EEF0FA;
+  --text-secondary: #AAB0C8;
+  --text-muted: #737A94;
+  --sidebar-bg: rgba(12, 14, 25, 0.86);
+  --sidebar-text: #A3A9C2;
+  --sidebar-text-strong: #FFFFFF;
+  --sidebar-muted: #646B86;
+  --sidebar-hover: rgba(255, 255, 255, 0.055);
+  --sidebar-active-text: #C5C8FF;
+  --hover-tint: rgba(255, 255, 255, 0.055);
+  --brand: #8283FB;
+  --brand-strong: #A9ADFF;
+  --brand-soft: #A9ADFF;
+  --brand-tint: rgba(130, 131, 251, 0.14);
+  --focus-ring: rgba(130, 131, 251, 0.24);
   --hairline-highlight: rgba(255, 255, 255, 0.06);
-  --glow-a: rgba(210, 170, 108, 0.12);
-  --glow-b: rgba(96, 112, 160, 0.10);
-  --grain-opacity: 0.05;
+  --glow-a: rgba(101, 88, 245, 0.20);
+  --glow-b: rgba(34, 211, 238, 0.08);
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 32px -16px rgba(0, 0, 0, 0.7);
-  --shadow-card-hover: 0 2px 8px rgba(0, 0, 0, 0.45), 0 28px 56px -20px rgba(0, 0, 0, 0.85);
+  --shadow-card-hover: 0 2px 8px rgba(0, 0, 0, 0.45), 0 28px 56px -20px rgba(0, 0, 0, 0.9);
+
+  --viz-1: #9085E9; --viz-2: #D95926; --viz-3: #199E70; --viz-4: #C98500;
+  --viz-5: #D55181; --viz-6: #0CA30C; --viz-7: #3987E5; --viz-8: #E66767;
+  --viz-neutral: #9AA0BA;
+  --itr-3: #C2801E; --itr-6: #4A7FD4; --itr-12: #1F9C78;
   color-scheme: dark;
 }
 
@@ -61,45 +90,37 @@ html { scroll-behavior: smooth; }
 
 body {
   background-color: var(--bg-app);
-  /* Soft ambient light: warm champagne glow top-right, cool slate glow bottom-left. */
+  /* Soft ambient light: indigo glow top-right, cyan glow bottom-left. */
   background-image:
-    radial-gradient(1200px 600px at 100% -10%, var(--glow-a), transparent 60%),
-    radial-gradient(900px 500px at -10% 110%, var(--glow-b), transparent 60%);
+    radial-gradient(1100px 560px at 100% -10%, var(--glow-a), transparent 60%),
+    radial-gradient(900px 520px at -10% 110%, var(--glow-b), transparent 60%);
   background-attachment: fixed;
   color: var(--text-primary);
-  font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   font-feature-settings: 'cv11', 'ss01';
-  letter-spacing: -0.005em;
+  letter-spacing: -0.006em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   transition: background-color 0.4s var(--ease-luxe), color 0.4s var(--ease-luxe);
 }
 
-/* Film grain for a tactile, print-like finish. */
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  opacity: var(--grain-opacity);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
 #root { position: relative; z-index: 1; }
 
-::selection { background: rgba(194, 154, 86, 0.28); color: inherit; }
+::selection { background: rgba(101, 88, 245, 0.24); color: inherit; }
 
-:focus-visible { outline: 2px solid rgba(194, 154, 86, 0.7); outline-offset: 2px; border-radius: 6px; }
+:focus-visible { outline: 2px solid var(--brand-soft); outline-offset: 2px; border-radius: 6px; }
 input:focus-visible, select:focus-visible, textarea:focus-visible { outline: none; }
 
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 10px; border: 3px solid transparent; background-clip: padding-box; }
-::-webkit-scrollbar-thumb:hover { background: #C29A56; border: 3px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: var(--brand-soft); border: 3px solid transparent; background-clip: padding-box; }
+.thin-scroll::-webkit-scrollbar { width: 6px; }
+.thin-scroll::-webkit-scrollbar-thumb { border-width: 1px; }
 
-h1, h2, h3 { letter-spacing: -0.015em; }
-.font-display { font-family: 'Playfair Display', Georgia, serif; letter-spacing: -0.01em; font-feature-settings: 'lnum', 'pnum'; }
+h1, h2, h3 { letter-spacing: -0.02em; }
+.font-display { font-family: 'Manrope', 'Inter', system-ui, sans-serif; letter-spacing: -0.02em; font-feature-settings: 'lnum', 'pnum'; }
 .tabular-nums, td, .kpi-value { font-variant-numeric: tabular-nums; }
 
 /* ============================================================
@@ -119,6 +140,14 @@ h1, h2, h3 { letter-spacing: -0.015em; }
   -webkit-backdrop-filter: saturate(180%) blur(18px);
   backdrop-filter: saturate(180%) blur(18px);
 }
+/* Frosted panel with its own hairline border — sidebar, popovers, floating toolbars. */
+.glass-panel {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  box-shadow: var(--shadow-card-hover), inset 0 1px 0 var(--hairline-highlight);
+}
 
 /* Lift on hover — used by cards, tiles and quick actions. */
 .lift {
@@ -131,15 +160,15 @@ h1, h2, h3 { letter-spacing: -0.015em; }
 .hover-deep { transition: box-shadow 0.45s var(--ease-luxe), border-color 0.3s ease; }
 .hover-deep:hover { box-shadow: var(--shadow-card-hover), inset 0 1px 0 var(--hairline-highlight) !important; }
 
-/* Gold gradient hairline border (mask technique keeps the card background intact). */
-.gold-ring { position: relative; }
-.gold-ring::after {
+/* Gradient hairline border (mask technique keeps the card background intact). */
+.gold-ring, .brand-ring { position: relative; }
+.gold-ring::after, .brand-ring::after {
   content: '';
   position: absolute;
   inset: 0;
   border-radius: inherit;
   padding: 1px;
-  background: linear-gradient(135deg, rgba(233, 207, 154, 0.9), rgba(194, 154, 86, 0.15) 40%, rgba(194, 154, 86, 0) 60%, rgba(194, 154, 86, 0.5));
+  background: linear-gradient(135deg, rgba(130, 131, 251, 0.95), rgba(101, 88, 245, 0.15) 40%, rgba(34, 211, 238, 0) 60%, rgba(34, 211, 238, 0.55));
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
@@ -147,7 +176,8 @@ h1, h2, h3 { letter-spacing: -0.015em; }
   transition: opacity 0.4s var(--ease-luxe);
   pointer-events: none;
 }
-.gold-ring:hover::after, .gold-ring:focus-visible::after, .gold-ring.is-active::after { opacity: 1; }
+.gold-ring:hover::after, .gold-ring:focus-visible::after, .gold-ring.is-active::after,
+.brand-ring:hover::after, .brand-ring:focus-visible::after, .brand-ring.is-active::after { opacity: 1; }
 
 /* Cursor-following spotlight (set --mx / --my from JS). */
 .spotlight { position: relative; overflow: hidden; }
@@ -155,29 +185,32 @@ h1, h2, h3 { letter-spacing: -0.015em; }
   content: '';
   position: absolute;
   inset: 0;
-  background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 50%), var(--gold-tint), transparent 45%);
+  background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 50%), var(--brand-tint), transparent 45%);
   opacity: 0;
   transition: opacity 0.4s ease;
   pointer-events: none;
 }
 .spotlight:hover::before { opacity: 1; }
 
-.text-gold-gradient {
-  background: var(--gold-gradient);
+.text-gold-gradient, .text-brand-gradient {
+  background: var(--brand-gradient);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
-.bg-gold-gradient { background: var(--gold-gradient); }
+:root[data-theme='dark'] .text-gold-gradient, :root[data-theme='dark'] .text-brand-gradient {
+  background-image: linear-gradient(135deg, #A9ADFF 0%, #C4A5FF 55%, #E5A8FF 100%);
+}
+.bg-gold-gradient, .bg-brand-gradient { background: var(--brand-gradient); }
 
-/* Metallic sheen sweep for primary actions. */
+/* Sheen sweep for primary actions. */
 .sheen { position: relative; overflow: hidden; isolation: isolate; }
 .sheen::after {
   content: '';
   position: absolute;
   top: 0; bottom: 0; left: 0;
   width: 40%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.32), transparent);
   transform: translateX(-120%) skewX(-20deg);
   pointer-events: none;
   z-index: 1;
@@ -190,8 +223,8 @@ h1, h2, h3 { letter-spacing: -0.015em; }
 
 .eyebrow {
   font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
+  font-weight: 600;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
@@ -202,7 +235,7 @@ h1, h2, h3 { letter-spacing: -0.015em; }
 }
 
 /* Tables: refined header, smooth row hover across every hand-built table in the app. */
-table thead th { letter-spacing: 0.06em; font-size: 11px; }
+table thead th { letter-spacing: 0.05em; font-size: 11px; }
 table tbody tr { transition: background-color 0.2s ease; }
 table tbody tr:hover { background-color: var(--hover-tint); }
 table tbody tr:last-child { border-bottom: 0 !important; }
@@ -210,36 +243,45 @@ table tbody tr:last-child { border-bottom: 0 !important; }
 /* Form controls inherit the surface in dark mode. */
 input, select, textarea { transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease; }
 select option { background: var(--bg-surface); color: var(--text-primary); }
-input:focus, select:focus, textarea:focus { box-shadow: 0 0 0 4px rgba(194, 154, 86, 0.14); }
+input:focus, select:focus, textarea:focus { box-shadow: 0 0 0 4px var(--focus-ring); }
+input[type='checkbox'], input[type='radio'] { accent-color: var(--brand); }
+input[type='checkbox']:focus, input[type='radio']:focus { box-shadow: none; }
 
 /* Hover utilities used across pages are light-only; give them theme-aware equivalents. */
 .hover\:bg-graphite-100:hover, .hover\:bg-graphite-50:hover, .hover\:bg-graphite-50\/50:hover { background-color: var(--hover-tint); }
-.hover\:bg-gold-50:hover, .hover\:bg-gold-50\/50:hover { background-color: var(--gold-tint); }
+.hover\:bg-gold-50:hover, .hover\:bg-gold-50\/50:hover, .hover\:bg-brand-50:hover { background-color: var(--brand-tint); }
 
 /* ============================================================
    Dark mode fixes for light-only Tailwind utilities
    ============================================================ */
-:root[data-theme='dark'] .bg-graphite-100 { background-color: #1F2129; }
-:root[data-theme='dark'] .bg-graphite-50 { background-color: #1A1C23; }
+:root[data-theme='dark'] .bg-graphite-100 { background-color: #1B2032; }
+:root[data-theme='dark'] .bg-graphite-50 { background-color: #161A2A; }
 :root[data-theme='dark'] .text-graphite-900,
 :root[data-theme='dark'] .text-graphite-800,
 :root[data-theme='dark'] .text-graphite-700 { color: var(--text-primary); }
 :root[data-theme='dark'] .text-graphite-600 { color: var(--text-secondary); }
 :root[data-theme='dark'] .border-graphite-200,
 :root[data-theme='dark'] .border-graphite-300 { border-color: var(--border-subtle); }
-:root[data-theme='dark'] .bg-gold-50 { background-color: rgba(210, 170, 108, 0.10); }
-:root[data-theme='dark'] .bg-gold-100 { background-color: rgba(210, 170, 108, 0.16); }
-:root[data-theme='dark'] .text-gold-700, :root[data-theme='dark'] .text-gold-800 { color: #E2C48E; }
+:root[data-theme='dark'] .bg-gold-50, :root[data-theme='dark'] .bg-brand-50 { background-color: rgba(130, 131, 251, 0.12); }
+:root[data-theme='dark'] .bg-gold-100, :root[data-theme='dark'] .bg-brand-100 { background-color: rgba(130, 131, 251, 0.18); }
+/* The mid/dark accent steps are too dim on dark surfaces; lift them to the light end of the ramp. */
+:root[data-theme='dark'] .text-gold-500, :root[data-theme='dark'] .text-gold-600,
+:root[data-theme='dark'] .text-gold-700, :root[data-theme='dark'] .text-gold-800,
+:root[data-theme='dark'] .text-brand-500, :root[data-theme='dark'] .text-brand-600,
+:root[data-theme='dark'] .text-brand-700, :root[data-theme='dark'] .text-brand-800,
+:root[data-theme='dark'] .hover\:text-gold-500:hover, :root[data-theme='dark'] .hover\:text-gold-600:hover,
+:root[data-theme='dark'] .hover\:text-gold-700:hover,
+:root[data-theme='dark'] .hover\:text-brand-600:hover, :root[data-theme='dark'] .hover\:text-brand-700:hover { color: #B4B8FF; }
 :root[data-theme='dark'] .hover\:bg-rose-50:hover { background-color: rgba(225, 29, 72, 0.12); }
 :root[data-theme='dark'] .bg-emerald-50 { background-color: rgba(16, 185, 129, 0.12); }
 :root[data-theme='dark'] .bg-amber-50 { background-color: rgba(245, 158, 11, 0.12); }
 :root[data-theme='dark'] .bg-rose-50 { background-color: rgba(225, 29, 72, 0.12); }
 :root[data-theme='dark'] .bg-sky-50 { background-color: rgba(14, 165, 233, 0.12); }
 :root[data-theme='dark'] .bg-rose-100 { background-color: rgba(225, 29, 72, 0.16); }
-:root[data-theme='dark'] .text-emerald-700 { color: #6EE7B7; }
-:root[data-theme='dark'] .text-amber-700 { color: #FCD34D; }
-:root[data-theme='dark'] .text-rose-700 { color: #FDA4AF; }
-:root[data-theme='dark'] .text-sky-700 { color: #7DD3FC; }
+:root[data-theme='dark'] .text-emerald-700, :root[data-theme='dark'] .text-emerald-600 { color: #6EE7B7; }
+:root[data-theme='dark'] .text-amber-700, :root[data-theme='dark'] .text-amber-600 { color: #FCD34D; }
+:root[data-theme='dark'] .text-rose-700, :root[data-theme='dark'] .text-rose-600 { color: #FDA4AF; }
+:root[data-theme='dark'] .text-sky-700, :root[data-theme='dark'] .text-sky-600 { color: #7DD3FC; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -253,12 +295,4 @@ input:focus, select:focus, textarea:focus { box-shadow: 0 0 0 4px rgba(194, 154,
 @media print {
   .no-print { display: none !important; }
   body { background: #fff !important; }
-  body::before { display: none; }
 }
-
-/* Primary buttons turn champagne on dark surfaces, where onyx would disappear. */
-:root[data-theme='dark'] .btn-primary { background: var(--gold-gradient); color: #0B0C10; }
-
-/* ITR window series (3M / 6M / 12M): validated categorical trio, re-stepped for the dark surface. */
-:root { --itr-3: #C77D14; --itr-6: #2F6FB3; --itr-12: #1F9E78; --viz-neutral: #5F6373; }
-:root[data-theme='dark'] { --itr-3: #C2801E; --itr-6: #4A7FD4; --itr-12: #1F9C78; --viz-neutral: #9A9EAB; }

@@ -17,7 +17,7 @@ export function Modal({ open, onClose, title, children, footer, size = 'md' }) {
   return createPortal(
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}
@@ -27,22 +27,29 @@ export function Modal({ open, onClose, title, children, footer, size = 'md' }) {
           <motion.div
             role="dialog"
             aria-modal="true"
-            initial={{ opacity: 0, scale: 0.94, y: 18 }}
+            initial={{ opacity: 0, scale: 0.96, y: 18 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.97, y: 10 }}
+            exit={{ opacity: 0, scale: 0.98, y: 10 }}
             transition={{ type: 'spring', stiffness: 380, damping: 32 }}
-            className={`relative w-full ${widths[size]} surface-card shadow-premium-lg rounded-[1.5rem] max-h-[88vh] flex flex-col overflow-hidden`}
+            className={`relative w-full ${widths[size]} surface-card shadow-premium-lg rounded-t-[1.5rem] sm:rounded-[1.5rem] max-h-[92vh] sm:max-h-[88vh] flex flex-col overflow-hidden`}
           >
-            <div className="h-[3px] w-full shrink-0 bg-gold-gradient opacity-90" />
-            <div className="pointer-events-none absolute -top-20 -right-20 w-48 h-48 rounded-full bg-gold-400/10 blur-3xl" />
-            <div className="relative flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-              <h3 className="font-display text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>{title}</h3>
-              <button onClick={onClose} aria-label="Close" className="p-1.5 rounded-xl hover:bg-graphite-100 text-graphite-500 transition-transform duration-300 hover:rotate-90">
+            <div className="pointer-events-none absolute -top-24 -right-20 w-56 h-56 rounded-full bg-brand-400/15 blur-3xl" />
+            <div className="relative flex items-center justify-between gap-3 px-5 sm:px-6 py-4 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+              <h3 className="font-display text-lg font-bold flex items-center gap-2.5 min-w-0" style={{ color: 'var(--text-primary)' }}>
+                <span className="h-5 w-1 rounded-full bg-brand-gradient shrink-0" />
+                <span className="truncate">{title}</span>
+              </h3>
+              <button
+                onClick={onClose}
+                aria-label="Close"
+                className="p-1.5 rounded-xl transition-all duration-300 hover:rotate-90 hover:bg-[var(--hover-tint)]"
+                style={{ color: 'var(--text-muted)' }}
+              >
                 <X size={18} />
               </button>
             </div>
-            <div className="relative px-6 py-5 overflow-y-auto">{children}</div>
-            {footer && <div className="relative px-6 py-4 border-t flex justify-end gap-3" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-surface-muted)' }}>{footer}</div>}
+            <div className="relative px-5 sm:px-6 py-5 overflow-y-auto">{children}</div>
+            {footer && <div className="relative px-5 sm:px-6 py-4 border-t flex flex-wrap justify-end gap-3" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-surface-muted)' }}>{footer}</div>}
           </motion.div>
         </div>
       )}

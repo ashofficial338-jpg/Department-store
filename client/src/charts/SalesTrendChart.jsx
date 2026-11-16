@@ -1,5 +1,5 @@
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { GOLD, GRAPHITE, GRID, AXIS_TEXT, TOOLTIP_PROPS } from './palette.js';
+import { BRAND, NEUTRAL, GRID, AXIS_TEXT, TOOLTIP_PROPS } from './palette.js';
 import { formatCurrency } from '../utils/format.js';
 
 const shortDate = (v) => {
@@ -13,20 +13,20 @@ export function SalesTrendChart({ data, showPurchases = true }) {
       <AreaChart data={data} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
         <defs>
           <linearGradient id="salesFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={GOLD} stopOpacity={0.42} />
-            <stop offset="70%" stopColor={GOLD} stopOpacity={0.06} />
-            <stop offset="100%" stopColor={GOLD} stopOpacity={0} />
+            <stop offset="0%" stopColor={BRAND} stopOpacity={0.32} />
+            <stop offset="70%" stopColor={BRAND} stopOpacity={0.05} />
+            <stop offset="100%" stopColor={BRAND} stopOpacity={0} />
           </linearGradient>
           <linearGradient id="salesStroke" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="#E9CF9A" />
-            <stop offset="100%" stopColor="#A67F42" />
+            <stop offset="0%" stopColor="var(--viz-1)" />
+            <stop offset="100%" stopColor="var(--viz-1)" />
           </linearGradient>
           <linearGradient id="purchaseFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={GRAPHITE} stopOpacity={0.22} />
-            <stop offset="100%" stopColor={GRAPHITE} stopOpacity={0} />
+            <stop offset="0%" stopColor={NEUTRAL} stopOpacity={0.16} />
+            <stop offset="100%" stopColor={NEUTRAL} stopOpacity={0} />
           </linearGradient>
           <filter id="salesGlow" x="-10%" y="-30%" width="120%" height="160%">
-            <feGaussianBlur stdDeviation="4" result="b" />
+            <feGaussianBlur stdDeviation="3" result="b" />
             <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
           </filter>
         </defs>
@@ -36,14 +36,14 @@ export function SalesTrendChart({ data, showPurchases = true }) {
         <Tooltip {...TOOLTIP_PROPS} formatter={(v) => formatCurrency(v)} labelFormatter={shortDate} />
         <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} iconType="circle" iconSize={8} />
         <Area
-          type="monotone" dataKey="sales" name="Sales" stroke="url(#salesStroke)" strokeWidth={2.5} fill="url(#salesFill)"
-          filter="url(#salesGlow)" activeDot={{ r: 5, fill: GOLD, stroke: '#fff', strokeWidth: 2 }}
+          type="monotone" dataKey="sales" name="Sales" stroke="url(#salesStroke)" strokeWidth={2} fill="url(#salesFill)"
+          filter="url(#salesGlow)" activeDot={{ r: 5, fill: BRAND, stroke: 'var(--bg-surface)', strokeWidth: 2 }}
           animationDuration={1400} animationEasing="ease-out"
         />
         {showPurchases && (
           <Area
-            type="monotone" dataKey="purchases" name="Purchases" stroke={GRAPHITE} strokeWidth={2} strokeDasharray="5 4" fill="url(#purchaseFill)"
-            activeDot={{ r: 4, fill: GRAPHITE, stroke: '#fff', strokeWidth: 2 }} animationDuration={1600} animationEasing="ease-out"
+            type="monotone" dataKey="purchases" name="Purchases" stroke={NEUTRAL} strokeWidth={2} strokeDasharray="5 4" fill="url(#purchaseFill)"
+            activeDot={{ r: 4, fill: NEUTRAL, stroke: 'var(--bg-surface)', strokeWidth: 2 }} animationDuration={1600} animationEasing="ease-out"
           />
         )}
       </AreaChart>

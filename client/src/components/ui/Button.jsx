@@ -2,11 +2,12 @@ import clsx from 'clsx';
 import { Loader2 } from 'lucide-react';
 
 const VARIANTS = {
-  primary: 'btn-primary sheen bg-graphite-900 text-white hover:bg-graphite-800 shadow-[0_8px_20px_-10px_rgba(11,12,16,0.6)] focus-visible:ring-graphite-900',
-  gold: 'sheen bg-gold-gradient text-graphite-950 shadow-gold hover:shadow-gold-glow focus-visible:ring-gold-500',
-  outline: 'border border-[var(--border-strong)] text-[var(--text-primary)] bg-[var(--bg-surface)] hover:border-gold-400 hover:text-gold-700 dark:hover:text-gold-300 focus-visible:ring-gold-400',
-  ghost: 'text-[var(--text-secondary)] hover:bg-[var(--hover-tint)] hover:text-[var(--text-primary)] focus-visible:ring-graphite-300',
-  danger: 'sheen bg-gradient-to-br from-rose-500 to-rose-700 text-white shadow-[0_8px_20px_-10px_rgba(225,29,72,0.7)] hover:from-rose-600 hover:to-rose-700 focus-visible:ring-rose-600',
+  primary: 'btn-primary sheen bg-brand-gradient text-white shadow-brand hover:shadow-brand-glow focus-visible:ring-brand-500',
+  // Kept for existing callers; same accent as primary with a stronger glow.
+  gold: 'sheen bg-brand-gradient text-white shadow-brand-glow hover:brightness-110 focus-visible:ring-brand-500',
+  outline: 'border border-[var(--border-strong)] text-[var(--text-primary)] bg-[var(--bg-surface)] hover:border-brand-400 hover:text-brand-700 dark:hover:text-brand-300 hover:bg-[var(--brand-tint)] focus-visible:ring-brand-400',
+  ghost: 'text-[var(--text-secondary)] hover:bg-[var(--hover-tint)] hover:text-[var(--text-primary)] focus-visible:ring-brand-300',
+  danger: 'sheen bg-gradient-to-br from-rose-500 to-rose-600 text-white shadow-[0_8px_20px_-10px_rgba(225,29,72,0.7)] hover:from-rose-600 hover:to-rose-700 focus-visible:ring-rose-600',
 };
 
 const SIZES = {

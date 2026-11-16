@@ -173,7 +173,7 @@ export function AdvancedReports() {
       <div className="flex flex-wrap items-center justify-between gap-2 -mt-2 mb-4 text-xs" style={{ color: 'var(--text-muted)' }}>
         <span>{updatedAt ? `Updated ${formatDateTime(updatedAt)} from live data` : 'Loading live data…'}</span>
         <label className="inline-flex items-center gap-2 cursor-pointer">
-          <input type="checkbox" className="accent-[#C29A56]" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} />
+          <input type="checkbox" className="accent-brand-500" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} />
           Auto-refresh every minute
         </label>
       </div>

@@ -93,7 +93,7 @@ function PeriodToggle({ value, onChange }) {
             aria-checked={value === n}
             onClick={() => onChange(n)}
             className="relative px-4 py-1.5 text-sm font-semibold rounded-lg transition-colors"
-            style={{ color: value === n ? '#0B0C10' : 'var(--text-secondary)' }}
+            style={{ color: value === n ? '#FFFFFF' : 'var(--text-secondary)' }}
           >
             {value === n && <motion.span layoutId="itr-period" className="absolute inset-0 rounded-lg bg-gold-gradient shadow-gold" transition={{ type: 'spring', stiffness: 420, damping: 34 }} />}
             <span className="relative">{n} months</span>
@@ -440,7 +440,7 @@ export function ItrAnalysis() {
       {/* Fastest vs slowest */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 mb-5">
         {[
-          { title: 'Fastest movers', subtitle: `Top 10 by annualised ITR · ${period} months`, data: fastest, color: '#A67F42' },
+          { title: 'Fastest movers', subtitle: `Top 10 by annualised ITR · ${period} months`, data: fastest, color: 'var(--viz-1)' },
           { title: 'Slowest movers', subtitle: `Bottom 10 by annualised ITR · ${period} months`, data: slowest, color: 'var(--viz-neutral)' },
         ].map((c) => (
           <Card key={c.title} title={c.title} subtitle={c.subtitle}>

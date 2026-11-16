@@ -7,17 +7,17 @@ import Header from './Header.jsx';
 
 const EASE = [0.22, 1, 0.36, 1];
 
-// Thin gold bar that sweeps across the top on every navigation.
+// Thin accent bar that sweeps across the top on every navigation.
 function RouteProgress({ routeKey }) {
   return (
     <AnimatePresence>
       <motion.div
         key={routeKey}
-        className="fixed top-0 left-0 right-0 h-[2px] z-[60] origin-left bg-gold-gradient pointer-events-none"
+        className="fixed top-0 left-0 right-0 h-[2px] z-[60] origin-left bg-brand-gradient pointer-events-none"
         initial={{ scaleX: 0, opacity: 1 }}
         animate={{ scaleX: 1, opacity: [1, 1, 0] }}
         transition={{ scaleX: { duration: 0.6, ease: EASE }, opacity: { duration: 0.9, times: [0, 0.7, 1] } }}
-        style={{ boxShadow: '0 0 12px rgba(194,154,86,0.7)' }}
+        style={{ boxShadow: '0 0 12px rgba(101,88,245,0.7)' }}
       />
     </AnimatePresence>
   );
@@ -62,7 +62,7 @@ export function DashboardLayout() {
         </main>
         <footer className="px-4 md:px-8 pb-6 max-w-[1600px] w-full mx-auto text-[11px] flex items-center justify-between no-print" style={{ color: 'var(--text-muted)' }}>
           <span>© {new Date().getFullYear()} AURELIA Department Store</span>
-          <span className="hidden sm:inline tracking-[0.2em] uppercase">Crafted for retail excellence</span>
+          <span className="hidden sm:inline">Retail operations platform</span>
         </footer>
       </div>
     </div>
