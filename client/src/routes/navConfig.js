@@ -6,7 +6,7 @@ import {
   ClipboardList, FileText, RotateCcw, Building2, Factory,
   Users, Star, Wallet,
   Landmark, ArrowDownCircle, ArrowUpCircle, Receipt, Coins, Percent, TrendingUp,
-  BarChart3, FileBarChart, RefreshCcw, MapPin,
+  BarChart3, FileBarChart, RefreshCcw, MapPin, FileSpreadsheet,
   UserCog, ShieldCheck, Store, Percent as PercentIcon, FileCog, Settings as SettingsIcon, DatabaseZap,
 } from 'lucide-react';
 
@@ -53,6 +53,7 @@ export const NAV_SECTIONS = [
       { label: 'Stock Ledger', to: '/inventory/ledger', icon: ScrollText, module: 'inventory' },
       { label: 'Low Stock', to: '/inventory/low-stock', icon: AlertTriangle, module: 'inventory' },
       { label: 'Expiry Management', to: '/inventory/expiry-management', icon: CalendarClock, module: 'inventory' },
+      { label: 'Stock Reports', to: '/inventory/reports', icon: FileSpreadsheet, module: 'inventory' },
     ],
   },
   {

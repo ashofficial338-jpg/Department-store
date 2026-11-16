@@ -12,6 +12,8 @@ import recordAudit from '../utils/audit.js';
 import { getPagination, buildPaginatedResponse } from '../utils/pagination.js';
 import { generateDocNumber } from '../utils/docNumber.js';
 import { literalRegex, requireId, number, positive, oneOf } from '../utils/validate.js';
+import { sendExport } from '../utils/exporters.js';
+import { buildStockReport, stockReportOptions } from '../services/stockReport.js';
 
 // Adjust the aggregated Inventory doc for (product, store|dc) by `delta` units.
 export async function applyStockDelta({ product, store, distributionCenter, delta, field = 'currentStock' }) {
@@ -214,6 +216,25 @@ export const listStockTransfers = catchAsync(async (req, res) => {
   res.json({ success: true, ...buildPaginatedResponse({ docs, total, page, limit }) });
 });
 
+// Stock Reports: filter choices, the on-screen preview (paginated) and the PDF / Excel download.
+export const stockReportFilterOptions = catchAsync(async (req, res) => {
+  res.json({ success: true, data: await stockReportOptions() });
+});
+
+export const stockReport = catchAsync(async (req, res) => {
+  const { page, limit, skip } = getPagination(req.query);
+  const { rows, ...report } = await buildStockReport(req.query);
+  res.json({ success: true, data: { ...report, ...buildPaginatedResponse({ docs: rows.slice(skip, skip + limit), total: rows.length, page, limit }) } });
+});
+
+export const exportStockReport = catchAsync(async (req, res) => {
+  const format = oneOf(req.query.format || 'xlsx', ['pdf', 'xlsx', 'csv'], 'Export format');
+  const report = await buildStockReport(req.query);
+  report.filtersText += `  |  Generated ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} by ${req.user.name}`;
+  await recordAudit({ req, action: 'inventory.stock_report.export', entity: 'Inventory', newValue: { format, query: req.query, records: report.rows.length } });
+  await sendExport(res, format, report, `stock-report-${report.stockType.replace(/_/g, '-')}-${new Date().toISOString().slice(0, 10)}`);
+});
+
 export const locationsList = catchAsync(async (req, res) => {
   const [stores, dcs] = await Promise.all([Store.find({ isActive: true }), DistributionCenter.find({ status: 'active' })]);
   res.json({ success: true, data: { stores, distributionCenters: dcs } });
@@ -222,4 +243,5 @@ export const locationsList = catchAsync(async (req, res) => {
 export default {
   stockOverview, lowStock, expiryManagement, stockLedger, adjustStock,
   createStockTransfer, completeStockTransfer, listStockTransfers, locationsList,
+  stockReportFilterOptions, stockReport, exportStockReport,
 };

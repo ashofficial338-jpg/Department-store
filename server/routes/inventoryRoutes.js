@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   stockOverview, lowStock, expiryManagement, stockLedger, adjustStock,
   createStockTransfer, completeStockTransfer, listStockTransfers, locationsList,
+  stockReportFilterOptions, stockReport, exportStockReport,
 } from '../controllers/inventoryController.js';
 import { protect, requirePermission } from '../middleware/auth.js';
 
@@ -17,6 +18,10 @@ router.get('/low-stock', lowStock);
 router.get('/expiry', expiryManagement);
 router.get('/ledger', stockLedger);
 router.post('/adjust', adjustStock);
+
+router.get('/report/options', stockReportFilterOptions);
+router.get('/report/export', exportStockReport);
+router.get('/report', stockReport);
 
 router.get('/transfers', listStockTransfers);
 router.post('/transfers', createStockTransfer);

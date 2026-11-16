@@ -31,6 +31,7 @@ const StockOverview = lazy(() => import('./pages/inventory/StockOverview.jsx'));
 const StockAdjustment = lazy(() => import('./pages/inventory/StockAdjustment.jsx'));
 const StockTransfer = lazy(() => import('./pages/inventory/StockTransfer.jsx'));
 const StockLedger = lazy(() => import('./pages/inventory/StockLedger.jsx'));
+const StockReports = lazy(() => import('./pages/inventory/StockReports.jsx'));
 const LowStock = lazy(() => import('./pages/inventory/LowStock.jsx'));
 const ExpiryManagement = lazy(() => import('./pages/inventory/ExpiryManagement.jsx'));
 const RackLocator = lazy(() => import('./pages/inventory/RackLocator.jsx'));
@@ -122,6 +123,7 @@ export default function App() {
             <Route path="/inventory/adjustment" element={<RequirePermission any={['inventory']}><StockAdjustment /></RequirePermission>} />
             <Route path="/inventory/transfer" element={<RequirePermission any={['inventory']}><StockTransfer /></RequirePermission>} />
             <Route path="/inventory/ledger" element={<RequirePermission any={['inventory']}><StockLedger /></RequirePermission>} />
+            <Route path="/inventory/reports" element={<RequirePermission any={['inventory']}><StockReports /></RequirePermission>} />
             <Route path="/inventory/low-stock" element={<RequirePermission any={['inventory']}><LowStock /></RequirePermission>} />
             <Route path="/inventory/expiry-management" element={<RequirePermission any={['inventory']}><ExpiryManagement /></RequirePermission>} />
 

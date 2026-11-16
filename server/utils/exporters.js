@@ -94,7 +94,11 @@ function toPdfBuffer(ds) {
 
     const left = doc.page.margins.left;
     const width = doc.page.width - left - doc.page.margins.right;
-    const colW = width / ds.columns.length;
+    // Columns share the width equally unless they carry a `weight` (e.g. a wide product-name column).
+    const weights = ds.columns.map((c) => c.weight || 1);
+    const totalWeight = weights.reduce((t, w) => t + w, 0);
+    const colWs = weights.map((w) => (width * w) / totalWeight);
+    const colXs = colWs.map((_, i) => left + colWs.slice(0, i).reduce((t, w) => t + w, 0));
     const bottom = () => doc.page.height - doc.page.margins.bottom;
 
     doc.font('Helvetica-Bold').fontSize(16).text(ds.title);
@@ -109,11 +113,11 @@ function toPdfBuffer(ds) {
 
     const drawRow = (cells, { bold = false, shade = false } = {}) => {
       doc.font(bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(8);
-      const h = Math.max(...cells.map((t) => doc.heightOfString(t, { width: colW - 6 }))) + 6;
+      const h = Math.max(...cells.map((t, i) => doc.heightOfString(t, { width: colWs[i] - 6 }))) + 6;
       if (doc.y + h > bottom()) { doc.addPage(); if (!bold) drawHeader(); }
       const y = doc.y;
       if (shade) doc.rect(left, y, width, h).fill('#F3E9D2').fillColor('#000000');
-      cells.forEach((t, i) => doc.fillColor('#000000').text(t, left + i * colW + 3, y + 3, { width: colW - 6 }));
+      cells.forEach((t, i) => doc.fillColor('#000000').text(t, colXs[i] + 3, y + 3, { width: colWs[i] - 6 }));
       doc.moveTo(left, y + h).lineTo(left + width, y + h).strokeColor('#DDDDDD').lineWidth(0.5).stroke();
       doc.x = left;
       doc.y = y + h;

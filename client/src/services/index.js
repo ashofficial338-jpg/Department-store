@@ -64,6 +64,9 @@ export const inventoryService = {
   transfers: (params) => api.get('/inventory/transfers', { params }).then((r) => r.data),
   createTransfer: (payload) => api.post('/inventory/transfers', payload).then((r) => r.data),
   completeTransfer: (id) => api.post(`/inventory/transfers/${id}/complete`).then((r) => r.data),
+  stockReportOptions: () => api.get('/inventory/report/options').then((r) => r.data),
+  stockReport: (params) => api.get('/inventory/report', { params }).then((r) => r.data),
+  exportStockReport: (params, format) => downloadFile('/inventory/report/export', { ...params, format }, `stock-report.${format}`),
 };
 
 export const dcService = {
