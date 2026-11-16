@@ -1,6 +1,6 @@
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { GOLD, GRAPHITE, GRID, AXIS_TEXT, TOOLTIP_PROPS } from './palette.js';
-import { formatCurrency, formatCompact } from '../utils/format.js';
+import { formatCurrency } from '../utils/format.js';
 
 const shortDate = (v) => {
   const d = new Date(v);
@@ -32,18 +32,18 @@ export function SalesTrendChart({ data, showPurchases = true }) {
         </defs>
         <CartesianGrid stroke={GRID} strokeDasharray="3 6" vertical={false} strokeOpacity={0.7} />
         <XAxis dataKey="period" tickFormatter={shortDate} tick={{ fontSize: 11, fill: AXIS_TEXT }} axisLine={false} tickLine={false} dy={8} minTickGap={16} />
-        <YAxis tick={{ fontSize: 11, fill: AXIS_TEXT }} axisLine={false} tickLine={false} tickFormatter={(v) => formatCompact(v, { currency: true })} width={56} />
+        <YAxis tick={{ fontSize: 11, fill: AXIS_TEXT }} axisLine={false} tickLine={false} tickFormatter={(v) => (v >= 100000 ? `${(v / 100000).toFixed(1)}L` : `${Math.round(v / 1000)}k`)} width={52} />
         <Tooltip {...TOOLTIP_PROPS} formatter={(v) => formatCurrency(v)} labelFormatter={shortDate} />
         <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} iconType="circle" iconSize={8} />
         <Area
           type="monotone" dataKey="sales" name="Sales" stroke="url(#salesStroke)" strokeWidth={2.5} fill="url(#salesFill)"
           filter="url(#salesGlow)" activeDot={{ r: 5, fill: GOLD, stroke: '#fff', strokeWidth: 2 }}
-          animationDuration={900} animationEasing="ease-out"
+          animationDuration={1400} animationEasing="ease-out"
         />
         {showPurchases && (
           <Area
             type="monotone" dataKey="purchases" name="Purchases" stroke={GRAPHITE} strokeWidth={2} strokeDasharray="5 4" fill="url(#purchaseFill)"
-            activeDot={{ r: 4, fill: GRAPHITE, stroke: '#fff', strokeWidth: 2 }} animationDuration={1000} animationEasing="ease-out"
+            activeDot={{ r: 4, fill: GRAPHITE, stroke: '#fff', strokeWidth: 2 }} animationDuration={1600} animationEasing="ease-out"
           />
         )}
       </AreaChart>

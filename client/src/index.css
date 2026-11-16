@@ -68,8 +68,8 @@ body {
   background-attachment: fixed;
   color: var(--text-primary);
   font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
-  letter-spacing: -0.006em;
-  line-height: 1.5;
+  font-feature-settings: 'cv11', 'ss01';
+  letter-spacing: -0.005em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -98,28 +98,9 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: non
 ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 10px; border: 3px solid transparent; background-clip: padding-box; }
 ::-webkit-scrollbar-thumb:hover { background: #C29A56; border: 3px solid transparent; background-clip: padding-box; }
 
-/* ============================================================
-   Typography — Plus Jakarta Sans for text, Inter for figures
-   ============================================================ */
-h1, h2, h3, h4 { letter-spacing: -0.02em; line-height: 1.2; text-wrap: balance; }
-/* Display headings: bold, tight and clean. Declared after utilities so it wins over font-semibold. */
-.font-display {
-  font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
-  font-weight: 700;
-  letter-spacing: -0.022em;
-}
-h1.font-display { font-weight: 800; letter-spacing: -0.03em; }
-
-/* Figures: Inter with tabular, lining numerals so columns and counters never jitter. */
-.kpi-value, .num {
-  font-family: 'Inter', 'Plus Jakarta Sans', system-ui, sans-serif;
-  font-variant-numeric: tabular-nums lining-nums;
-  font-feature-settings: 'tnum', 'lnum', 'cv11', 'ss01';
-  letter-spacing: -0.03em;
-}
-.kpi-value { font-weight: 700; font-size: clamp(1.55rem, 1.2rem + 1vw, 2rem); line-height: 1.05; }
-.tabular-nums, td, th, input[type='number'], .recharts-text { font-variant-numeric: tabular-nums lining-nums; }
-.recharts-text { font-family: 'Inter', system-ui, sans-serif; font-weight: 500; }
+h1, h2, h3 { letter-spacing: -0.015em; }
+.font-display { font-family: 'Playfair Display', Georgia, serif; letter-spacing: -0.01em; font-feature-settings: 'lnum', 'pnum'; }
+.tabular-nums, td, .kpi-value { font-variant-numeric: tabular-nums; }
 
 /* ============================================================
    Surfaces
@@ -221,8 +202,7 @@ h1.font-display { font-weight: 800; letter-spacing: -0.03em; }
 }
 
 /* Tables: refined header, smooth row hover across every hand-built table in the app. */
-table thead th { letter-spacing: 0.07em; font-size: 11px; font-weight: 700; }
-table tbody td { font-size: 13.5px; }
+table thead th { letter-spacing: 0.06em; font-size: 11px; }
 table tbody tr { transition: background-color 0.2s ease; }
 table tbody tr:hover { background-color: var(--hover-tint); }
 table tbody tr:last-child { border-bottom: 0 !important; }
@@ -282,28 +262,3 @@ input:focus, select:focus, textarea:focus { box-shadow: 0 0 0 4px rgba(194, 154,
 /* ITR window series (3M / 6M / 12M): validated categorical trio, re-stepped for the dark surface. */
 :root { --itr-3: #C77D14; --itr-6: #2F6FB3; --itr-12: #1F9E78; --viz-neutral: #5F6373; }
 :root[data-theme='dark'] { --itr-3: #C2801E; --itr-6: #4A7FD4; --itr-12: #1F9C78; --viz-neutral: #9A9EAB; }
-
-/* ============================================================
-   Popovers, filter tabs and chips
-   ============================================================ */
-.popover-panel {
-  background: color-mix(in srgb, var(--bg-surface) 94%, transparent);
-  -webkit-backdrop-filter: saturate(180%) blur(16px);
-  backdrop-filter: saturate(180%) blur(16px);
-  border: 1px solid var(--border-subtle);
-  box-shadow: var(--shadow-card-hover), inset 0 1px 0 var(--hairline-highlight);
-}
-.filter-chip {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 4px 6px 4px 10px; border-radius: 999px;
-  font-size: 12px; font-weight: 600;
-  color: var(--text-primary);
-  background: var(--gold-tint);
-  border: 1px solid rgba(194, 154, 86, 0.28);
-}
-.filter-chip button { display: inline-flex; padding: 2px; border-radius: 999px; color: var(--text-muted); transition: background-color 0.2s ease, color 0.2s ease; }
-.filter-chip button:hover { background: rgba(194, 154, 86, 0.22); color: var(--text-primary); }
-/* Horizontal tab strips scroll on small screens without showing a scrollbar. */
-.no-scrollbar { scrollbar-width: none; }
-.no-scrollbar::-webkit-scrollbar { display: none; }
-:root[data-theme='dark'] .text-gold-600 { color: #D9B97A; }

@@ -24,5 +24,5 @@ export const TOOLTIP_PROPS = {
     color: 'var(--text-primary)',
   },
   labelStyle: { fontWeight: 700, marginBottom: 4, color: 'var(--text-primary)' },
-  itemStyle: { color: 'var(--text-secondary)', padding: 0, fontFamily: "'Inter', system-ui, sans-serif", fontVariantNumeric: 'tabular-nums', fontWeight: 600 },
+  itemStyle: { color: 'var(--text-secondary)', padding: 0 },
 };

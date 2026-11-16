@@ -6,7 +6,6 @@ import net from 'node:net';
 import path from 'node:path';
 
 const API_PORT = 5000;
-const API_START_TIMEOUT_MS = 30000;
 const SERVER_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'server');
 
 function isPortOpen(port) {
@@ -51,15 +50,6 @@ function startApiServer() {
         else child.kill('SIGTERM');
       });
       console.log(`${label} API server was not running - starting it on port ${API_PORT}...`);
-
-      // Hold Vite back until the API accepts connections; otherwise a request made in the first
-      // few seconds (e.g. signing in straight away) fails with "http proxy error ... ECONNREFUSED".
-      const deadline = Date.now() + API_START_TIMEOUT_MS;
-      while (Date.now() < deadline && globalThis.__aureliaApi) {
-        if (await isPortOpen(API_PORT)) return;
-        await new Promise((resolve) => setTimeout(resolve, 300));
-      }
-      console.log(`${label} API server is not answering on port ${API_PORT} yet - check the [server] lines above for errors.`);
     },
   };
 }

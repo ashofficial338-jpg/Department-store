@@ -51,7 +51,7 @@ function SectionTitle({ children, aside }) {
         <span className="h-px w-6 bg-gold-gradient" />
         <span className="eyebrow">{children}</span>
       </div>
-      {aside && <div className="num text-xs font-medium" style={{ color: 'var(--text-muted)' }}>{aside}</div>}
+      {aside && <div className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>{aside}</div>}
     </div>
   );
 }
@@ -121,7 +121,7 @@ export function Dashboard() {
   return (
     <div>
       <PageHeader
-        title={<>{greeting()}, <span className="text-gold-gradient">{user?.name?.split(' ')[0] || 'there'}</span></>}
+        title={<>{greeting()}, <span className="text-gold-gradient italic">{user?.name?.split(' ')[0] || 'there'}</span></>}
         subtitle={new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
         actions={(
           <>
@@ -172,7 +172,7 @@ export function Dashboard() {
         </div>
       )}
 
-      {canFilter && <DashboardFilters value={filters} periodLabel={scope ? `${formatDate(scope.from)} – ${formatDate(scope.to)}` : undefined} onChange={(next) => setSearchParams(next, { replace: true })} />}
+      {canFilter && <DashboardFilters value={filters} onChange={(next) => setSearchParams(next, { replace: true })} />}
 
       {nothingVisible && (
         <div className="surface-card rounded-xl2 shadow-premium p-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
@@ -309,10 +309,6 @@ function Muted({ children }) {
   return <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{children}</span>;
 }
 
-// Figure columns are right-aligned so digits line up down the column.
-const NUMERIC_HEADERS = ['Units Sold', 'Units', 'Revenue', 'COGS', 'Profit', 'Share', 'ROI'];
-const numeric = (h) => NUMERIC_HEADERS.includes(h);
-
 // Row clicks are only wired when the user may open details; the parent ChartCard handles the rest.
 function DataGrid({ headers, rows, flush = false }) {
   return (
@@ -321,7 +317,7 @@ function DataGrid({ headers, rows, flush = false }) {
         <thead>
           <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
             {headers.map((h) => (
-              <th key={h} className={`${numeric(h) ? 'text-right' : 'text-left'} px-4 py-2.5 text-xs font-semibold uppercase whitespace-nowrap`} style={{ color: 'var(--text-muted)' }}>{h}</th>
+              <th key={h} className="text-left px-4 py-2.5 text-xs font-semibold uppercase whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>{h}</th>
             ))}
           </tr>
         </thead>
@@ -333,7 +329,7 @@ function DataGrid({ headers, rows, flush = false }) {
               className={r.onClick ? 'cursor-pointer hover:bg-gold-500/5' : undefined}
               style={{ borderBottom: '1px solid var(--border-subtle)' }}
             >
-              {r.cells.map((c, i) => <td key={i} className={`px-4 py-2.5 whitespace-nowrap ${numeric(headers[i]) ? 'num text-right font-medium' : i === 0 ? 'font-medium' : ''}`}>{c}</td>)}
+              {r.cells.map((c, i) => <td key={i} className="px-4 py-2.5 whitespace-nowrap">{c}</td>)}
             </tr>
           ))}
         </tbody>

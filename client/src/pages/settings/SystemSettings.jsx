@@ -3,7 +3,6 @@ import toast from 'react-hot-toast';
 import { Save } from 'lucide-react';
 import { PageHeader, Button, Input, Textarea } from '../../components/ui/index.js';
 import { settingsService } from '../../services/index.js';
-import { setCompanyName } from '../../hooks/useCompanyName.js';
 
 export function SystemSettings() {
   const [form, setForm] = useState(null);
@@ -15,8 +14,7 @@ export function SystemSettings() {
     e.preventDefault();
     setSaving(true);
     try {
-      const res = await settingsService.update(form);
-      setCompanyName(res.data?.companyName ?? form.companyName);
+      await settingsService.update(form);
       toast.success('Settings updated.');
     } catch (err) { toast.error(err.message); } finally { setSaving(false); }
   }
