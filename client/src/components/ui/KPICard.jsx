@@ -1,22 +1,27 @@
 import { motion } from 'framer-motion';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, ArrowDownRight, ArrowRight } from 'lucide-react';
 import clsx from 'clsx';
 import { formatNumber } from '../../utils/format.js';
 import { CardSkeleton } from './Skeleton.jsx';
 
-function useAnimatedNumber(target, duration = 1100) {
+// Counts from the value currently on screen to the new one, so applying a filter glides
+// between figures instead of restarting from zero.
+function useAnimatedNumber(target, duration = 900) {
   const [value, setValue] = useState(0);
+  const shown = useRef(0);
   useEffect(() => {
-    let start = null;
-    const from = 0;
+    const from = shown.current;
     const to = Number(target) || 0;
+    if (from === to) return undefined;
+    let start = null;
     let raf;
     function step(ts) {
       if (!start) start = ts;
       const progress = Math.min((ts - start) / duration, 1);
       const eased = 1 - (1 - progress) ** 4;
-      setValue(from + (to - from) * eased);
+      shown.current = from + (to - from) * eased;
+      setValue(shown.current);
       if (progress < 1) raf = requestAnimationFrame(step);
     }
     raf = requestAnimationFrame(step);
@@ -44,7 +49,7 @@ export function KPICard({
   icon: Icon, loading, accent = 'gold', onClick, title, delay = 0,
 }) {
   const hasValue = value !== null && value !== undefined && !Number.isNaN(Number(value));
-  const animated = useAnimatedNumber(loading || !hasValue ? 0 : value);
+  const animated = useAnimatedNumber(hasValue ? value : 0);
 
   if (loading) return <CardSkeleton />;
 
@@ -91,21 +96,21 @@ export function KPICard({
           </span>
         )}
       </div>
-      <div className="relative kpi-value text-[1.7rem] leading-none font-display font-semibold mb-3 tracking-tight" style={{ color: 'var(--text-primary)' }}>
+      <div className="relative kpi-value mb-3 whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
         {hasValue
-          ? <>{prefix && <span className="font-sans text-[0.72em] font-semibold mr-1 opacity-60 align-[0.12em]">{prefix}</span>}{formatAnimated(animated, decimals)}{suffix && <span className="text-[0.6em] ml-0.5 font-sans font-semibold opacity-60">{suffix}</span>}</>
+          ? <>{prefix && <span className="text-[0.62em] font-semibold mr-1 text-gold-600 align-[0.22em]">{prefix}</span>}{formatAnimated(animated, decimals)}{suffix && <span className="text-[0.55em] ml-1 font-semibold" style={{ color: 'var(--text-muted)' }}>{suffix}</span>}</>
           : <span style={{ color: 'var(--text-muted)' }}>—</span>}
       </div>
       <div className="relative flex items-center justify-between gap-2 min-h-[20px]">
         {change !== undefined ? (
           <div className="flex items-center gap-1.5 text-xs">
             <span className={clsx(
-              'inline-flex items-center gap-0.5 font-semibold px-1.5 py-0.5 rounded-md',
+              'num inline-flex items-center gap-0.5 font-semibold px-1.5 py-0.5 rounded-md',
               positive ? 'text-emerald-700 bg-emerald-50' : 'text-rose-700 bg-rose-50'
             )}
             >
               {positive ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
-              {Math.abs(change).toFixed(1)}%
+              {positive ? '+' : '−'}{Math.abs(change).toFixed(1)}%
             </span>
             <span style={{ color: 'var(--text-muted)' }}>{changeLabel}</span>
           </div>

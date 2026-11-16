@@ -6,7 +6,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        display: ['"Playfair Display"', 'Georgia', 'serif'],
+        display: ['"Plus Jakarta Sans"', 'Inter', 'system-ui', 'sans-serif'],
+        num: ['Inter', '"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
         sans: ['"Plus Jakarta Sans"', 'Inter', 'system-ui', 'sans-serif'],
       },
       colors: {
@@ -49,6 +50,10 @@ export default {
           '66%': { transform: 'translate3d(-5%,5%,0) scale(0.96)' },
         },
         'pulse-ring': { '0%': { transform: 'scale(0.8)', opacity: 0.7 }, '100%': { transform: 'scale(2.2)', opacity: 0 } },
+        'bell-ring': {
+          '0%,100%': { transform: 'rotate(0)' }, '15%': { transform: 'rotate(14deg)' }, '30%': { transform: 'rotate(-12deg)' },
+          '45%': { transform: 'rotate(8deg)' }, '60%': { transform: 'rotate(-5deg)' }, '75%': { transform: 'rotate(2deg)' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 0.35s ease-out',
@@ -60,6 +65,7 @@ export default {
         aurora: 'aurora 18s ease-in-out infinite',
         'aurora-slow': 'aurora 26s ease-in-out infinite reverse',
         'pulse-ring': 'pulse-ring 1.8s cubic-bezier(0.22, 1, 0.36, 1) infinite',
+        'bell-ring': 'bell-ring 0.7s ease-in-out',
       },
     },
   },

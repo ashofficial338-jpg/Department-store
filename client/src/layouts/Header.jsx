@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Search, Moon, Sun, LogOut, ChevronDown, Menu, ShoppingCart, ShieldCheck, LayoutDashboard, KeyRound } from 'lucide-react';
+import { Moon, Sun, LogOut, ChevronDown, Menu, ShoppingCart, ShieldCheck, LayoutDashboard, KeyRound, CalendarDays } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useTheme } from '../context/ThemeContext.jsx';
-import GlobalSearch from '../components/GlobalSearch.jsx';
+import HeaderSearch from '../components/HeaderSearch.jsx';
+import Brand from '../components/Brand.jsx';
 import NotificationBell from '../components/NotificationBell.jsx';
 import ChangePasswordDialog from '../components/ChangePasswordDialog.jsx';
 import { hasPermission, isAdmin } from '../utils/permissions.js';
@@ -17,12 +18,24 @@ function initials(name) {
   return (name || '?').split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase();
 }
 
+// Current date, refreshed each minute so a tab left open overnight rolls over to the new day.
+function useToday() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow((prev) => {
+      const next = new Date();
+      return next.toDateString() === prev.toDateString() ? prev : next;
+    }), 60000);
+    return () => clearInterval(id);
+  }, []);
+  return now;
+}
+
 export function Header({ onMenuClick }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const canBill = user && hasPermission(user, 'pos');
   const { theme, toggleTheme } = useTheme();
-  const [searchOpen, setSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -30,10 +43,7 @@ export function Header({ onMenuClick }) {
 
   useEffect(() => {
     function onKey(e) {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        setSearchOpen(true);
-      } else if (e.key === 'F2' && canBill) {
+      if (e.key === 'F2' && canBill) {
         e.preventDefault();
         navigate('/pos');
       } else if (e.key === 'Escape') {
@@ -58,33 +68,41 @@ export function Header({ onMenuClick }) {
     return () => document.removeEventListener('mousedown', onDoc);
   }, []);
 
+  const today = useToday().toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
   const iconBtn = 'relative w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-300 ease-luxe hover:bg-[var(--hover-tint)] active:scale-95';
 
   return (
     <>
       <header
-        className="glass h-16 sticky top-0 z-30 flex items-center justify-between gap-3 px-4 md:px-8 border-b transition-shadow duration-500"
+        className="glass h-16 sticky top-0 z-30 flex items-center justify-between gap-2 sm:gap-3 px-3 sm:px-4 md:px-8 border-b transition-shadow duration-500"
         style={{
           borderColor: scrolled ? 'var(--border-subtle)' : 'transparent',
           boxShadow: scrolled ? '0 10px 30px -18px rgba(17,18,24,0.35)' : 'none',
         }}
       >
-        <div className="flex items-center gap-2 min-w-0 flex-1">
-          <button onClick={onMenuClick} className={`lg:hidden ${iconBtn}`} aria-label="Open menu">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+          <button onClick={onMenuClick} className={`lg:hidden shrink-0 ${iconBtn}`} aria-label="Open menu">
             <Menu size={18} style={{ color: 'var(--text-secondary)' }} />
           </button>
-          <button
-            onClick={() => setSearchOpen(true)}
-            aria-label="Search" className="group flex items-center gap-2.5 px-3 sm:px-3.5 py-2 rounded-xl border text-sm min-w-0 sm:w-full sm:max-w-[22rem] transition-all duration-300 ease-luxe hover:border-gold-400/70 hover:shadow-[0_0_0_4px_rgba(194,154,86,0.10)]"
-            style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)', background: 'var(--bg-surface)' }}
-          >
-            <Search size={15} className="shrink-0 transition-colors group-hover:text-gold-600" />
-            <span className="hidden sm:block flex-1 text-left truncate">Search pages, products, customers…</span>
-            <kbd className="hidden sm:inline text-[10px] font-semibold px-1.5 py-0.5 rounded-md border" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-surface-muted)' }}>Ctrl K</kbd>
-          </button>
+          {/* The sidebar carries the brand on desktop; below lg the header does. */}
+          <Link to="/dashboard" className="lg:hidden shrink-0 min-w-0" aria-label="AURELIA, go to dashboard">
+            <Brand size="sm" className="[&>div:last-child]:hidden min-[420px]:[&>div:last-child]:block sm:[&>div:last-child]:hidden md:[&>div:last-child]:block" />
+          </Link>
+          <HeaderSearch />
         </div>
 
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+          <div
+            className="hidden xl:flex items-center gap-2 mr-2 pl-2.5 pr-3 py-1.5 rounded-xl border"
+            style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-surface)' }}
+            title="Today"
+          >
+            <CalendarDays size={15} className="text-gold-600" />
+            <div className="leading-none">
+              <div className="text-[9px] font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--text-muted)' }}>Today</div>
+              <div className="num text-xs font-semibold mt-1" style={{ color: 'var(--text-primary)' }}>{today}</div>
+            </div>
+          </div>
           {canBill && (
             <button
               onClick={() => navigate('/pos')}
@@ -112,7 +130,7 @@ export function Header({ onMenuClick }) {
           </button>
           <NotificationBell />
 
-          <div className="relative ml-1.5" ref={menuRef}>
+          <div className="relative ml-0.5 sm:ml-1.5" ref={menuRef}>
             <button
               onClick={() => setMenuOpen((o) => !o)}
               aria-haspopup="menu"
@@ -132,7 +150,7 @@ export function Header({ onMenuClick }) {
                   {roleLabel(user?.role)}
                 </div>
               </div>
-              <ChevronDown size={14} className={`transition-transform duration-300 ${menuOpen ? 'rotate-180' : ''}`} style={{ color: 'var(--text-muted)' }} />
+              <ChevronDown size={14} className={`hidden sm:block transition-transform duration-300 ${menuOpen ? 'rotate-180' : ''}`} style={{ color: 'var(--text-muted)' }} />
             </button>
             <AnimatePresence>
               {menuOpen && (
@@ -142,7 +160,7 @@ export function Header({ onMenuClick }) {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -6, scale: 0.97 }}
                   transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-                  className="absolute right-0 mt-2 w-64 surface-card shadow-premium-lg rounded-2xl overflow-hidden origin-top-right"
+                  className="popover-panel absolute right-0 mt-2 w-64 rounded-2xl overflow-hidden origin-top-right"
                 >
                   <div className="px-4 py-4 border-b relative overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
                     <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-gold-500/10 blur-2xl" />
@@ -183,7 +201,6 @@ export function Header({ onMenuClick }) {
           </div>
         </div>
       </header>
-      <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
       <ChangePasswordDialog open={passwordOpen} onClose={() => setPasswordOpen(false)} />
     </>
   );

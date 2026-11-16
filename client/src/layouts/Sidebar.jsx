@@ -3,6 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronsLeft, ChevronsRight, ChevronDown, Search, X } from 'lucide-react';
+import Brand from '../components/Brand.jsx';
 import NAV_SECTIONS from '../routes/navConfig.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { hasPermission } from '../utils/permissions.js';
@@ -51,19 +52,8 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }) {
       <div className="pointer-events-none absolute -top-24 -left-16 w-64 h-64 rounded-full bg-gold-500/10 blur-3xl" />
       <div className="pointer-events-none absolute bottom-0 right-0 w-48 h-48 rounded-full bg-gold-500/5 blur-3xl" />
       <div className="pointer-events-none absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-white/10 to-transparent" />
-      <div className="relative flex items-center justify-between gap-2.5 px-5 h-[72px] shrink-0">
-        <div className="relative flex items-center gap-3">
-          <div className="relative w-9 h-9 rounded-xl bg-gold-gradient flex items-center justify-center font-display font-bold text-graphite-950 shrink-0 shadow-gold">
-            <span className="relative z-10 text-lg">A</span>
-            <span className="absolute inset-0 rounded-xl ring-1 ring-inset ring-white/40" />
-          </div>
-          {expanded && (
-            <div className="leading-none">
-              <div className="font-display text-lg font-semibold text-white tracking-[0.12em]">AURELIA</div>
-              <div className="text-[9px] tracking-[0.32em] uppercase text-gold-400/80 mt-1">Department Store</div>
-            </div>
-          )}
-        </div>
+      <div className="relative flex items-center justify-between gap-2.5 px-[18px] h-[72px] shrink-0">
+        <Brand tone="dark" showName={expanded} />
         {mobileOpen && (
           <button onClick={onMobileClose} className="lg:hidden p-1.5 rounded-lg text-graphite-400 hover:text-white" aria-label="Close menu">
             <X size={18} />

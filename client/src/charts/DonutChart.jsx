@@ -30,7 +30,7 @@ export function DonutChart({ data, nameKey = '_id', valueKey = 'value' }) {
             data={data} dataKey={valueKey} nameKey={nameKey} innerRadius="58%" outerRadius="80%" paddingAngle={3} cornerRadius={6}
             cx="40%" stroke="none" activeIndex={active} activeShape={ActiveSlice}
             onMouseEnter={(_, i) => setActive(i)} onMouseLeave={() => setActive(-1)}
-            animationDuration={1200} animationEasing="ease-out"
+            animationDuration={800} animationEasing="ease-out"
           >
             {data.map((_, i) => <Cell key={i} fill={CATEGORICAL[i % CATEGORICAL.length]} />)}
           </Pie>
@@ -41,10 +41,10 @@ export function DonutChart({ data, nameKey = '_id', valueKey = 'value' }) {
       {/* Centre readout: total, or the hovered slice. */}
       <div className="pointer-events-none absolute top-1/2 -translate-y-1/2 text-center" style={{ left: '40%', transform: 'translate(-50%, -50%)' }}>
         <div className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--text-muted)' }}>{shown ? titleCase(shown[nameKey]) : 'Total'}</div>
-        <div className="font-display text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
+        <div className="num text-base font-bold" style={{ color: 'var(--text-primary)' }}>
           {formatCurrency(shown ? shown[valueKey] : total)}
         </div>
-        {shown && total > 0 && <div className="text-[11px] font-semibold text-gold-600">{((shown[valueKey] / total) * 100).toFixed(1)}%</div>}
+        {shown && total > 0 && <div className="num text-[11px] font-semibold text-gold-600">{((shown[valueKey] / total) * 100).toFixed(1)}%</div>}
       </div>
     </div>
   );
