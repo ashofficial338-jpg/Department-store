@@ -53,7 +53,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }) {
       <div className="pointer-events-none absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-white/10 to-transparent" />
       <div className="relative flex items-center justify-between gap-2.5 px-5 h-[72px] shrink-0">
         <div className="relative flex items-center gap-3">
-          <div className="relative w-9 h-9 rounded-xl bg-gold-gradient flex items-center justify-center font-display font-bold text-graphite-950 shrink-0 shadow-gold">
+          <div className="relative w-9 h-9 rounded-xl bg-gold-gradient flex items-center justify-center font-display font-bold text-white shrink-0 shadow-gold">
             <span className="relative z-10 text-lg">A</span>
             <span className="absolute inset-0 rounded-xl ring-1 ring-inset ring-white/40" />
           </div>
@@ -134,7 +134,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }) {
                               className="absolute inset-0 rounded-xl bg-gradient-to-r from-gold-500/20 via-gold-500/[0.08] to-transparent ring-1 ring-inset ring-gold-400/20"
                               transition={{ type: 'spring', stiffness: 420, damping: 36 }}
                             >
-                              <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-gold-gradient shadow-[0_0_10px_rgba(210,170,108,0.8)]" />
+                              <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-gold-gradient shadow-[0_0_10px_rgba(99,102,241,0.8)]" />
                             </motion.span>
                           ) : (
                             <span className="absolute inset-0 rounded-xl group-hover:bg-white/[0.045] transition-colors duration-300" />

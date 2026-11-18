@@ -18,7 +18,7 @@ function RouteProgress({ routeKey }) {
         initial={{ scaleX: 0, opacity: 1 }}
         animate={{ scaleX: 1, opacity: [1, 1, 0] }}
         transition={{ scaleX: { duration: 0.6, ease: EASE }, opacity: { duration: 0.9, times: [0, 0.7, 1] } }}
-        style={{ boxShadow: '0 0 12px rgba(194,154,86,0.7)' }}
+        style={{ boxShadow: '0 0 12px rgba(79,70,229,0.7)' }}
       />
     </AnimatePresence>
   );

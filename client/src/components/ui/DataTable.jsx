@@ -3,6 +3,12 @@ import { TableSkeleton } from './Skeleton.jsx';
 import EmptyState from './EmptyState.jsx';
 import Pagination from './Pagination.jsx';
 
+// Negative money (formatCurrency output such as "−₹1,250.00") is shown in red in every table.
+const NEGATIVE_AMOUNT = /^[−-]\s?₹/;
+function cellContent(value) {
+  return typeof value === 'string' && NEGATIVE_AMOUNT.test(value) ? <span className="amount-negative">{value}</span> : value;
+}
+
 export function DataTable({ columns, rows, loading, emptyTitle = 'No records found.', emptyDescription, emptyAction, pagination, onRowClick, keyField = '_id' }) {
   if (loading) {
     return (
@@ -22,9 +28,9 @@ export function DataTable({ columns, rows, loading, emptyTitle = 'No records fou
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
+      initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+      transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
       className="surface-card rounded-xl2 overflow-hidden"
     >
       <div className="overflow-x-auto">
@@ -32,7 +38,7 @@ export function DataTable({ columns, rows, loading, emptyTitle = 'No records fou
           <thead>
             <tr className="border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-surface-muted)' }}>
               {columns.map((col) => (
-                <th key={col.key} className="text-left px-5 py-3.5 text-xs font-bold uppercase whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
+                <th key={col.key} scope="col" className="text-left px-4 h-10 text-[11px] font-semibold uppercase whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
                   {col.header}
                 </th>
               ))}
@@ -40,21 +46,18 @@ export function DataTable({ columns, rows, loading, emptyTitle = 'No records fou
           </thead>
           <tbody>
             {rows.map((row, i) => (
-              <motion.tr
-                key={row[keyField]}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.35, delay: Math.min(i, 14) * 0.025, ease: [0.22, 1, 0.36, 1] }}
+              <tr
+                key={row[keyField] ?? i}
                 onClick={() => onRowClick?.(row)}
                 className={onRowClick ? 'cursor-pointer hover:!bg-[var(--gold-tint)]' : undefined}
                 style={{ borderBottom: '1px solid var(--border-subtle)' }}
               >
                 {columns.map((col) => (
-                  <td key={col.key} className="px-5 py-3.5 whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
-                    {col.render ? col.render(row) : row[col.key]}
+                  <td key={col.key} className="px-4 py-3 whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
+                    {cellContent(col.render ? col.render(row) : row[col.key])}
                   </td>
                 ))}
-              </motion.tr>
+              </tr>
             ))}
           </tbody>
         </table>

@@ -21,7 +21,7 @@ function RackBadge({ rack, size = 'lg' }) {
   const big = size === 'lg';
   return (
     <div
-      className={`shrink-0 flex flex-col items-center justify-center rounded-2xl bg-gold-gradient text-graphite-950 shadow-gold ${big ? 'w-24 h-24 sm:w-28 sm:h-28' : 'w-12 h-12'}`}
+      className={`shrink-0 flex flex-col items-center justify-center rounded-2xl bg-gold-gradient text-white shadow-gold ${big ? 'w-24 h-24 sm:w-28 sm:h-28' : 'w-12 h-12'}`}
       aria-label={`Rack ${rack}`}
     >
       {big && <span className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-75">Rack</span>}

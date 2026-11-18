@@ -22,7 +22,7 @@ function Select({ label, value, onChange, options, placeholder = 'All' }) {
         value={value || ''}
         onChange={(e) => onChange(e.target.value)}
         className="w-full rounded-xl border px-3 py-2 text-sm bg-[var(--bg-surface)] hover:border-gold-400 focus:outline-none focus:!border-gold-400 cursor-pointer"
-        style={{ color: 'var(--text-primary)', borderColor: value ? 'var(--color-gold-400, #D9B97A)' : 'var(--border-subtle)' }}
+        style={{ color: 'var(--text-primary)', borderColor: value ? 'var(--color-gold-400, #818CF8)' : 'var(--border-subtle)' }}
       >
         <option value="">{placeholder}</option>
         {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -84,7 +84,7 @@ export function ReportFilterBar({ value, onChange, options }) {
         </div>
 
         <label className="flex items-center gap-2 text-sm font-medium cursor-pointer select-none py-2" style={{ color: 'var(--text-secondary)' }}>
-          <input type="checkbox" className="accent-[#C29A56] w-4 h-4" checked={value.compare !== 'false'} onChange={(e) => set({ compare: e.target.checked ? '' : 'false' })} />
+          <input type="checkbox" className="accent-[#4F46E5] w-4 h-4" checked={value.compare !== 'false'} onChange={(e) => set({ compare: e.target.checked ? '' : 'false' })} />
           <GitCompareArrows size={15} className="text-gold-600" /> Compare with previous period
         </label>
 
@@ -92,7 +92,7 @@ export function ReportFilterBar({ value, onChange, options }) {
           <button
             type="button" onClick={() => setOpen((x) => !x)} aria-expanded={open}
             className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-semibold hover:border-gold-400"
-            style={{ borderColor: activeAdvanced ? '#D9B97A' : 'var(--border-subtle)', color: 'var(--text-primary)' }}
+            style={{ borderColor: activeAdvanced ? '#818CF8' : 'var(--border-subtle)', color: 'var(--text-primary)' }}
           >
             <SlidersHorizontal size={15} /> Filters{activeAdvanced ? ` (${activeAdvanced})` : ''}
           </button>

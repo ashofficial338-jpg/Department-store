@@ -421,7 +421,7 @@ export function DataEntry() {
                       onClick={() => setActiveKey(e.key)}
                       className={clsx(
                         'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap text-left transition-colors border',
-                        e.key === active.key ? 'bg-gold-500 text-graphite-950 border-gold-500 font-medium' : 'border-transparent hover:border-gold-400'
+                        e.key === active.key ? 'bg-gold-500 text-white border-gold-500 font-medium' : 'border-transparent hover:border-gold-400'
                       )}
                       style={e.key === active.key ? undefined : { color: 'var(--text-primary)' }}
                     >

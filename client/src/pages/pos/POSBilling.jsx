@@ -207,7 +207,7 @@ export function POSBilling() {
                 className="text-left surface-card rounded-xl p-3 hover:border-gold-400 hover:shadow-premium transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-transparent" style={{ borderColor: 'var(--border-subtle)' }}
               >
                 <div className="text-sm font-medium truncate" title={p.name}>{p.name}</div>
-                <div className="text-xs mb-1.5" style={{ color: (p.stock ?? 0) <= 0 ? '#C2483C' : (p.stock <= p.reorderLevel ? '#B7791F' : 'var(--text-muted)') }}>
+                <div className="text-xs mb-1.5" style={{ color: (p.stock ?? 0) <= 0 ? '#DC2626' : (p.stock <= p.reorderLevel ? '#B45309' : 'var(--text-muted)') }}>
                   {p.sku} &middot; {(p.stock ?? 0) <= 0 ? 'Out of stock' : `Stock ${p.stock}`}
                 </div>
                 <div className="text-sm font-display font-semibold text-gold-700">{formatCurrency(p.sellingPrice * (1 + (p.gstRate || 0) / 100), { decimals: 2 })} <span className="text-[10px] font-sans font-normal" style={{ color: 'var(--text-muted)' }}>incl. GST</span></div>
@@ -285,7 +285,7 @@ export function POSBilling() {
               </div>
             ))}
             <button onClick={() => setPayments((prev) => [...prev, { method: 'cash', amount: 0 }])} className="text-xs text-gold-700 font-medium">+ Split Payment</button>
-            <div className="text-xs flex justify-between" style={{ color: totalPaid < summary.grandTotal ? '#C2483C' : 'var(--text-muted)' }}>
+            <div className="text-xs flex justify-between" style={{ color: totalPaid < summary.grandTotal ? '#DC2626' : 'var(--text-muted)' }}>
               <span>Collected</span><span>{formatCurrency(totalPaid, { decimals: 2 })}</span>
             </div>
             {changeDue > 0 && !overpaidNonCash && (

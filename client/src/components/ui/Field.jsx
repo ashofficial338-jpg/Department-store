@@ -1,18 +1,18 @@
 import clsx from 'clsx';
 
-const baseInput = 'w-full rounded-xl border px-3.5 py-2.5 text-sm bg-[var(--bg-surface)] hover:border-[var(--border-strong)] focus:outline-none focus:!border-gold-400 transition-all duration-300 placeholder:text-graphite-400';
+const baseInput = 'w-full min-h-10 rounded-lg border px-3 py-2 text-sm bg-[var(--bg-surface)] shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:border-[var(--border-strong)] focus:outline-none focus:!border-gold-500 transition-colors duration-200 placeholder:text-graphite-400 disabled:opacity-60 disabled:cursor-not-allowed';
 
 function Wrapper({ label, error, hint, required, children }) {
   return (
     <label className="block">
       {label && (
-        <span className="block text-xs font-semibold mb-1.5 tracking-[0.01em]" style={{ color: 'var(--text-secondary)' }}>
+        <span className="block text-[13px] font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
           {label}{required && <span className="text-rose-500 ml-0.5">*</span>}
         </span>
       )}
       {children}
       {hint && !error && <span className="block text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{hint}</span>}
-      {error && <span className="block text-xs mt-1 text-rose-600">{error}</span>}
+      {error && <span role="alert" className="block text-xs mt-1.5 font-medium" style={{ color: 'var(--status-danger)' }}>{error}</span>}
     </label>
   );
 }

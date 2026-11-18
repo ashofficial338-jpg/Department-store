@@ -5,34 +5,42 @@ export default {
   content: ['./index.html', './src/**/*.{js,jsx}'],
   theme: {
     extend: {
+      // Design system (Nov 2026): Inter type, slate neutrals, indigo brand.
+      // The `gold` and `graphite` names are kept so every existing class (bg-gold-50, text-graphite-500...)
+      // picks up the new palette without touching page code: gold = indigo brand scale, graphite = slate.
       fontFamily: {
-        display: ['"Playfair Display"', 'Georgia', 'serif'],
-        sans: ['"Plus Jakarta Sans"', 'Inter', 'system-ui', 'sans-serif'],
+        display: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
+        sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
       },
       colors: {
         graphite: {
-          50: '#F6F6F7', 100: '#E9EAEC', 200: '#D2D4D9', 300: '#AEB1BA',
-          400: '#838795', 500: '#5F6373', 600: '#454856', 700: '#2F323E',
-          800: '#1E2028', 900: '#14151B', 950: '#0B0C10',
+          50: '#F8FAFC', 100: '#F1F5F9', 200: '#E2E8F0', 300: '#CBD5E1',
+          400: '#94A3B8', 500: '#64748B', 600: '#475569', 700: '#334155',
+          800: '#1E293B', 900: '#0F172A', 950: '#020617',
         },
         gold: {
-          50: '#FBF7EE', 100: '#F5EAD2', 200: '#EBD8AF', 300: '#DFC08A',
-          400: '#D2AA6C', 500: '#C29A56', 600: '#A67F42', 700: '#856436',
-          800: '#6B5230', 900: '#59442B',
+          50: '#EEF2FF', 100: '#E0E7FF', 200: '#C7D2FE', 300: '#A5B4FC',
+          400: '#818CF8', 500: '#6366F1', 600: '#4F46E5', 700: '#4338CA',
+          800: '#3730A3', 900: '#312E81',
+        },
+        brand: {
+          50: '#EEF2FF', 100: '#E0E7FF', 200: '#C7D2FE', 300: '#A5B4FC',
+          400: '#818CF8', 500: '#6366F1', 600: '#4F46E5', 700: '#4338CA',
+          800: '#3730A3', 900: '#312E81',
         },
         surface: {
-          DEFAULT: '#FAF9F6', muted: '#F3F1EA', border: '#E7E3D8',
+          DEFAULT: '#F8FAFC', muted: '#F1F5F9', border: '#E2E8F0',
         },
       },
       boxShadow: {
-        premium: '0 1px 2px rgba(11,12,16,0.04), 0 8px 24px -10px rgba(11,12,16,0.10)',
-        'premium-lg': '0 2px 6px rgba(11,12,16,0.05), 0 24px 48px -18px rgba(11,12,16,0.22)',
-        gold: '0 10px 28px -10px rgba(194,154,86,0.55)',
-        'gold-glow': '0 0 0 1px rgba(210,170,108,0.35), 0 12px 32px -12px rgba(194,154,86,0.55)',
+        premium: '0 1px 2px rgba(15,23,42,0.05), 0 4px 12px -4px rgba(15,23,42,0.06)',
+        'premium-lg': '0 4px 8px -2px rgba(15,23,42,0.06), 0 20px 40px -12px rgba(15,23,42,0.18)',
+        gold: '0 6px 16px -6px rgba(79,70,229,0.45)',
+        'gold-glow': '0 0 0 1px rgba(99,102,241,0.30), 0 10px 24px -10px rgba(79,70,229,0.50)',
         'inner-hairline': 'inset 0 1px 0 rgba(255,255,255,0.6)',
       },
       borderRadius: {
-        xl2: '1.25rem',
+        xl2: '1rem',
       },
       transitionTimingFunction: {
         luxe: 'cubic-bezier(0.22, 1, 0.36, 1)',

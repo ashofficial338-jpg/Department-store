@@ -62,15 +62,15 @@ export function Login() {
     }
   }
 
-  const inputWrap = 'group relative flex items-center rounded-xl border transition-all duration-300 focus-within:border-gold-400 focus-within:shadow-[0_0_0_4px_rgba(194,154,86,0.14)]';
+  const inputWrap = 'group relative flex items-center rounded-xl border transition-all duration-300 focus-within:border-gold-400 focus-within:shadow-[0_0_0_4px_rgba(79,70,229,0.14)]';
 
   return (
     <div className="min-h-screen flex bg-graphite-950">
       {/* ---------- Brand / showcase panel ---------- */}
       <div className="hidden lg:flex flex-[1.15] relative overflow-hidden flex-col justify-between p-12 xl:p-16">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,#1E2028_0%,#0B0C10_60%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,#1E293B_0%,#020617_60%)]" />
         <div className="absolute -top-40 -right-32 w-[34rem] h-[34rem] rounded-full bg-gold-500/20 blur-[110px] animate-aurora" />
-        <div className="absolute -bottom-48 -left-24 w-[30rem] h-[30rem] rounded-full bg-[#7E90B0]/15 blur-[110px] animate-aurora-slow" />
+        <div className="absolute -bottom-48 -left-24 w-[30rem] h-[30rem] rounded-full bg-[#0EA5E9]/15 blur-[110px] animate-aurora-slow" />
         <div className="absolute top-1/3 left-1/3 w-72 h-72 rounded-full bg-gold-300/10 blur-[90px] animate-aurora" />
         {/* Fine grid, faded toward the edges. */}
         <div
@@ -84,7 +84,7 @@ export function Login() {
         />
 
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: EASE }} className="relative flex items-center gap-3">
-          <div className="relative w-11 h-11 rounded-xl bg-gold-gradient flex items-center justify-center font-display font-bold text-xl text-graphite-950 shadow-gold">
+          <div className="relative w-11 h-11 rounded-xl bg-gold-gradient flex items-center justify-center font-display font-bold text-xl text-white shadow-gold">
             A
             <span className="absolute inset-0 rounded-xl ring-1 ring-inset ring-white/40" />
           </div>
@@ -132,12 +132,12 @@ export function Login() {
               <svg viewBox="0 0 180 42" className="w-full h-10" aria-hidden>
                 <defs>
                   <linearGradient id="spark" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="0%" stopColor="#D2AA6C" stopOpacity="0.45" />
-                    <stop offset="100%" stopColor="#D2AA6C" stopOpacity="0" />
+                    <stop offset="0%" stopColor="#6366F1" stopOpacity="0.45" />
+                    <stop offset="100%" stopColor="#6366F1" stopOpacity="0" />
                   </linearGradient>
                 </defs>
                 <path d={`${SPARK} L180 42 L0 42 Z`} fill="url(#spark)" />
-                <motion.path d={SPARK} fill="none" stroke="#D2AA6C" strokeWidth="2" strokeLinecap="round" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1.8, ease: EASE, delay: 0.8 }} />
+                <motion.path d={SPARK} fill="none" stroke="#6366F1" strokeWidth="2" strokeLinecap="round" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1.8, ease: EASE, delay: 0.8 }} />
               </svg>
               </div>
             </GlassCard>
@@ -179,7 +179,7 @@ export function Login() {
 
       {/* ---------- Sign-in panel ---------- */}
       <div className="flex-1 relative flex items-center justify-center p-6 sm:p-10" style={{ background: 'var(--bg-app)' }}>
-        <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(600px_300px_at_80%_0%,rgba(210,170,108,0.16),transparent_70%)]" />
+        <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(600px_300px_at_80%_0%,rgba(99,102,241,0.16),transparent_70%)]" />
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -187,7 +187,7 @@ export function Login() {
           className="relative w-full max-w-[26rem]"
         >
           <div className="lg:hidden flex items-center gap-3 mb-10">
-            <div className="w-10 h-10 rounded-xl bg-gold-gradient flex items-center justify-center font-display font-bold text-graphite-950 shadow-gold">A</div>
+            <div className="w-10 h-10 rounded-xl bg-gold-gradient flex items-center justify-center font-display font-bold text-white shadow-gold">A</div>
             <span className="font-display text-xl font-semibold tracking-[0.12em]" style={{ color: 'var(--text-primary)' }}>AURELIA</span>
           </div>
 
@@ -233,7 +233,7 @@ export function Login() {
 
               <button
                 type="submit" disabled={loading}
-                className="sheen group w-full flex items-center justify-center gap-2 bg-gold-gradient text-graphite-950 rounded-xl py-3 text-sm font-bold shadow-gold transition-all duration-300 ease-luxe hover:-translate-y-0.5 hover:shadow-gold-glow active:translate-y-0 disabled:opacity-70 disabled:hover:translate-y-0 mt-2"
+                className="sheen group w-full flex items-center justify-center gap-2 bg-gold-gradient text-white rounded-xl py-3 text-sm font-bold shadow-gold transition-all duration-300 ease-luxe hover:-translate-y-0.5 hover:shadow-gold-glow active:translate-y-0 disabled:opacity-70 disabled:hover:translate-y-0 mt-2"
               >
                 <span className="relative z-[2] flex items-center gap-2">
                   {loading ? <><Loader2 size={16} className="animate-spin" /> Signing in…</> : <>Sign in <ArrowRight size={16} className="transition-transform duration-300 group-hover:translate-x-1" /></>}

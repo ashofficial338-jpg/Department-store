@@ -66,7 +66,7 @@ export function Header({ onMenuClick }) {
         className="glass h-16 sticky top-0 z-30 flex items-center justify-between gap-3 px-4 md:px-8 border-b transition-shadow duration-500"
         style={{
           borderColor: scrolled ? 'var(--border-subtle)' : 'transparent',
-          boxShadow: scrolled ? '0 10px 30px -18px rgba(17,18,24,0.35)' : 'none',
+          boxShadow: scrolled ? '0 10px 30px -18px rgba(15,23,42,0.35)' : 'none',
         }}
       >
         <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -75,7 +75,7 @@ export function Header({ onMenuClick }) {
           </button>
           <button
             onClick={() => setSearchOpen(true)}
-            aria-label="Search" className="group flex items-center gap-2.5 px-3 sm:px-3.5 py-2 rounded-xl border text-sm min-w-0 sm:w-full sm:max-w-[22rem] transition-all duration-300 ease-luxe hover:border-gold-400/70 hover:shadow-[0_0_0_4px_rgba(194,154,86,0.10)]"
+            aria-label="Search" className="group flex items-center gap-2.5 px-3 sm:px-3.5 py-2 rounded-xl border text-sm min-w-0 sm:w-full sm:max-w-[22rem] transition-all duration-300 ease-luxe hover:border-gold-400/70 hover:shadow-[0_0_0_4px_rgba(79,70,229,0.10)]"
             style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)', background: 'var(--bg-surface)' }}
           >
             <Search size={15} className="shrink-0 transition-colors group-hover:text-gold-600" />
@@ -89,7 +89,7 @@ export function Header({ onMenuClick }) {
             <button
               onClick={() => navigate('/pos')}
               title="New Bill (F2)"
-              className="sheen flex items-center gap-1.5 bg-gold-gradient text-graphite-950 rounded-xl px-3.5 py-2 text-sm font-semibold mr-1 shadow-gold transition-transform duration-300 ease-luxe hover:-translate-y-0.5 active:translate-y-0"
+              className="sheen flex items-center gap-1.5 bg-gold-gradient text-white rounded-xl px-3.5 py-2 text-sm font-semibold mr-1 shadow-gold transition-transform duration-300 ease-luxe hover:-translate-y-0.5 active:translate-y-0"
             >
               <ShoppingCart size={15} />
               <span className="hidden sm:inline">New Bill</span>

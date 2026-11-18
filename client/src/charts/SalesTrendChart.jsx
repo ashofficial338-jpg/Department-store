@@ -18,8 +18,8 @@ export function SalesTrendChart({ data, showPurchases = true }) {
             <stop offset="100%" stopColor={GOLD} stopOpacity={0} />
           </linearGradient>
           <linearGradient id="salesStroke" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="#E9CF9A" />
-            <stop offset="100%" stopColor="#A67F42" />
+            <stop offset="0%" stopColor="#A5B4FC" />
+            <stop offset="100%" stopColor="#4338CA" />
           </linearGradient>
           <linearGradient id="purchaseFill" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={GRAPHITE} stopOpacity={0.22} />

@@ -41,7 +41,7 @@ export function InvoiceSettings() {
             {PAYMENT_METHOD_OPTIONS.map((m) => (
               <button
                 key={m} type="button" onClick={() => toggleMethod(m)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium capitalize border transition-colors ${form.paymentMethods.includes(m) ? 'bg-gold-500 border-gold-500 text-graphite-950' : 'border-graphite-300 text-graphite-600'}`}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium capitalize border transition-colors ${form.paymentMethods.includes(m) ? 'bg-gold-500 border-gold-500 text-white' : 'border-graphite-300 text-graphite-600'}`}
               >
                 {m.replace('_', ' ')}
               </button>

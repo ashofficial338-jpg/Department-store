@@ -153,13 +153,13 @@ export function Dashboard() {
                 <Link
                   to={a.to}
                   className={a.primary
-                    ? 'sheen group h-full flex flex-col items-center justify-center gap-2 rounded-2xl py-4 px-2 text-sm font-semibold bg-gold-gradient text-graphite-950 shadow-gold lift'
+                    ? 'sheen group h-full flex flex-col items-center justify-center gap-2 rounded-2xl py-4 px-2 text-sm font-semibold bg-gold-gradient text-white shadow-gold lift'
                     : 'group h-full surface-card gold-ring lift flex flex-col items-center justify-center gap-2.5 rounded-2xl py-4 px-2 text-sm font-medium'}
                   style={a.primary ? undefined : { color: 'var(--text-primary)' }}
                 >
                   <span className={a.primary
                     ? 'relative z-[2] w-10 h-10 rounded-xl bg-black/10 flex items-center justify-center'
-                    : 'w-10 h-10 rounded-xl bg-gold-50 text-gold-700 flex items-center justify-center transition-all duration-500 ease-luxe group-hover:bg-gold-gradient group-hover:text-graphite-950 group-hover:shadow-gold group-hover:-rotate-6 group-hover:scale-110'}
+                    : 'w-10 h-10 rounded-xl bg-gold-50 text-gold-700 flex items-center justify-center transition-all duration-500 ease-luxe group-hover:bg-gold-gradient group-hover:text-white group-hover:shadow-gold group-hover:-rotate-6 group-hover:scale-110'}
                   >
                     <a.icon size={19} />
                   </span>
