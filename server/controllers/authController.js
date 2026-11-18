@@ -1,4 +1,5 @@
 import User from '../models/User.js';
+import RevokedToken from '../models/RevokedToken.js';
 import ApiError from '../utils/ApiError.js';
 import catchAsync from '../utils/catchAsync.js';
 import generateToken from '../utils/generateToken.js';
@@ -35,6 +36,20 @@ export const login = catchAsync(async (req, res) => {
     token: generateToken(user),
     user: await sanitizeUser(user),
   });
+});
+
+// Logout: revoke this session's token so it can never be used again (even if it was copied).
+export const logout = catchAsync(async (req, res) => {
+  const { jti, exp } = req.authSession || {};
+  if (jti) {
+    await RevokedToken.updateOne(
+      { jti },
+      { $setOnInsert: { jti, user: req.user._id, expiresAt: new Date((exp || Date.now() / 1000 + 86400) * 1000) } },
+      { upsert: true }
+    );
+  }
+  await recordAudit({ req, action: 'user.logout', entity: 'User', entityId: req.user._id });
+  res.json({ success: true, message: 'Logged out.' });
 });
 
 export const me = catchAsync(async (req, res) => {

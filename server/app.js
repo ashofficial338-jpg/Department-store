@@ -31,6 +31,12 @@ if (env.nodeEnv !== 'test') app.use(morgan(env.nodeEnv === 'development' ? 'dev'
 
 const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 1000, standardHeaders: true, legacyHeaders: false });
 app.use('/api', apiLimiter);
+// API responses carry business data tied to a login: never let the browser or a proxy keep a copy,
+// so nothing can be shown again from cache after logout.
+app.use('/api', (req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+});
 
 app.use('/uploads', express.static(path.join(__dirname, env.uploadDir)));
 

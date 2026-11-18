@@ -1,5 +1,6 @@
 import api from './api.js';
 import createResourceService from './resource.js';
+import { setToken } from '../utils/session.js';
 
 export const categoryService = createResourceService('/categories');
 export const brandService = createResourceService('/brands');
@@ -13,9 +14,11 @@ export const rackItemService = createResourceService('/rack-items');
 export const authService = {
   login: (payload) => api.post('/auth/login', payload).then((r) => r.data),
   me: () => api.get('/auth/me').then((r) => r.data),
+  // Ends this session on the server (the token is revoked even if someone copied it).
+  logout: () => api.post('/auth/logout').then((r) => r.data),
   // The server signs out other sessions on a password change and returns a fresh token for this one.
   changePassword: (payload) => api.post('/auth/change-password', payload).then((r) => {
-    if (r.data?.token) { try { localStorage.setItem('aurelia_token', r.data.token); } catch { /* storage unavailable */ } }
+    if (r.data?.token) setToken(r.data.token);
     return r.data;
   }),
 };
@@ -151,7 +154,8 @@ export const reportService = {
   outstanding: (params) => api.get('/reports/outstanding', { params }).then((r) => r.data),
   cashBank: (params) => api.get('/reports/cash-bank', { params }).then((r) => r.data),
   profitLoss: (params) => api.get('/reports/profit-loss', { params }).then((r) => r.data),
-  downloadCsvUrl: (endpoint, params) => `/api${endpoint}?${new URLSearchParams({ ...params, format: 'csv' }).toString()}`,
+  // CSV export through the authenticated API (a plain link would carry no login and get a 401).
+  downloadCsv: (endpoint, params) => downloadFile(endpoint, { ...params, format: 'csv' }, `${endpoint.split('/').pop() || 'report'}.csv`),
 };
 
 // Downloads a file from an authenticated endpoint (a plain link would not carry the bearer token).

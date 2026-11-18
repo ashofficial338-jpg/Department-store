@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Download } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { PageHeader, DataTable, Button } from '../../components/ui/index.js';
 import { FilterSelect } from '../../components/ui/FilterBar.jsx';
 import { reportService } from '../../services/index.js';
@@ -73,6 +74,7 @@ export function ReportsCenter() {
   const [active, setActive] = useState('sales');
   const [range, setRange] = useState('this_month');
   const [rows, setRows] = useState([]);
+  const [exporting, setExporting] = useState(false);
   const [loading, setLoading] = useState(true);
   const report = REPORTS.find((r) => r.key === active);
 
@@ -96,9 +98,15 @@ export function ReportsCenter() {
 
       {report.csv && (
         <div className="mb-4">
-          <a href={reportService.downloadCsvUrl(report.endpoint, { range })} target="_blank" rel="noreferrer">
-            <Button size="sm" variant="outline" icon={Download}>Export CSV</Button>
-          </a>
+          <Button
+            size="sm" variant="outline" icon={Download} loading={exporting}
+            onClick={async () => {
+              setExporting(true);
+              try { await reportService.downloadCsv(report.endpoint, { range }); } catch (err) { toast.error(err.message); } finally { setExporting(false); }
+            }}
+          >
+            Export CSV
+          </Button>
         </div>
       )}
 

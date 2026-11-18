@@ -24,6 +24,20 @@ test('SEC-01 requests without a token, with a forged token, or with an expired t
   assert.equal((await api('GET', '/sales', { token: expired })).status, 401);
 });
 
+test('SEC-01b after Logout the same token is refused, and tokens without a session id are refused', async () => {
+  const token = await tokenFor(USERS.cashier);
+  assert.equal((await api('GET', '/auth/me', { token })).status, 200);
+  assert.equal((await api('POST', '/auth/logout', { token })).status, 200);
+  assert.equal((await api('GET', '/auth/me', { token })).status, 401);
+  assert.equal((await api('GET', '/sales', { token })).status, 401);
+  // A properly signed token from before session ids existed (no jti) must not work either.
+  const user = await User.findOne({ email: USERS.cashier });
+  const legacy = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
+  assert.equal((await api('GET', '/auth/me', { token: legacy })).status, 401);
+  // A fresh login still works after logging out.
+  assert.equal((await api('GET', '/auth/me', { token: await tokenFor(USERS.cashier) })).status, 200);
+});
+
 test('SEC-02 a deactivated account loses access immediately', async () => {
   const user = await User.findOne({ email: USERS.storeManager });
   await User.updateOne({ _id: user._id }, { isActive: false });

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { getToken, clearSession, goToLogin } from '../utils/session.js';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api',
@@ -6,7 +7,7 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('aurelia_token');
+  const token = getToken();
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
@@ -18,10 +19,10 @@ api.interceptors.response.use(
     if (error.response?.data instanceof Blob && error.response.data.type.includes('json')) {
       try { error.response.data = JSON.parse(await error.response.data.text()); } catch { /* keep generic message */ }
     }
+    // Expired, revoked (logged out elsewhere) or missing session: drop it and go to the Login page.
     if (error.response?.status === 401 && !window.location.pathname.startsWith('/login')) {
-      localStorage.removeItem('aurelia_token');
-      localStorage.removeItem('aurelia_user');
-      window.location.href = '/login';
+      clearSession();
+      goToLogin();
     }
     const message = error.response?.data?.message || 'Unable to complete this request. Please try again.';
     return Promise.reject(new Error(message));

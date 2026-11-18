@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import env from '../config/env.js';
 import User from '../models/User.js';
+import RevokedToken from '../models/RevokedToken.js';
 import ApiError from '../utils/ApiError.js';
 import catchAsync from '../utils/catchAsync.js';
 import { userPermissions, permissionListHas } from '../services/permissionService.js';
@@ -20,6 +21,12 @@ export const protect = catchAsync(async (req, res, next) => {
     throw new ApiError(401, 'Invalid or expired session. Please log in again.');
   }
 
+  // Sessions without an id were issued before logout revocation existed; ask them to sign in again.
+  if (!decoded.jti) throw new ApiError(401, 'Your session has expired. Please log in again.');
+  if (await RevokedToken.exists({ jti: decoded.jti })) {
+    throw new ApiError(401, 'You have been logged out. Please log in again.');
+  }
+
   const user = await User.findById(decoded.id);
   if (!user || !user.isActive) {
     throw new ApiError(401, 'This account is no longer active.');
@@ -28,6 +35,7 @@ export const protect = catchAsync(async (req, res, next) => {
     throw new ApiError(401, 'Your password was changed. Please log in again.');
   }
   req.user = user;
+  req.authSession = { jti: decoded.jti, exp: decoded.exp };
   next();
 });
 
