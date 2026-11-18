@@ -1,7 +1,7 @@
 {
   "name": "aurelia-server",
   "version": "1.0.0",
-  "description": "AURELIA Department Store - REST API server",
+  "description": "ARKA MART - REST API server",
   "type": "module",
   "main": "server.js",
   "scripts": {

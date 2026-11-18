@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 // Singleton settings document (findOne with no filter always returns this one doc).
 const settingsSchema = new mongoose.Schema(
   {
-    companyName: { type: String, default: 'AURELIA Department Store' },
+    companyName: { type: String, default: 'ARKA MART' },
     logo: { type: String, default: '' },
     address: { type: String, default: '' },
     gstin: { type: String, default: '' },

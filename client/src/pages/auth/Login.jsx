@@ -89,7 +89,7 @@ export function Login() {
             <span className="absolute inset-0 rounded-xl ring-1 ring-inset ring-white/40" />
           </div>
           <div className="leading-none">
-            <div className="font-display text-xl font-semibold text-white tracking-[0.14em]">AURELIA</div>
+            <div className="font-display text-xl font-semibold text-white tracking-[0.14em]">ARKA MART</div>
             <div className="text-[9px] tracking-[0.34em] uppercase text-gold-400/80 mt-1.5">Department Store</div>
           </div>
         </motion.div>
@@ -172,7 +172,7 @@ export function Login() {
         </div>
 
         <div className="relative flex items-center justify-between text-xs text-graphite-500">
-          <span>© {new Date().getFullYear()} AURELIA Department Store</span>
+          <span>© {new Date().getFullYear()} ARKA MART</span>
           <span className="tracking-[0.24em] uppercase text-[10px]">Crafted for retail excellence</span>
         </div>
       </div>
@@ -188,14 +188,14 @@ export function Login() {
         >
           <div className="lg:hidden flex items-center gap-3 mb-10">
             <div className="w-10 h-10 rounded-xl bg-gold-gradient flex items-center justify-center font-display font-bold text-white shadow-gold">A</div>
-            <span className="font-display text-xl font-semibold tracking-[0.12em]" style={{ color: 'var(--text-primary)' }}>AURELIA</span>
+            <span className="font-display text-xl font-semibold tracking-[0.12em]" style={{ color: 'var(--text-primary)' }}>ARKA MART</span>
           </div>
 
           <div className="surface-card rounded-[1.75rem] p-8 sm:p-9 shadow-premium-lg relative overflow-hidden">
             <div className="absolute top-0 inset-x-10 h-px bg-gradient-to-r from-transparent via-gold-400 to-transparent" />
             <span className="eyebrow">Welcome back</span>
             <h2 className="font-display text-[2rem] leading-tight font-semibold mt-2 mb-1.5" style={{ color: 'var(--text-primary)' }}>Sign in</h2>
-            <p className="text-sm mb-8" style={{ color: 'var(--text-secondary)' }}>Access your AURELIA workspace.</p>
+            <p className="text-sm mb-8" style={{ color: 'var(--text-secondary)' }}>Access your ARKA MART workspace.</p>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <label className="block">
@@ -204,7 +204,7 @@ export function Login() {
                   <Mail size={16} className="absolute left-3.5 text-graphite-400 transition-colors group-focus-within:text-gold-600" />
                   <input
                     type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@aurelia.test"
+                    placeholder="you@example.com"
                     className="w-full bg-transparent pl-10 pr-3.5 py-3 text-sm rounded-xl focus:outline-none !shadow-none"
                     style={{ color: 'var(--text-primary)' }}
                   />

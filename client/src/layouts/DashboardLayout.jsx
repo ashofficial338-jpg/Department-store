@@ -57,7 +57,7 @@ export function DashboardLayout() {
           </div>
         </main>
         <footer className="px-4 md:px-8 pb-6 max-w-[1600px] w-full mx-auto text-[11px] flex items-center justify-between no-print" style={{ color: 'var(--text-muted)' }}>
-          <span>© {new Date().getFullYear()} AURELIA Department Store</span>
+          <span>© {new Date().getFullYear()} ARKA MART</span>
           <span className="hidden sm:inline tracking-[0.2em] uppercase">Crafted for retail excellence</span>
         </footer>
       </div>

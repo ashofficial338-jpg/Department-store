@@ -41,7 +41,7 @@ function toCsvString(ds) {
 
 async function toXlsxBuffer(ds) {
   const wb = new ExcelJS.Workbook();
-  wb.creator = 'AURELIA';
+  wb.creator = 'ARKA MART';
   const ws = wb.addWorksheet(ds.title.slice(0, 31).replace(/[\\/*?:[\]]/g, ''));
   ws.addRow([ds.title]).font = { bold: true, size: 14 };
   ws.addRow([ds.filtersText]).font = { italic: true, color: { argb: 'FF666666' } };

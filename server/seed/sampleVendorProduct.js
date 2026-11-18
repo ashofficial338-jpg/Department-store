@@ -87,14 +87,14 @@ async function run() {
 
   // ---------- Reference data the sample depends on ----------
   if (!(await Settings.exists({}))) {
-    await Settings.create({ companyName: 'AURELIA Department Store', gstin: '33AAAAA0000A1Z5', pan: 'AAAAA0000A', address: '145 Anna Salai, Chennai, Tamil Nadu 600002' });
+    await Settings.create({ companyName: 'ARKA MART', gstin: '33AAAAA0000A1Z5', pan: 'AAAAA0000A', address: '145 Anna Salai, Chennai, Tamil Nadu 600002' });
   }
   const taxRate = await upsert(TaxRate, { ratePercent: 18 }, { name: 'GST 18%', ratePercent: 18, hsnCodes: ['8509', '8517', '8471'], isDefault: true });
   const home = await upsert(Category, { slug: 'home' }, { name: 'Home', slug: 'home', description: 'Furniture, kitchen and decor for the home.' });
   const kitchen = await upsert(Category, { slug: 'home-kitchen' }, { name: 'Kitchen', slug: 'home-kitchen', parent: home._id, description: 'Cookware and kitchen appliances.' });
   const brand = await upsert(Brand, { name: 'Solstice Home' }, { name: 'Solstice Home', description: 'Home and kitchen appliances.' });
   const store = await upsert(Store, { code: 'ST01' }, {
-    code: 'ST01', name: 'AURELIA Chennai Flagship', address: '145 Anna Salai', city: 'Chennai',
+    code: 'ST01', name: 'ARKA MART Chennai Flagship', address: '145 Anna Salai', city: 'Chennai',
     state: 'Tamil Nadu', pincode: '600002', gstin: '33AAAAA0000A1Z5', phone: '4428521234',
   });
 

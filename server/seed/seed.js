@@ -75,7 +75,7 @@ async function run() {
   await clearAllCollections();
 
   // ---------- Settings ----------
-  await Settings.create({ companyName: 'AURELIA Department Store', gstin: '33AAAAA0000A1Z5', pan: 'AAAAA0000A', address: '145 Anna Salai, Chennai, Tamil Nadu 600002' });
+  await Settings.create({ companyName: 'ARKA MART', gstin: '33AAAAA0000A1Z5', pan: 'AAAAA0000A', address: '145 Anna Salai, Chennai, Tamil Nadu 600002' });
 
   // ---------- Tax Rates ----------
   const taxRates = await TaxRate.insertMany([
@@ -114,12 +114,12 @@ async function run() {
 
   // ---------- Stores & DCs ----------
   const stores = await Store.insertMany(CITIES.slice(0, 3).map((c, i) => ({
-    code: `ST${String(i + 1).padStart(2, '0')}`, name: `AURELIA ${c.city}`,
+    code: `ST${String(i + 1).padStart(2, '0')}`, name: `ARKA MART ${c.city}`,
     address: pick(['No. 24, Usman Road, T. Nagar', 'No. 112, 100 Feet Road, Indiranagar', 'Shop 5, Linking Road, Bandra West', 'Plot 18, Road No. 36, Jubilee Hills', 'FC Road, Shivajinagar', 'Cross Cut Road, Gandhipuram']), city: c.city, state: c.state, pincode: `${randomInt(500000, 699999)}`,
     gstin: `33AAAAA0000A1Z${i + 1}`, phone: `9${randomInt(100000000, 999999999)}`,
   })));
   const distributionCenters = await DistributionCenter.insertMany(CITIES.slice(3, 5).map((c, i) => ({
-    code: `DC${String(i + 1).padStart(2, '0')}`, name: `AURELIA ${c.city} Distribution Center`,
+    code: `DC${String(i + 1).padStart(2, '0')}`, name: `ARKA MART ${c.city} Distribution Center`,
     address: `${randomInt(1, 200)} Industrial Estate`, city: c.city, state: c.state,
     contactPhone: `9${randomInt(100000000, 999999999)}`, contactEmail: `dc${i + 1}@aurelia.example`,
   })));

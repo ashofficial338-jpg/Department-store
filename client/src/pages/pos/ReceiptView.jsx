@@ -22,7 +22,7 @@ export function ReceiptView({ sale }) {
   return (
     <div className="font-mono text-xs space-y-2" id="receipt">
       <div className="text-center mb-3">
-        <div className="font-display text-base font-semibold">AURELIA</div>
+        <div className="font-display text-base font-semibold">ARKA MART</div>
         <div style={{ color: 'var(--text-muted)' }}>Department Store</div>
       </div>
       <div className="flex justify-between"><span>Invoice</span><span>{sale.invoiceNumber}</span></div>

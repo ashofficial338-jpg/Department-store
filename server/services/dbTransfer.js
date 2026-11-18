@@ -484,7 +484,7 @@ export async function startRestore({ file, collections, mode = 'skip', confirm, 
   requireMode(mode, confirm);
   const full = backupPath(file);
   const header = await readHeader(full);
-  if (!header) throw new ApiError(400, 'That file is not a valid AURELIA database backup.');
+  if (!header) throw new ApiError(400, 'That file is not a valid ARKA MART database backup.');
   const chosen = pick((header.collections || []).filter((c) => !INTERNAL_COLLECTIONS.has(c.name)), collections);
   if (!chosen.length) throw new ApiError(400, 'None of the selected collections are in that backup.');
   const wanted = new Set(chosen.map((c) => c.name));

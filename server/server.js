@@ -9,5 +9,5 @@ connectDB().catch(() => {
 });
 
 app.listen(env.port, () => {
-  console.log(`[server] AURELIA API running on port ${env.port} (${env.nodeEnv})`);
+  console.log(`[server] ARKA MART API running on port ${env.port} (${env.nodeEnv})`);
 });

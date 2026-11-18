@@ -48,7 +48,7 @@ export const uploadBackup = catchAsync(async (req, res) => {
   const header = await readHeader(req.file.path);
   if (!header) {
     fs.rmSync(req.file.path, { force: true });
-    throw new ApiError(400, 'That file is not a valid AURELIA database backup.');
+    throw new ApiError(400, 'That file is not a valid ARKA MART database backup.');
   }
   recordAudit({ req, action: 'database.import', entity: 'Database', newValue: { file: req.file.filename } });
   res.status(201).json({ success: true, data: { name: req.file.filename } });

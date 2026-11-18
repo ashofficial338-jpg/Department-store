@@ -33,7 +33,7 @@ async function run() {
   await connectDB();
 
   if (!(await Settings.exists({}))) {
-    await Settings.create({ companyName: 'AURELIA Department Store', gstin: '33AAAAA0000A1Z5', pan: 'AAAAA0000A', address: '145 Anna Salai, Chennai, Tamil Nadu 600002' });
+    await Settings.create({ companyName: 'ARKA MART', gstin: '33AAAAA0000A1Z5', pan: 'AAAAA0000A', address: '145 Anna Salai, Chennai, Tamil Nadu 600002' });
   }
   for (const [role, v] of Object.entries(DEFAULT_ROLE_PERMISSIONS)) {
     if (!(await RolePermission.exists({ role }))) await RolePermission.create({ role, label: v.label, permissions: v.permissions, isSystem: true, version: 2 });

@@ -59,7 +59,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }) {
           </div>
           {expanded && (
             <div className="leading-none">
-              <div className="font-display text-lg font-semibold text-white tracking-[0.12em]">AURELIA</div>
+              <div className="font-display text-lg font-semibold text-white tracking-[0.12em]">ARKA MART</div>
               <div className="text-[9px] tracking-[0.32em] uppercase text-gold-400/80 mt-1">Department Store</div>
             </div>
           )}

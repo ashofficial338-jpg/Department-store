@@ -22,7 +22,7 @@ async function run() {
 
   let stores = await Store.find({ isActive: { $ne: false } });
   if (!stores.length) {
-    stores = [await Store.create({ code: 'ST01', name: 'AURELIA Chennai', address: 'No. 24, Usman Road, T. Nagar', city: 'Chennai', state: 'Tamil Nadu', pincode: '600017', gstin: '33AAAAA0000A1Z1', phone: '9840012345' })];
+    stores = [await Store.create({ code: 'ST01', name: 'ARKA MART Chennai', address: 'No. 24, Usman Road, T. Nagar', city: 'Chennai', state: 'Tamil Nadu', pincode: '600017', gstin: '33AAAAA0000A1Z1', phone: '9840012345' })];
     console.log(`[seed:stock] No store found - created ${stores[0].name} (${stores[0].code}).`);
   }
 
