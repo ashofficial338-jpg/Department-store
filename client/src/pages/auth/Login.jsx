@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Eye, EyeOff, ArrowRight, Mail, Lock, Loader2, TrendingUp, ShieldCheck, Sparkles, Boxes, BarChart3, Users,
@@ -47,14 +47,13 @@ export function Login() {
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
 
   async function handleSubmit(e) {
     e.preventDefault();
     setLoading(true);
     try {
       await login(email, password);
-      navigate(location.state?.from?.pathname || '/dashboard', { replace: true });
+      navigate('/dashboard', { replace: true }); // after login always start at the Dashboard
     } catch (err) {
       toast.error(err.message);
     } finally {
