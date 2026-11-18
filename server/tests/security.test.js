@@ -70,8 +70,11 @@ test('SEC-04 an admin cannot create a super admin, and nobody can change their o
 });
 
 test('SEC-05 login is rate-limited against password guessing', async () => {
+  // Guess from a client address of its own (the app trusts one proxy hop), so these failed attempts
+  // do not use up the shared limit that later tests (e.g. SEC-11 change-password) run under.
+  const headers = { 'X-Forwarded-For': '203.0.113.5' };
   let last;
-  for (let i = 0; i < 12; i++) last = await api('POST', '/auth/login', { body: { email: 'nobody@aurelia.test', password: `wrong-${i}` } });
+  for (let i = 0; i < 12; i++) last = await api('POST', '/auth/login', { headers, body: { email: 'nobody@aurelia.test', password: `wrong-${i}` } });
   assert.equal(last.status, 429, `after 12 failed logins got ${last.status}`);
 });
 
