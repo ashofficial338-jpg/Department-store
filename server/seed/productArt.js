@@ -55,6 +55,7 @@ const CATEGORY_TINT = {
   'Groceries & Staples': '#F6EEDC', 'Food & Beverages': '#FBEFE6', 'Snacks & Confectionery': '#FCEFE3',
   'Kitchen Essentials': '#ECEFF1', 'Cleaning Supplies': '#E6F2F8', 'Personal Care': '#F3ECF6', 'Home Care': '#EAF4EE',
   Stationery: '#EAF0FA', 'Baby Care': '#FCEEF3', 'Health & Daily Needs': '#EAF4F2',
+  Groceries: '#F6EEDC', Snacks: '#FCEFE3', 'Household Products': '#E6F2F8', Vegetables: '#EAF4EA', 'Daily Essentials': '#E8F1F8',
 };
 
 export function productArt({ brand, name, size, pack, color, category }) {
