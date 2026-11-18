@@ -14,6 +14,7 @@ import { generateDocNumber } from '../utils/docNumber.js';
 import { literalRegex, requireId, number, positive, oneOf } from '../utils/validate.js';
 import { sendExport } from '../utils/exporters.js';
 import { buildStockReport, stockReportOptions } from '../services/stockReport.js';
+import { assertActiveStore, assertActiveDC, ACTIVE_STORE_FILTER, ACTIVE_DC_FILTER } from '../utils/storeGuard.js';
 
 // Adjust the aggregated Inventory doc for (product, store|dc) by `delta` units.
 export async function applyStockDelta({ product, store, distributionCenter, delta, field = 'currentStock' }) {
@@ -100,6 +101,8 @@ export const adjustStock = catchAsync(async (req, res) => {
   const { product, store, distributionCenter, type = 'stock_adjustment', notes } = req.body;
   requireId(product, 'Product');
   if (!store && !distributionCenter) throw new ApiError(400, 'Select a store or distribution center for this adjustment.');
+  if (store) await assertActiveStore(store);
+  else await assertActiveDC(distributionCenter);
   oneOf(type, ['stock_adjustment', 'damage', 'expiry_writeoff', 'opening_stock'], 'Adjustment type');
   const quantity = number(req.body.quantity, 'Quantity', { min: -1000000, max: 1000000, integer: true });
   if (quantity === 0) throw new ApiError(400, 'Quantity cannot be zero.');
@@ -140,6 +143,10 @@ export const createStockTransfer = catchAsync(async (req, res) => {
   oneOf(sourceType, ['Store', 'DistributionCenter'], 'Source type');
   oneOf(destinationType, ['Store', 'DistributionCenter'], 'Destination type');
   requireId(source, 'Source'); requireId(destination, 'Destination');
+  if (sourceType === 'Store') await assertActiveStore(source, 'Source store');
+  else await assertActiveDC(source, 'Source distribution center');
+  if (destinationType === 'Store') await assertActiveStore(destination, 'Destination store');
+  else await assertActiveDC(destination, 'Destination distribution center');
   if (sourceType === destinationType && String(source) === String(destination)) throw new ApiError(400, 'Source and destination must be different locations.');
   const srcKey = sourceType === 'Store' ? 'store' : 'distributionCenter';
   for (const item of items) {
@@ -236,7 +243,7 @@ export const exportStockReport = catchAsync(async (req, res) => {
 });
 
 export const locationsList = catchAsync(async (req, res) => {
-  const [stores, dcs] = await Promise.all([Store.find({ isActive: true }), DistributionCenter.find({ status: 'active' })]);
+  const [stores, dcs] = await Promise.all([Store.find(ACTIVE_STORE_FILTER).sort({ name: 1 }), DistributionCenter.find(ACTIVE_DC_FILTER).sort({ name: 1 })]);
   res.json({ success: true, data: { stores, distributionCenters: dcs } });
 });
 

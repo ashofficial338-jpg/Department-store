@@ -13,6 +13,7 @@ import { postLedgerPair } from '../utils/ledger.js';
 import { literalRegex, requireId, positive, number, oneOf } from '../utils/validate.js';
 import Vendor from '../models/Vendor.js';
 import Inventory from '../models/Inventory.js';
+import { assertActiveStore, assertActiveDC } from '../utils/storeGuard.js';
 
 function computeItemTotals(item) {
   const taxableAmount = round2(item.quantity * item.unitPrice);
@@ -26,6 +27,8 @@ export const createPurchase = catchAsync(async (req, res) => {
   requireId(vendor, 'Vendor');
   if (!(await Vendor.exists({ _id: vendor }))) throw new ApiError(400, 'Selected vendor was not found.');
   if (!store && !distributionCenter) throw new ApiError(400, 'Choose the store or distribution centre receiving the goods.');
+  if (store) await assertActiveStore(store, 'Receiving store');
+  else await assertActiveDC(distributionCenter, 'Receiving distribution center');
 
   const computedItems = [];
   for (const i of items) {

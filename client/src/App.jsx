@@ -40,6 +40,7 @@ const InwardDC = lazy(() => import('./pages/dc/InwardDC.jsx'));
 const OutwardDC = lazy(() => import('./pages/dc/OutwardDC.jsx'));
 const DCHistory = lazy(() => import('./pages/dc/DCHistory.jsx'));
 const DCStock = lazy(() => import('./pages/dc/DCStock.jsx'));
+const DistributionCenters = lazy(() => import('./pages/dc/DistributionCenters.jsx'));
 
 const PurchaseOrders = lazy(() => import('./pages/purchasing/PurchaseOrders.jsx'));
 const PurchaseReturns = lazy(() => import('./pages/purchasing/PurchaseReturns.jsx'));
@@ -88,9 +89,9 @@ export default function App() {
             background: 'color-mix(in srgb, var(--bg-surface) 90%, transparent)',
             backdropFilter: 'blur(14px)',
             border: '1px solid var(--border-subtle)',
-            boxShadow: '0 20px 40px -20px rgba(17,18,24,0.45)',
+            boxShadow: '0 20px 40px -20px rgba(15,23,42,0.45)',
           },
-          success: { iconTheme: { primary: '#C29A56', secondary: '#fff' } },
+          success: { iconTheme: { primary: '#4F46E5', secondary: '#fff' } },
           error: { iconTheme: { primary: '#E11D48', secondary: '#fff' } },
         }}
       />
@@ -131,6 +132,7 @@ export default function App() {
             <Route path="/dc/outward" element={<RequirePermission any={['dc']}><OutwardDC /></RequirePermission>} />
             <Route path="/dc/history" element={<RequirePermission any={['dc']}><DCHistory /></RequirePermission>} />
             <Route path="/dc/stock" element={<RequirePermission any={['dc']}><DCStock /></RequirePermission>} />
+            <Route path="/dc/centers" element={<RequirePermission any={['dc']}><DistributionCenters /></RequirePermission>} />
 
             <Route path="/purchasing/orders" element={<RequirePermission any={['purchasing']}><PurchaseOrders /></RequirePermission>} />
             <Route path="/purchasing/invoices" element={<RequirePermission any={['purchasing']}><PurchaseOrders /></RequirePermission>} />

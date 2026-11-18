@@ -18,6 +18,7 @@ import { calculateLineGst, summarizeInvoice, round2 } from '../utils/gstCalculat
 import { recordInventoryTransaction } from './inventoryController.js';
 import { postLedgerPair, methodToAccountKey } from '../utils/ledger.js';
 import { searchRegex, requireId, number, positive, oneOf } from '../utils/validate.js';
+import { assertActiveStore } from '../utils/storeGuard.js';
 
 // POS billing. Everything that affects money or stock is decided here, never by the browser:
 // prices come from the product master, quantities/discounts/payments are validated, stock is
@@ -156,7 +157,7 @@ async function reserveStock(lines, store) {
 
 async function validateParties({ store, customer }) {
   requireId(store, 'Store');
-  if (!(await Store.exists({ _id: store }))) throw new ApiError(400, 'Selected store was not found.');
+  await assertActiveStore(store, 'Selected store');
   if (customer) {
     requireId(customer, 'Customer');
     if (!(await Customer.exists({ _id: customer }))) throw new ApiError(400, 'Selected customer was not found.');

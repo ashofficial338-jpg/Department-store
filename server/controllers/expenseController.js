@@ -4,6 +4,7 @@ import recordAudit from '../utils/audit.js';
 import catchAsync from '../utils/catchAsync.js';
 import { getPagination, buildPaginatedResponse } from '../utils/pagination.js';
 import { postLedgerPair, methodToAccountKey } from '../utils/ledger.js';
+import { assertActiveStore, assertActiveStoreIfChanged } from '../utils/storeGuard.js';
 
 export const listExpenses = catchAsync(async (req, res) => {
   const { page, limit, skip } = getPagination(req.query);
@@ -23,6 +24,7 @@ export const listExpenses = catchAsync(async (req, res) => {
 });
 
 export const createExpense = catchAsync(async (req, res) => {
+  if (req.body.store) await assertActiveStore(req.body.store);
   const expense = await Expense.create({ ...req.body, recordedBy: req.user._id });
   await postLedgerPair({
     debitKey: 'expenses', creditKey: methodToAccountKey(expense.paymentMethod), amount: expense.amount,
@@ -42,6 +44,7 @@ async function reverseExpenseLedger(expense, userId, narration) {
 export const updateExpense = catchAsync(async (req, res) => {
   const before = await Expense.findById(req.params.id);
   if (!before) throw new ApiError(404, 'Expense not found.');
+  await assertActiveStoreIfChanged(req.body.store, before.store);
   const expense = await Expense.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
   if (before.amount !== expense.amount || before.paymentMethod !== expense.paymentMethod) {
     await reverseExpenseLedger(before, req.user._id, `Edit reversal: ${before.description}`);

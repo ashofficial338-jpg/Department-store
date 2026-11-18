@@ -6,6 +6,7 @@ import recordAudit from '../utils/audit.js';
 import { getPagination, buildPaginatedResponse } from '../utils/pagination.js';
 import { ensureRolePermissions } from '../services/permissionService.js';
 import { literalRegex } from '../utils/validate.js';
+import { assertActiveStore, assertActiveStoreIfChanged } from '../utils/storeGuard.js';
 
 // Only a Super Admin may create or promote another Super Admin, and a Super Admin can only be changed by one.
 async function assertRoleAssignable(req, role, target) {
@@ -40,6 +41,7 @@ export const listUsers = catchAsync(async (req, res) => {
 
 export const createUser = catchAsync(async (req, res) => {
   await assertRoleAssignable(req, req.body.role || 'cashier');
+  if (req.body.store) await assertActiveStore(req.body.store, 'Assigned store');
   const user = await User.create(req.body);
   await recordAudit({ req, action: 'user.create', entity: 'User', entityId: user._id, newValue: { email: user.email, role: user.role } });
   const obj = user.toObject();
@@ -53,6 +55,7 @@ export const updateUser = catchAsync(async (req, res) => {
   const update = { ...req.body };
   delete update.password;
   await assertRoleAssignable(req, update.role, before);
+  await assertActiveStoreIfChanged(update.store, before.store, 'Assigned store');
   if (String(before._id) === String(req.user._id) && update.isActive === false) throw new ApiError(400, 'You cannot deactivate your own account.');
   const user = await User.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true });
   await recordAudit({ req, action: 'user.update', entity: 'User', entityId: user._id, oldValue: { role: before.role, isActive: before.isActive }, newValue: { role: user.role, isActive: user.isActive } });

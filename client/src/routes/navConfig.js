@@ -2,7 +2,7 @@ import {
   LayoutDashboard, FilePlus2, ShoppingCart, ReceiptText, Undo2, History,
   Package, Tags, Award, Images, Layers, Tag,
   Boxes, SlidersHorizontal, ArrowLeftRight, ScrollText, AlertTriangle, CalendarClock,
-  LogIn, LogOut as LogOutIcon, ListChecks, Warehouse,
+  LogIn, LogOut as LogOutIcon, ListChecks, Warehouse, Network,
   ClipboardList, FileText, RotateCcw, Building2, Factory,
   Users, Star, Wallet,
   Landmark, ArrowDownCircle, ArrowUpCircle, Receipt, Coins, Percent, TrendingUp,
@@ -64,6 +64,7 @@ export const NAV_SECTIONS = [
       { label: 'Outward DC', to: '/dc/outward', icon: LogOutIcon, module: 'dc' },
       { label: 'DC History', to: '/dc/history', icon: ListChecks, module: 'dc' },
       { label: 'DC-wise Stock', to: '/dc/stock', icon: Warehouse, module: 'dc' },
+      { label: 'Distribution Centers', to: '/dc/centers', icon: Network, module: 'dc' },
     ],
   },
   {

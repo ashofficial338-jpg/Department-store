@@ -8,12 +8,14 @@ import recordAudit from '../utils/audit.js';
 import { generateDocNumber } from '../utils/docNumber.js';
 import { getPagination, buildPaginatedResponse } from '../utils/pagination.js';
 import { applyStockDelta, recordInventoryTransaction } from './inventoryController.js';
+import { assertActiveStore, assertActiveDC } from '../utils/storeGuard.js';
 
 // ---------- Inward DC ----------
 
 export const createInwardDC = catchAsync(async (req, res) => {
   const { distributionCenter, sourceType = 'Purchase', sourceReference, vendor, items, notes } = req.body;
   if (!items?.length) throw new ApiError(400, 'Add at least one item to the inward DC.');
+  await assertActiveDC(distributionCenter);
 
   const docNumber = await generateDocNumber('inwardDC');
   const doc = await InwardDC.create({
@@ -83,6 +85,9 @@ export const processInwardDC = catchAsync(async (req, res) => {
 export const createOutwardDC = catchAsync(async (req, res) => {
   const { sourceDC, destinationType, destination, items, transportDetails, responsibleEmployee } = req.body;
   if (!items?.length) throw new ApiError(400, 'Add at least one item to the outward DC.');
+  await assertActiveDC(sourceDC, 'Source distribution center');
+  if (destinationType === 'Store') await assertActiveStore(destination, 'Destination store');
+  if (destinationType === 'DistributionCenter') await assertActiveDC(destination, 'Destination distribution center');
 
   const docNumber = await generateDocNumber('outwardDC');
   const doc = await OutwardDC.create({

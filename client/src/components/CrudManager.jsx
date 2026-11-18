@@ -8,7 +8,8 @@ import { isAdmin } from '../utils/permissions.js';
 
 // Generic list + create/edit modal + delete for straightforward master-data entities
 // (Category, Brand, Store, DistributionCenter, Supplier, TaxRate...).
-export function CrudManager({ title, entityLabel, service, columns, fields, defaultValues = {}, searchable = true, extraActions, crumbs }) {
+// reloadKey: optional; change it to refetch the list (e.g. after a row action done outside this component).
+export function CrudManager({ title, entityLabel, service, columns, fields, defaultValues = {}, searchable = true, extraActions, crumbs, reloadKey }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -36,7 +37,7 @@ export function CrudManager({ title, entityLabel, service, columns, fields, defa
     }
   }
 
-  useEffect(() => { load(); }, [debouncedSearch, page]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, [debouncedSearch, page, reloadKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function openCreate() {
     setEditing(null);

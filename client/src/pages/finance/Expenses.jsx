@@ -103,6 +103,10 @@ export function Expenses() {
           </Select>
           <Select label="Store (optional)" value={form.store} onChange={(e) => setForm((s) => ({ ...s, store: e.target.value }))}>
             <option value="">Not applicable</option>
+            {/* An old expense may point at a store that is now inactive: show it, but don't offer it for selection. */}
+            {form.store && !stores.some((s) => s._id === form.store) && (
+              <option value={form.store} disabled>{editing?.store?.name ? `${editing.store.name} (inactive)` : 'Inactive store'}</option>
+            )}
             {stores.map((s) => <option key={s._id} value={s._id}>{s.name}</option>)}
           </Select>
           <Input label="Date" type="date" value={form.expenseDate} onChange={(e) => setForm((s) => ({ ...s, expenseDate: e.target.value }))} />

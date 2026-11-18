@@ -8,6 +8,7 @@ import DistributionCenter from '../models/DistributionCenter.js';
 import ApiError from '../utils/ApiError.js';
 import { searchRegex, number } from '../utils/validate.js';
 import { round2 } from '../utils/gstCalculator.js';
+import { ACTIVE_STORE_FILTER, ACTIVE_DC_FILTER } from '../utils/storeGuard.js';
 
 // Stock Reports (Inventory > Stock Reports): one dataset per stock type, filtered by category,
 // brand, location and product status, shown on screen and exported as PDF / Excel.
@@ -238,8 +239,8 @@ export async function stockReportOptions() {
   const [categories, brands, stores, distributionCenters] = await Promise.all([
     Category.find().select('name parent').sort({ name: 1 }).lean(),
     Brand.find().select('name').sort({ name: 1 }).lean(),
-    Store.find().select('name code').sort({ name: 1 }).lean(),
-    DistributionCenter.find().select('name code').sort({ name: 1 }).lean(),
+    Store.find(ACTIVE_STORE_FILTER).select('name code').sort({ name: 1 }).lean(),
+    DistributionCenter.find(ACTIVE_DC_FILTER).select('name code').sort({ name: 1 }).lean(),
   ]);
   return {
     stockTypes: STOCK_TYPES.map(({ key, label, description }) => ({ key, label, description })),
