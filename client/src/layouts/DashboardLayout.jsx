@@ -18,7 +18,6 @@ function RouteProgress({ routeKey }) {
         initial={{ scaleX: 0, opacity: 1 }}
         animate={{ scaleX: 1, opacity: [1, 1, 0] }}
         transition={{ scaleX: { duration: 0.6, ease: EASE }, opacity: { duration: 0.9, times: [0, 0.7, 1] } }}
-        style={{ boxShadow: '0 0 12px rgba(79,70,229,0.7)' }}
       />
     </AnimatePresence>
   );
@@ -58,7 +57,7 @@ export function DashboardLayout() {
         </main>
         <footer className="px-4 md:px-8 pb-6 max-w-[1600px] w-full mx-auto text-[11px] flex items-center justify-between no-print" style={{ color: 'var(--text-muted)' }}>
           <span>© {new Date().getFullYear()} ARKA MART</span>
-          <span className="hidden sm:inline tracking-[0.2em] uppercase">Crafted for retail excellence</span>
+          <span className="hidden sm:inline">Department Store Management</span>
         </footer>
       </div>
     </div>

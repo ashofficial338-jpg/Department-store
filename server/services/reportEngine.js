@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import Sale from '../models/Sale.js';
 import SalesReturn from '../models/SalesReturn.js';
 import Purchase from '../models/Purchase.js';
+import { PAYABLE_STATUSES, BILLED_EXPR } from '../utils/payables.js';
 import PurchaseReturn from '../models/PurchaseReturn.js';
 import Product from '../models/Product.js';
 import Inventory from '../models/Inventory.js';
@@ -474,7 +475,7 @@ export async function vendorRows(f) {
     Vendor.find().select('name gstin phone paymentTerms').lean(),
     Purchase.aggregate([{ $match: { createdAt: { $gte: f.from, $lte: f.to }, status: { $ne: 'draft' } } }, { $group: { _id: '$vendor', orders: { $sum: 1 }, total: { $sum: '$grandTotal' }, paid: { $sum: '$amountPaid' } } }]),
     PurchaseReturn.aggregate([{ $match: { createdAt: { $gte: f.from, $lte: f.to } } }, { $group: { _id: '$vendor', amount: { $sum: '$totalAmount' } } }]),
-    Purchase.aggregate([{ $match: { status: { $in: ['received', 'invoiced'] } } }, { $group: { _id: '$vendor', due: { $sum: { $subtract: ['$grandTotal', '$amountPaid'] } } } }]),
+    Purchase.aggregate([{ $match: { status: { $in: PAYABLE_STATUSES } } }, { $group: { _id: '$vendor', due: { $sum: { $subtract: [BILLED_EXPR, '$amountPaid'] } } } }]),
   ]);
   const by = (rows) => new Map(rows.map((r) => [String(r._id), r]));
   const b = by(buys); const r = by(returns); const d = by(balances);

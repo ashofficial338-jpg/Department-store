@@ -7,10 +7,8 @@ import { inventoryService } from '../../services/index.js';
 import { useDebounce } from '../../hooks/useDebounce.js';
 import { formatCurrency, formatNumber, formatDate } from '../../utils/format.js';
 
-const EMPTY = { stockType: 'all', category: '', subcategory: '', brand: '', location: '', status: '', days: '60' };
+const EMPTY = { stockType: 'all', category: '', subcategory: '', brand: '', status: '', days: '60' };
 const DAY_OPTIONS = [{ value: '7', label: 'Next 7 days' }, { value: '30', label: 'Next 30 days' }, { value: '60', label: 'Next 60 days' }, { value: '90', label: 'Next 90 days' }, { value: '365', label: 'Next 1 year' }];
-// Location values: "stores" / "dcs" (every store / every DC) or "store:<id>" / "dc:<id>".
-const LOCATION_PARAMS = { stores: { locationType: 'store' }, dcs: { locationType: 'dc' } };
 const STATUS_TONE = { 'Out of Stock': 'text-rose-600', 'Low Stock': 'text-amber-600', Overstock: 'text-sky-600', 'In Stock': 'text-emerald-600' };
 const titleCase = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
@@ -36,7 +34,6 @@ export function StockReports() {
 
   // The query the preview and both downloads share, so a file always matches what is on screen.
   const params = useMemo(() => {
-    const [kind, id] = filters.location.split(':');
     return {
       stockType: filters.stockType,
       category: filters.category || undefined,
@@ -45,7 +42,6 @@ export function StockReports() {
       status: filters.status || undefined,
       search: debounced.trim() || undefined,
       days: filters.stockType === 'expiring' ? filters.days : undefined,
-      ...(id ? { [kind === 'store' ? 'store' : 'distributionCenter']: id } : LOCATION_PARAMS[kind]),
     };
   }, [filters, debounced]);
 
@@ -80,12 +76,6 @@ export function StockReports() {
   const categories = options?.categories || [];
   const topCategories = categories.filter((c) => !c.parent);
   const subcategories = categories.filter((c) => filters.category && String(c.parent) === filters.category);
-  const locationOptions = [
-    { value: 'stores', label: 'All Stores' },
-    { value: 'dcs', label: 'All Distribution Centers' },
-    ...(options?.stores || []).map((s) => ({ value: `store:${s._id}`, label: `Store - ${s.name}` })),
-    ...(options?.distributionCenters || []).map((d) => ({ value: `dc:${d._id}`, label: `DC - ${d.name}` })),
-  ];
   const stockType = options?.stockTypes.find((t) => t.key === filters.stockType);
   const total = report?.pagination?.total || 0;
   const dirty = search || Object.keys(EMPTY).some((k) => filters[k] !== EMPTY[k]);
@@ -106,7 +96,7 @@ export function StockReports() {
     <div>
       <PageHeader
         title="Stock Reports"
-        subtitle="Filter stock by type, category, brand and location, then download the report as PDF or Excel."
+        subtitle="Filter stock by type, category and brand, then download the report as PDF or Excel."
         crumbs={[{ label: 'Inventory' }, { label: 'Stock Reports' }]}
         actions={(
           <>
@@ -122,7 +112,6 @@ export function StockReports() {
         <FilterSelect value={filters.category} onChange={set('category')} placeholder="All Categories" options={topCategories.map((c) => ({ value: c._id, label: c.name }))} />
         {subcategories.length > 0 && <FilterSelect value={filters.subcategory} onChange={set('subcategory')} placeholder="All Subcategories" options={subcategories.map((c) => ({ value: c._id, label: c.name }))} />}
         <FilterSelect value={filters.brand} onChange={set('brand')} placeholder="All Brands" options={(options?.brands || []).map((b) => ({ value: b._id, label: b.name }))} />
-        <FilterSelect value={filters.location} onChange={set('location')} placeholder="All Locations" options={locationOptions} />
         <FilterSelect value={filters.status} onChange={set('status')} placeholder="Any Product Status" options={(options?.productStatuses || []).map((s) => ({ value: s, label: titleCase(s) }))} />
         <SearchBox value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Search product, SKU or barcode..." className="w-64" />
         {dirty && <Button variant="ghost" size="sm" icon={RotateCcw} onClick={reset}>Reset</Button>}

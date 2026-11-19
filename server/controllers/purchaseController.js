@@ -1,6 +1,5 @@
 import Purchase from '../models/Purchase.js';
 import PurchaseReturn from '../models/PurchaseReturn.js';
-import Batch from '../models/Batch.js';
 import Product from '../models/Product.js';
 import ApiError from '../utils/ApiError.js';
 import catchAsync from '../utils/catchAsync.js';
@@ -8,12 +7,15 @@ import recordAudit from '../utils/audit.js';
 import { getPagination, buildPaginatedResponse } from '../utils/pagination.js';
 import { generateDocNumber } from '../utils/docNumber.js';
 import { round2 } from '../utils/gstCalculator.js';
-import { applyStockDelta, recordInventoryTransaction } from './inventoryController.js';
 import { postLedgerPair } from '../utils/ledger.js';
 import { literalRegex, requireId, positive, number, oneOf } from '../utils/validate.js';
 import Vendor from '../models/Vendor.js';
-import Inventory from '../models/Inventory.js';
-import { assertActiveStore, assertActiveDC } from '../utils/storeGuard.js';
+import PurchaseInvoice from '../models/PurchaseInvoice.js';
+import InwardDC from '../models/InwardDC.js';
+import OutwardDC from '../models/OutwardDC.js';
+import { billedAmount } from '../utils/payables.js';
+import { assertVerifiedVendor } from '../utils/vendorGuard.js';
+import { mainStoreId } from '../utils/storeGuard.js';
 
 function computeItemTotals(item) {
   const taxableAmount = round2(item.quantity * item.unitPrice);
@@ -22,17 +24,20 @@ function computeItemTotals(item) {
 }
 
 export const createPurchase = catchAsync(async (req, res) => {
-  const { vendor, store, distributionCenter, items = [], notes } = req.body;
+  const { vendor, items = [], notes, approve = true } = req.body;
+  const store = await mainStoreId(); // single department store receives every purchase
+  const distributionCenter = undefined;
   if (!Array.isArray(items) || !items.length) throw new ApiError(400, 'Add at least one item to the purchase order.');
   requireId(vendor, 'Vendor');
-  if (!(await Vendor.exists({ _id: vendor }))) throw new ApiError(400, 'Selected vendor was not found.');
-  if (!store && !distributionCenter) throw new ApiError(400, 'Choose the store or distribution centre receiving the goods.');
-  if (store) await assertActiveStore(store, 'Receiving store');
-  else await assertActiveDC(distributionCenter, 'Receiving distribution center');
+  await assertVerifiedVendor(vendor, 'create a purchase order');
 
   const computedItems = [];
+  const seen = new Set();
   for (const i of items) {
     requireId(i?.product, 'Product');
+    // One line per product, so invoices and inward DCs can match lines unambiguously.
+    if (seen.has(String(i.product))) throw new ApiError(400, 'A product appears twice on the order - combine the quantities into one line.');
+    seen.add(String(i.product));
     if (!(await Product.exists({ _id: i.product }))) throw new ApiError(400, 'A product on this order was not found.');
     const clean = {
       product: i.product, batchNumber: i.batchNumber, manufacturingDate: i.manufacturingDate, expiryDate: i.expiryDate,
@@ -50,7 +55,9 @@ export const createPurchase = catchAsync(async (req, res) => {
   const purchase = await Purchase.create({
     poNumber, vendor, store, distributionCenter, items: computedItems,
     subtotal: round2(subtotal), taxAmount: round2(taxAmount), grandTotal,
-    status: 'ordered', orderedBy: req.user._id, notes,
+    invoicedAmount: 0, // nothing is payable until a Purchase Invoice is raised
+    status: approve === false ? 'draft' : 'approved', orderedBy: req.user._id, notes,
+    ...(approve === false ? {} : { approvedBy: req.user._id, approvedAt: new Date() }),
   });
 
   await recordAudit({ req, action: 'purchase.create', entity: 'Purchase', entityId: purchase._id, newValue: { poNumber, grandTotal } });
@@ -64,7 +71,7 @@ export const listPurchases = catchAsync(async (req, res) => {
   if (req.query.vendor) filter.vendor = req.query.vendor;
   if (req.query.search) filter.poNumber = literalRegex(req.query.search);
   const [docs, total] = await Promise.all([
-    Purchase.find(filter).populate('vendor', 'name').sort({ createdAt: -1 }).skip(skip).limit(limit),
+    Purchase.find(filter).populate('vendor', 'name verificationStatus').sort({ createdAt: -1 }).skip(skip).limit(limit),
     Purchase.countDocuments(filter),
   ]);
   res.json({ success: true, ...buildPaginatedResponse({ docs, total, page, limit }) });
@@ -73,71 +80,33 @@ export const listPurchases = catchAsync(async (req, res) => {
 export const getPurchase = catchAsync(async (req, res) => {
   const purchase = await Purchase.findById(req.params.id).populate('vendor store distributionCenter items.product');
   if (!purchase) throw new ApiError(404, 'Purchase order not found.');
-  res.json({ success: true, data: purchase });
+  const invoices = await PurchaseInvoice.find({ purchase: purchase._id })
+    .select('invoiceNumber vendorInvoiceNumber invoiceDate grandTotal status createdAt').sort({ createdAt: 1 }).lean();
+  res.json({ success: true, data: { ...purchase.toJSON(), invoices } });
 });
 
-// Goods Receipt: verify quantities, create/replenish batches, increase stock, post payable.
-export const receiveGoods = catchAsync(async (req, res) => {
-  const { items, invoiceNumber } = req.body; // items: [{ product, receivedQuantity, batchNumber, manufacturingDate, expiryDate }]
-  const purchase = await Purchase.findById(req.params.id);
-  if (!purchase) throw new ApiError(404, 'Purchase order not found.');
-  if (['received', 'invoiced', 'cancelled'].includes(purchase.status)) {
-    throw new ApiError(400, 'This purchase has already been fully received.');
+// Goods are no longer received on the Purchase Order: PO -> Purchase Invoice -> Inward DC (stock comes in
+// only when the Inward DC is submitted). The old endpoint stays so older screens get a clear message.
+export const receiveGoods = catchAsync(async () => {
+  throw new ApiError(400, 'Goods are received through DC Management > Inward DC, against a Purchase Invoice. Create the Purchase Invoice for this order first.');
+});
+
+// Approve a draft Purchase Order. Approval does not touch stock.
+export const approvePurchase = catchAsync(async (req, res) => {
+  const po = await Purchase.findById(req.params.id).select('vendor').lean();
+  if (po) await assertVerifiedVendor(po.vendor, 'approve this purchase order');
+  const updated = await Purchase.findOneAndUpdate(
+    { _id: req.params.id, status: 'draft' },
+    { $set: { status: 'approved', approvedBy: req.user._id, approvedAt: new Date() } },
+    { new: true },
+  );
+  if (!updated) {
+    const exists = await Purchase.exists({ _id: req.params.id });
+    if (!exists) throw new ApiError(404, 'Purchase order not found.');
+    throw new ApiError(400, 'Only a draft purchase order can be approved.');
   }
-
-  if (!Array.isArray(items) || !items.length) throw new ApiError(400, 'Enter the quantities received.');
-  // Validate every line before touching stock, so a bad line can't leave a half-received order.
-  for (const incoming of items) {
-    const line = purchase.items.find((l) => String(l.product) === String(incoming?.product));
-    if (!line) throw new ApiError(400, 'A received item is not on this purchase order.');
-    const qty = positive(incoming.receivedQuantity, 'Received quantity', { integer: true });
-    const left = line.quantity - (line.receivedQuantity || 0);
-    if (qty > left) throw new ApiError(400, `Only ${left} more can be received for this item (ordered ${line.quantity}).`);
-    incoming.receivedQuantity = qty;
-  }
-
-  for (const incoming of items) {
-    const line = purchase.items.find((l) => String(l.product) === String(incoming.product));
-    line.receivedQuantity = (line.receivedQuantity || 0) + incoming.receivedQuantity;
-
-    const product = await Product.findById(incoming.product);
-    const batch = await Batch.create({
-      batchNumber: incoming.batchNumber || `${purchase.poNumber}-${product.sku}`,
-      product: incoming.product,
-      supplier: purchase.vendor,
-      purchaseInvoice: purchase._id,
-      manufacturingDate: incoming.manufacturingDate,
-      expiryDate: incoming.expiryDate,
-      purchasePrice: line.unitPrice,
-      sellingPrice: product.sellingPrice,
-      quantity: incoming.receivedQuantity,
-      availableQuantity: incoming.receivedQuantity,
-      store: purchase.store,
-      distributionCenter: purchase.distributionCenter,
-    });
-
-    await applyStockDelta({ product: incoming.product, store: purchase.store, distributionCenter: purchase.distributionCenter, delta: incoming.receivedQuantity });
-    await recordInventoryTransaction({
-      product: incoming.product, batch: batch._id, quantity: incoming.receivedQuantity, type: 'purchase_receipt',
-      destination: purchase.store || purchase.distributionCenter, destinationModel: purchase.store ? 'Store' : 'DistributionCenter',
-      referenceType: 'Purchase', referenceId: purchase._id, referenceNumber: purchase.poNumber, user: req.user._id,
-    });
-  }
-
-  const allReceived = purchase.items.every((l) => (l.receivedQuantity || 0) >= l.quantity);
-  purchase.status = allReceived ? 'received' : 'partially_received';
-  if (invoiceNumber) {
-    purchase.invoiceNumber = invoiceNumber;
-    purchase.status = 'invoiced';
-    await postLedgerPair({
-      debitKey: 'purchases', creditKey: 'payable', amount: purchase.grandTotal,
-      narration: `Purchase ${purchase.poNumber}`, referenceType: 'Purchase', referenceId: purchase._id, userId: req.user._id,
-    });
-  }
-  await purchase.save();
-
-  await recordAudit({ req, action: 'purchase.receive', entity: 'Purchase', entityId: purchase._id, newValue: { status: purchase.status } });
-  res.json({ success: true, data: purchase });
+  await recordAudit({ req, action: 'purchase.approve', entity: 'Purchase', entityId: updated._id, newValue: { status: 'approved' } });
+  res.json({ success: true, data: updated });
 });
 
 export const payVendor = catchAsync(async (req, res) => {
@@ -147,7 +116,9 @@ export const payVendor = catchAsync(async (req, res) => {
   const purchase = await Purchase.findById(req.params.id);
   if (!purchase) throw new ApiError(404, 'Purchase order not found.');
   if (['draft', 'cancelled'].includes(purchase.status)) throw new ApiError(400, `A ${purchase.status} purchase order cannot be paid.`);
-  const balance = round2((purchase.grandTotal || 0) - (purchase.amountPaid || 0));
+  await assertVerifiedVendor(purchase.vendor, 'pay this vendor');
+  const balance = round2(billedAmount(purchase) - (purchase.amountPaid || 0));
+  if (balance <= 0 && purchase.invoicedAmount === 0) throw new ApiError(400, 'Nothing has been invoiced on this purchase order yet. Create the Purchase Invoice first.');
   if (amount > balance + 0.001) throw new ApiError(400, `Payment of ₹${amount} is more than the balance due of ₹${balance}.`);
 
   // Conditional update so two simultaneous payments cannot together overpay the bill.
@@ -167,73 +138,224 @@ export const payVendor = catchAsync(async (req, res) => {
   res.json({ success: true, data: updated });
 });
 
-// ---------- Purchase Returns ----------
+// ---------- Purchase Invoices ----------
+// Raised against an approved Purchase Order; lines, quantities and rates come from the order. Partial
+// invoicing is allowed. Billing more than was ordered needs `allowOverInvoice: true`. No stock moves here.
 
-export const createPurchaseReturn = catchAsync(async (req, res) => {
-  const { purchaseId, items } = req.body;
-  requireId(purchaseId, 'Purchase');
-  const purchase = await Purchase.findById(purchaseId);
-  if (!purchase) throw new ApiError(404, 'Original purchase not found.');
-  if (!Array.isArray(items) || !items.length) throw new ApiError(400, 'Select at least one item to return.');
+const INVOICEABLE = ['approved', 'ordered', 'partially_invoiced'];
 
-  // Validate first: items must be on the order, within what was received minus earlier returns,
-  // and in stock at the receiving location.
-  const already = new Map();
-  for (const r of await PurchaseReturn.find({ purchase: purchase._id }).lean()) {
-    for (const i of r.items) already.set(String(i.product), (already.get(String(i.product)) || 0) + i.quantity);
+export const createPurchaseInvoice = catchAsync(async (req, res) => {
+  const { purchaseId, items, notes } = req.body;
+  const allowOverInvoice = req.body.allowOverInvoice === true;
+  const vendorInvoiceNumber = req.body.vendorInvoiceNumber ? String(req.body.vendorInvoiceNumber).trim().slice(0, 60) : undefined;
+  const invoiceDate = req.body.invoiceDate ? new Date(req.body.invoiceDate) : new Date();
+  if (Number.isNaN(invoiceDate.getTime())) throw new ApiError(400, 'Invoice date is not a valid date.');
+  requireId(purchaseId, 'Purchase order');
+  const po = await Purchase.findById(purchaseId);
+  if (!po) throw new ApiError(404, 'Purchase order not found.');
+  if (po.status === 'draft') throw new ApiError(400, 'Approve the purchase order before invoicing it.');
+  await assertVerifiedVendor(po.vendor, 'enter a purchase invoice');
+  if (po.status === 'cancelled') throw new ApiError(400, 'A cancelled purchase order cannot be invoiced.');
+  if (!(INVOICEABLE.includes(po.status) || (po.status === 'invoiced' && allowOverInvoice && po.invoicedAmount !== undefined))) {
+    throw new ApiError(400, po.status === 'invoiced' && po.invoicedAmount !== undefined
+      ? 'This purchase order is fully invoiced. Tick "Allow invoicing beyond ordered quantity" to bill more.'
+      : 'This purchase order was received or billed before purchase invoices were introduced and cannot be invoiced again.');
   }
-  for (const item of items) {
-    const line = purchase.items.find((l) => String(l.product) === String(item?.product));
-    if (!line) throw new ApiError(400, 'A returned item is not on this purchase order.');
-    item.quantity = positive(item.quantity, 'Return quantity', { integer: true });
-    const left = (line.receivedQuantity || 0) - (already.get(String(line.product)) || 0);
-    if (item.quantity > left) throw new ApiError(400, `Only ${left} of this item can be returned (received minus earlier returns).`);
-    already.set(String(line.product), (already.get(String(line.product)) || 0) + item.quantity);
-    const loc = purchase.store ? { store: purchase.store } : { distributionCenter: purchase.distributionCenter };
-    const inv = await Inventory.findOne({ product: line.product, ...loc }).select('currentStock').lean();
-    if ((inv?.currentStock || 0) < item.quantity) throw new ApiError(400, 'Not enough stock on hand to return this quantity.');
+  if (!Array.isArray(items) || !items.length) throw new ApiError(400, 'Enter the quantity to invoice for at least one item.');
+  if (vendorInvoiceNumber && await PurchaseInvoice.exists({ vendor: po.vendor, vendorInvoiceNumber, status: { $ne: 'cancelled' } })) {
+    throw new ApiError(400, `Vendor invoice ${vendorInvoiceNumber} has already been entered for this vendor.`);
   }
 
-  let totalAmount = 0;
-  for (const item of items) {
-    const line = purchase.items.find((l) => String(l.product) === String(item.product));
-    // Returned value includes the GST charged on the bill.
-    totalAmount += line.unitPrice * item.quantity * (1 + (line.gstRate || 0) / 100);
-
-    await applyStockDelta({ product: item.product, store: purchase.store, distributionCenter: purchase.distributionCenter, delta: -item.quantity });
-    if (item.batch) await Batch.findByIdAndUpdate(item.batch, { $inc: { availableQuantity: -item.quantity } });
-    await recordInventoryTransaction({
-      product: item.product, batch: item.batch, quantity: -item.quantity, type: 'purchase_return',
-      source: purchase.store || purchase.distributionCenter, sourceModel: purchase.store ? 'Store' : 'DistributionCenter',
-      referenceType: 'PurchaseReturn', referenceNumber: purchase.poNumber, notes: item.reason, user: req.user._id,
+  // Validate every line before writing anything.
+  const seen = new Set();
+  const lines = [];
+  for (const it of items) {
+    const line = po.items.find((l) => String(l.product) === String(it?.product));
+    if (!line) throw new ApiError(400, 'An invoiced item is not on this purchase order.');
+    if (seen.has(String(line.product))) throw new ApiError(400, 'An item appears twice on the invoice.');
+    seen.add(String(line.product));
+    const quantity = positive(it.quantity, 'Invoice quantity', { integer: true, max: 1000000 });
+    const left = line.quantity - (line.invoicedQuantity || 0);
+    if (quantity > left && !allowOverInvoice) {
+      throw new ApiError(400, `Only ${Math.max(0, left)} more can be invoiced for this item (ordered ${line.quantity}, invoiced ${line.invoicedQuantity || 0}).`);
+    }
+    const clean = { product: line.product, quantity, unitPrice: line.unitPrice, gstRate: line.gstRate || 0 };
+    lines.push({
+      ...clean, ...computeItemTotals(clean),
+      batchNumber: line.batchNumber, manufacturingDate: line.manufacturingDate, expiryDate: line.expiryDate,
+      receivedQuantity: 0, returnedQuantity: 0,
     });
   }
+  const subtotal = round2(lines.reduce((s, i) => s + i.taxableAmount, 0));
+  const taxAmount = round2(lines.reduce((s, i) => s + i.taxAmount, 0));
+  const grandTotal = round2(subtotal + taxAmount);
 
-  const returnNumber = await generateDocNumber('purchaseReturn');
-  const purchaseReturn = await PurchaseReturn.create({
-    returnNumber, purchase: purchase._id, vendor: purchase.vendor,
-    items: items.map((i) => ({ product: i.product, batch: i.batch, quantity: i.quantity, unitPrice: purchase.items.find((l) => String(l.product) === String(i.product)).unitPrice, reason: i.reason ? String(i.reason).slice(0, 200) : undefined })),
-    totalAmount: round2(totalAmount), processedBy: req.user._id,
+  // Update the order's invoiced quantities only if nobody changed it since we read it (no double billing).
+  const nextItems = po.items.map((l) => {
+    const inv = lines.find((x) => String(x.product) === String(l.product));
+    const o = l.toObject();
+    return inv ? { ...o, invoicedQuantity: (o.invoicedQuantity || 0) + inv.quantity } : o;
   });
+  const fully = nextItems.every((l) => (l.invoicedQuantity || 0) >= l.quantity);
+  const invoiceNumber = await generateDocNumber('purchaseInvoice');
+  const prev = { items: po.items.map((l) => l.toObject()), status: po.status, invoicedAmount: po.invoicedAmount || 0, invoiceNumber: po.invoiceNumber || '' };
+  const claimed = await Purchase.findOneAndUpdate(
+    { _id: po._id, __v: po.__v },
+    {
+      $set: {
+        items: nextItems,
+        status: fully ? 'invoiced' : 'partially_invoiced',
+        invoicedAmount: round2((po.invoicedAmount || 0) + grandTotal),
+        invoiceNumber: [po.invoiceNumber, vendorInvoiceNumber || invoiceNumber].filter(Boolean).join(', ').slice(0, 300),
+      },
+      $inc: { __v: 1 },
+    },
+    { new: true },
+  );
+  if (!claimed) throw new ApiError(409, 'This purchase order was just updated by someone else. Refresh and try again.');
+
+  let invoice;
+  try {
+    invoice = await PurchaseInvoice.create({
+      invoiceNumber, vendorInvoiceNumber, invoiceDate, purchase: po._id, poNumber: po.poNumber, vendor: po.vendor,
+      items: lines, subtotal, taxAmount, grandTotal, allowOverInvoice, status: 'pending_receipt',
+      notes: notes ? String(notes).slice(0, 500) : undefined, createdBy: req.user._id,
+    });
+  } catch (err) {
+    await Purchase.updateOne({ _id: po._id }, { $set: prev, $inc: { __v: 1 } }); // put the order back
+    throw err;
+  }
 
   await postLedgerPair({
-    debitKey: 'payable', creditKey: 'purchases', amount: round2(totalAmount),
-    narration: `Return against ${purchase.poNumber}`, referenceType: 'PurchaseReturn', referenceId: purchaseReturn._id, userId: req.user._id,
+    debitKey: 'purchases', creditKey: 'payable', amount: grandTotal,
+    narration: `Purchase invoice ${invoiceNumber} against ${po.poNumber}`, referenceType: 'PurchaseInvoice', referenceId: invoice._id, userId: req.user._id,
   });
+  await recordAudit({ req, action: 'purchase_invoice.create', entity: 'PurchaseInvoice', entityId: invoice._id, newValue: { invoiceNumber, poNumber: po.poNumber, grandTotal, allowOverInvoice } });
+  res.status(201).json({ success: true, data: invoice });
+});
 
+export const listPurchaseInvoices = catchAsync(async (req, res) => {
+  const { page, limit, skip } = getPagination(req.query);
+  const filter = {};
+  if (req.query.status) filter.status = String(req.query.status);
+  if (req.query.purchase) filter.purchase = requireId(req.query.purchase, 'Purchase order');
+  // receivable: still has goods to come in on an Inward DC
+  if (req.query.receivable === 'true') filter.status = { $in: ['pending_receipt', 'partially_received'] };
+  // returnable: has received goods that are not yet returned
+  if (req.query.returnable === 'true') {
+    filter.status = { $ne: 'cancelled' };
+    filter.$expr = { $gt: [{ $sum: '$items.receivedQuantity' }, { $sum: '$items.returnedQuantity' }] };
+  }
+  if (req.query.search) {
+    const rx = literalRegex(req.query.search);
+    filter.$or = [{ invoiceNumber: rx }, { vendorInvoiceNumber: rx }, { poNumber: rx }];
+  }
+  const [docs, total] = await Promise.all([
+    PurchaseInvoice.find(filter).populate('vendor', 'name verificationStatus').populate('items.product', 'name sku').sort({ createdAt: -1 }).skip(skip).limit(limit),
+    PurchaseInvoice.countDocuments(filter),
+  ]);
+  res.json({ success: true, ...buildPaginatedResponse({ docs, total, page, limit }) });
+});
+
+// One invoice with its document trail: order, inward DCs and returns.
+export const getPurchaseInvoice = catchAsync(async (req, res) => {
+  const invoice = await PurchaseInvoice.findById(req.params.id).populate('vendor', 'name gstin verificationStatus').populate('items.product', 'name sku unit').populate('purchase', 'poNumber status grandTotal');
+  if (!invoice) throw new ApiError(404, 'Purchase invoice not found.');
+  const [inwardDCs, returns] = await Promise.all([
+    InwardDC.find({ purchaseInvoice: invoice._id }).select('docNumber status items createdAt submittedAt').sort({ createdAt: 1 }).lean(),
+    PurchaseReturn.find({ purchaseInvoice: invoice._id }).select('returnNumber status totalAmount items createdAt').sort({ createdAt: 1 }).lean(),
+  ]);
+  res.json({ success: true, data: { ...invoice.toJSON(), inwardDCs, returns } });
+});
+
+// ---------- Purchase Returns ----------
+// Raised against the original Purchase Invoice, for goods that came in on its Inward DCs. A return is a
+// debit note only: stock leaves when an Outward DC against the return is submitted.
+
+export const createPurchaseReturn = catchAsync(async (req, res) => {
+  const { purchaseInvoiceId, items } = req.body;
+  if (!purchaseInvoiceId) throw new ApiError(400, 'Select the purchase invoice the goods are being returned against.');
+  requireId(purchaseInvoiceId, 'Purchase invoice');
+  const invoice = await PurchaseInvoice.findById(purchaseInvoiceId);
+  if (!invoice) throw new ApiError(404, 'Purchase invoice not found.');
+  if (invoice.status === 'cancelled') throw new ApiError(400, 'A cancelled purchase invoice cannot be returned against.');
+  await assertVerifiedVendor(invoice.vendor, 'create a purchase return');
+  if (!Array.isArray(items) || !items.length) throw new ApiError(400, 'Select at least one item to return.');
+
+  const seen = new Set();
+  const clean = [];
+  for (const item of items) {
+    const line = invoice.items.find((l) => String(l.product) === String(item?.product));
+    if (!line) throw new ApiError(400, 'A returned item is not on this purchase invoice.');
+    if (seen.has(String(line.product))) throw new ApiError(400, 'An item appears twice on the return.');
+    seen.add(String(line.product));
+    const quantity = positive(item.quantity, 'Return quantity', { integer: true });
+    const left = (line.receivedQuantity || 0) - (line.returnedQuantity || 0);
+    if (quantity > left) throw new ApiError(400, `Only ${left} of this item can be returned (received on Inward DC minus earlier returns).`);
+    clean.push({ line, quantity, reason: item.reason ? String(item.reason).slice(0, 200) : undefined });
+  }
+
+  // Book the returned quantities on the invoice only if it is unchanged since we read it.
+  const nextItems = invoice.items.map((l) => {
+    const r = clean.find((c) => String(c.line.product) === String(l.product));
+    const o = l.toObject();
+    return r ? { ...o, returnedQuantity: (o.returnedQuantity || 0) + r.quantity } : o;
+  });
+  const claimed = await PurchaseInvoice.findOneAndUpdate(
+    { _id: invoice._id, __v: invoice.__v },
+    { $set: { items: nextItems }, $inc: { __v: 1 } },
+    { new: true },
+  );
+  if (!claimed) throw new ApiError(409, 'This purchase invoice was just updated by someone else. Refresh and try again.');
+
+  // Returned value includes the GST charged on the bill.
+  const totalAmount = round2(clean.reduce((s, c) => s + c.line.unitPrice * c.quantity * (1 + (c.line.gstRate || 0) / 100), 0));
+  let purchaseReturn;
+  try {
+    const returnNumber = await generateDocNumber('purchaseReturn');
+    purchaseReturn = await PurchaseReturn.create({
+      returnNumber, purchase: invoice.purchase, purchaseInvoice: invoice._id, invoiceNumber: invoice.invoiceNumber, vendor: invoice.vendor,
+      items: clean.map((c) => ({ product: c.line.product, quantity: c.quantity, unitPrice: c.line.unitPrice, reason: c.reason, dispatchedQuantity: 0 })),
+      totalAmount, processedBy: req.user._id, status: 'pending_dispatch',
+    });
+  } catch (err) {
+    await PurchaseInvoice.updateOne({ _id: invoice._id }, { $set: { items: invoice.items.map((l) => l.toObject()) }, $inc: { __v: 1 } });
+    throw err;
+  }
+
+  await postLedgerPair({
+    debitKey: 'payable', creditKey: 'purchases', amount: totalAmount,
+    narration: `Return against ${invoice.invoiceNumber} (${invoice.poNumber})`, referenceType: 'PurchaseReturn', referenceId: purchaseReturn._id, userId: req.user._id,
+  });
+  await recordAudit({ req, action: 'purchase_return.create', entity: 'PurchaseReturn', entityId: purchaseReturn._id, newValue: { returnNumber: purchaseReturn.returnNumber, invoiceNumber: invoice.invoiceNumber, totalAmount } });
   res.status(201).json({ success: true, data: purchaseReturn });
 });
 
 export const listPurchaseReturns = catchAsync(async (req, res) => {
   const { page, limit, skip } = getPagination(req.query);
+  const filter = {};
+  // dispatchable: still has goods to send back on an Outward DC
+  if (req.query.dispatchable === 'true') filter.status = { $in: ['pending_dispatch', 'partially_dispatched'] };
+  if (req.query.search) {
+    const rx = literalRegex(req.query.search);
+    filter.$or = [{ returnNumber: rx }, { invoiceNumber: rx }];
+  }
   const [docs, total] = await Promise.all([
-    PurchaseReturn.find().populate('purchase', 'poNumber').populate('vendor', 'name').sort({ createdAt: -1 }).skip(skip).limit(limit),
-    PurchaseReturn.countDocuments(),
+    PurchaseReturn.find(filter).populate('purchase', 'poNumber').populate('purchaseInvoice', 'invoiceNumber vendorInvoiceNumber').populate('vendor', 'name verificationStatus').populate('items.product', 'name sku').sort({ createdAt: -1 }).skip(skip).limit(limit),
+    PurchaseReturn.countDocuments(filter),
   ]);
   res.json({ success: true, ...buildPaginatedResponse({ docs, total, page, limit }) });
 });
 
+export const getPurchaseReturn = catchAsync(async (req, res) => {
+  const doc = await PurchaseReturn.findById(req.params.id).populate('purchase', 'poNumber').populate('purchaseInvoice', 'invoiceNumber vendorInvoiceNumber').populate('vendor', 'name verificationStatus').populate('items.product', 'name sku');
+  if (!doc) throw new ApiError(404, 'Purchase return not found.');
+  const outwardDCs = await OutwardDC.find({ purchaseReturn: doc._id }).select('docNumber status items createdAt dispatchedAt').sort({ createdAt: 1 }).lean();
+  res.json({ success: true, data: { ...doc.toJSON(), outwardDCs } });
+});
+
 export default {
-  createPurchase, listPurchases, getPurchase, receiveGoods, payVendor,
-  createPurchaseReturn, listPurchaseReturns,
+  createPurchase, listPurchases, getPurchase, approvePurchase, receiveGoods, payVendor,
+  createPurchaseInvoice, listPurchaseInvoices, getPurchaseInvoice,
+  createPurchaseReturn, listPurchaseReturns, getPurchaseReturn,
 };

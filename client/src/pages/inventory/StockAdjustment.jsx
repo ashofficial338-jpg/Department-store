@@ -11,9 +11,7 @@ const TYPE_OPTIONS = [
 ];
 
 export function StockAdjustment() {
-  const [locations, setLocations] = useState({ stores: [], distributionCenters: [] });
   const [product, setProduct] = useState(null);
-  const [store, setStore] = useState('');
   const [quantity, setQuantity] = useState('');
   const [type, setType] = useState('stock_adjustment');
   const [notes, setNotes] = useState('');
@@ -21,7 +19,7 @@ export function StockAdjustment() {
   const [recent, setRecent] = useState([]);
   const [loadingRecent, setLoadingRecent] = useState(true);
 
-  useEffect(() => { inventoryService.locations().then((r) => setLocations(r.data)); loadRecent(); }, []);
+  useEffect(() => { loadRecent(); }, []);
 
   function loadRecent() {
     setLoadingRecent(true);
@@ -30,10 +28,10 @@ export function StockAdjustment() {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!product || !store || !quantity) { toast.error('Select a product, location and quantity.'); return; }
+    if (!product || !quantity) { toast.error('Select a product and quantity.'); return; }
     setSaving(true);
     try {
-      await inventoryService.adjust({ product: product._id, store, quantity: Number(quantity), type, notes });
+      await inventoryService.adjust({ product: product._id, quantity: Number(quantity), type, notes });
       toast.success('Stock adjustment recorded.');
       setProduct(null); setQuantity(''); setNotes('');
       loadRecent();
@@ -52,10 +50,6 @@ export function StockAdjustment() {
             <ProductPicker onSelect={setProduct} />
             {product && <div className="mt-2 text-xs px-3 py-2 rounded-lg bg-gold-50 text-gold-800">{product.name} ({product.sku})</div>}
           </div>
-          <Select label="Store" required value={store} onChange={(e) => setStore(e.target.value)}>
-            <option value="">Select store</option>
-            {locations.stores.map((s) => <option key={s._id} value={s._id}>{s.name}</option>)}
-          </Select>
           <Select label="Adjustment Type" value={type} onChange={(e) => setType(e.target.value)}>
             {TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </Select>

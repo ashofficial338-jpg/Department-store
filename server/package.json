@@ -18,7 +18,9 @@
     "seed:racks": "node seed/rackItems.js",
     "seed:activity": "node seed/activity.js",
     "seed:ledger": "node seed/activity.js --ledger",
-    "seed:products": "node seed/productsOnly.js"
+    "seed:products": "node seed/productsOnly.js",
+    "seed:names": "node seed/productNames.js",
+    "migrate:single-store": "node seed/singleStore.js"
   },
   "dependencies": {
     "@vercel/blob": "^2.8.0",

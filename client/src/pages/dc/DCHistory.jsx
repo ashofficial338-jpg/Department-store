@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { VendorName } from '../../components/vendors/VendorStatus.jsx';
 import { PageHeader, DataTable, StatusBadge } from '../../components/ui/index.js';
 import { dcService } from '../../services/index.js';
 import { formatDateTime } from '../../utils/format.js';
@@ -31,8 +32,7 @@ export function DCHistory() {
           loading={loading} rows={inward} emptyTitle="No inward DC history."
           columns={[
             { key: 'docNumber', header: 'Doc #', render: (r) => <span className="font-mono text-xs">{r.docNumber}</span> },
-            { key: 'distributionCenter', header: 'DC', render: (r) => r.distributionCenter?.name },
-            { key: 'vendor', header: 'Vendor', render: (r) => r.vendor?.name || '-' },
+            { key: 'vendor', header: 'Vendor', render: (r) => <VendorName vendor={r.vendor} /> },
             { key: 'createdAt', header: 'Date', render: (r) => formatDateTime(r.createdAt) },
             { key: 'status', header: 'Status', render: (r) => <StatusBadge status={r.status} /> },
           ]}
@@ -42,8 +42,6 @@ export function DCHistory() {
           loading={loading} rows={outward} emptyTitle="No outward DC history."
           columns={[
             { key: 'docNumber', header: 'Doc #', render: (r) => <span className="font-mono text-xs">{r.docNumber}</span> },
-            { key: 'sourceDC', header: 'From DC', render: (r) => r.sourceDC?.name },
-            { key: 'destinationType', header: 'To', render: (r) => r.destinationType },
             { key: 'createdAt', header: 'Date', render: (r) => formatDateTime(r.createdAt) },
             { key: 'status', header: 'Status', render: (r) => <StatusBadge status={r.status} /> },
           ]}

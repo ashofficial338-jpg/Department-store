@@ -45,7 +45,6 @@ export function Batches() {
           { key: 'batchNumber', header: 'Batch #', render: (r) => <span className="font-mono text-xs">{r.batchNumber}</span> },
           { key: 'product', header: 'Product', render: (r) => r.product?.name },
           { key: 'supplier', header: 'Supplier', render: (r) => r.supplier?.name || '-' },
-          { key: 'store', header: 'Location', render: (r) => r.store?.name || '-' },
           { key: 'availableQuantity', header: 'Available Qty' },
           { key: 'purchasePrice', header: 'Purchase Price', render: (r) => formatCurrency(r.purchasePrice) },
           {

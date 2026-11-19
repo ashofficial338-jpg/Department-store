@@ -4,7 +4,7 @@ import connectDB from '../config/db.js';
 import TaxRate from '../models/TaxRate.js';
 import Category from '../models/Category.js';
 import Product from '../models/Product.js';
-import Store from '../models/Store.js';
+import { getMainStore } from '../utils/storeGuard.js';
 import Inventory from '../models/Inventory.js';
 
 import { round2 } from '../utils/gstCalculator.js';
@@ -83,7 +83,8 @@ async function run() {
   const products = await Product.insertMany(rows);
 
   // ---------- 5. Inventory rows at zero stock, so every product appears in Inventory ----------
-  const stores = await Store.find().select('_id').lean();
+  // Single store: one central Inventory row per product, at the main store.
+  const stores = [await getMainStore()];
   await Inventory.insertMany(products.flatMap((p) => stores.map((s) => ({ product: p._id, store: s._id, currentStock: 0, openingStock: 0 }))));
 
   console.log('[seed:products] Product catalog ready:');

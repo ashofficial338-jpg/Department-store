@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import {
   createInwardDC, listInwardDC, getInwardDC, processInwardDC,
-  createOutwardDC, listOutwardDC, getOutwardDC, advanceOutwardDC, cancelOutwardDC,
+  createOutwardDC, listOutwardDC, getOutwardDC, submitOutwardDC, advanceOutwardDC, cancelOutwardDC,
   dcWiseStock,
 } from '../controllers/dcController.js';
 import { protect, requirePermission } from '../middleware/auth.js';
@@ -17,6 +17,7 @@ router.post('/inward/:id/process', processInwardDC);
 router.get('/outward', listOutwardDC);
 router.get('/outward/:id', getOutwardDC);
 router.post('/outward', createOutwardDC);
+router.post('/outward/:id/submit', submitOutwardDC);
 router.post('/outward/:id/advance', advanceOutwardDC);
 router.post('/outward/:id/cancel', cancelOutwardDC);
 

@@ -55,17 +55,36 @@ export const USERS = {
   purchaseManager: 'purchasemanager@aurelia.test',
 };
 
-// A product with plenty of stock in a store, plus that store.
+// A product with plenty of central stock, plus the (single) store it is sold from.
 export async function stockedProduct(minQty = 20) {
   const { default: Inventory } = await import('../models/Inventory.js');
   const { default: Product } = await import('../models/Product.js');
-  const inv = await Inventory.findOne({ store: { $ne: null }, currentStock: { $gte: minQty } }).sort({ currentStock: -1 });
+  const { mainStoreId } = await import('../utils/storeGuard.js');
+  const store = await mainStoreId();
+  const inv = await Inventory.findOne({ store, currentStock: { $gte: minQty } }).sort({ currentStock: -1 });
   const product = await Product.findById(inv.product);
-  return { product, store: inv.store, stock: inv.currentStock };
+  return { product, store, stock: inv.currentStock };
 }
 
+// Central stock of a product - the row billing deducts from. (`storeId` kept for older call sites.)
+// eslint-disable-next-line no-unused-vars
 export async function stockOf(productId, storeId) {
   const { default: Inventory } = await import('../models/Inventory.js');
-  const inv = await Inventory.findOne({ product: productId, store: storeId });
+  const { mainStoreId } = await import('../utils/storeGuard.js');
+  const inv = await Inventory.findOne({ product: productId, store: await mainStoreId() });
   return inv?.currentStock ?? 0;
+}
+
+// A verified, active vendor for purchase tests (POs, invoices and payments need one).
+export async function verifiedVendor() {
+  const { default: Vendor } = await import('../models/Vendor.js');
+  const found = await Vendor.findOne({ name: 'QA Verified Vendor' });
+  if (found) {
+    if (found.verificationStatus !== 'verified' || found.status !== 'active') {
+      await Vendor.updateOne({ _id: found._id }, { $set: { verificationStatus: 'verified', status: 'active' } });
+    }
+    return found._id;
+  }
+  const v = await Vendor.create({ name: 'QA Verified Vendor', phone: '9876543210', verificationStatus: 'verified', verifiedAt: new Date() });
+  return v._id;
 }

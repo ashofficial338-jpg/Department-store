@@ -528,4 +528,11 @@ export async function startBackup({ collections, user }) {
   );
 }
 
+// Immediate full backup of the primary database (used by maintenance scripts before they change data).
+export async function backupAllNow(reason) {
+  const db = primaryDb();
+  const names = (await collectionCounts(db)).map((c) => c.name);
+  return writeBackup({ db, info: primaryInfo(), names, reason, onCollection: () => {}, onBatch: () => {} });
+}
+
 export default { getStatus, listRuns, getRun, listBackups, startRestore, startBackup, backupPath, readHeader, ensureBackupDir, BACKUP_DIR, MODES };

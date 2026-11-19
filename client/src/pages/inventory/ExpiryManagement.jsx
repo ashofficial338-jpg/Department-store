@@ -35,7 +35,6 @@ export function ExpiryManagement() {
         columns={[
           { key: 'batchNumber', header: 'Batch #', render: (r) => <span className="font-mono text-xs">{r.batchNumber}</span> },
           { key: 'product', header: 'Product', render: (r) => r.product?.name },
-          { key: 'store', header: 'Store', render: (r) => r.store?.name || '-' },
           { key: 'availableQuantity', header: 'Qty Remaining' },
           { key: 'value', header: 'Stock Value', render: (r) => formatCurrency(r.availableQuantity * r.purchasePrice) },
           { key: 'expiryDate', header: 'Expiry Date', render: (r) => formatDate(r.expiryDate) },

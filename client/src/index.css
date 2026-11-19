@@ -7,7 +7,7 @@
    One set of roles for every page; light and dark are each chosen, not flipped.
    ============================================================ */
 :root {
-  --bg-app: #F6F7FB;
+  --bg-app: #F4F6FA;
   --bg-surface: #FFFFFF;
   --bg-surface-muted: #F8FAFC;
   --bg-elevated: rgba(255, 255, 255, 0.82);
@@ -24,10 +24,10 @@
   --brand-hover: #4338CA;
   --brand-soft: #EEF2FF;
   --hairline-highlight: rgba(255, 255, 255, 0);
-  --glow-a: rgba(99, 102, 241, 0.06);
-  --glow-b: rgba(14, 165, 233, 0.04);
+  --glow-a: rgba(99, 102, 241, 0);
+  --glow-b: rgba(14, 165, 233, 0);
   --grain-opacity: 0;
-  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.04);
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.05);
   --shadow-card-hover: 0 2px 4px rgba(15, 23, 42, 0.04), 0 12px 28px -10px rgba(15, 23, 42, 0.16);
   --gold-gradient: linear-gradient(135deg, #6366F1 0%, #4F46E5 55%, #4338CA 100%);
   --ease-luxe: cubic-bezier(0.22, 1, 0.36, 1);
@@ -60,8 +60,8 @@
   --brand-hover: #A5B4FC;
   --brand-soft: rgba(129, 140, 248, 0.14);
   --hairline-highlight: rgba(255, 255, 255, 0);
-  --glow-a: rgba(99, 102, 241, 0.08);
-  --glow-b: rgba(14, 165, 233, 0.05);
+  --glow-a: rgba(99, 102, 241, 0);
+  --glow-b: rgba(14, 165, 233, 0);
   --grain-opacity: 0;
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35);
   --shadow-card-hover: 0 2px 6px rgba(0, 0, 0, 0.4), 0 16px 36px -14px rgba(0, 0, 0, 0.7);
@@ -239,7 +239,9 @@ h1, h2, h3 { letter-spacing: -0.02em; }
 }
 
 /* Tables: refined header, smooth row hover across every hand-built table in the app. */
-table thead th { letter-spacing: 0.04em; font-size: 11px; font-weight: 600; }
+table thead th { letter-spacing: 0.05em; font-size: 11px; font-weight: 600; }
+/* Consistent row rhythm in every table. */
+table tbody td { vertical-align: middle; }
 table tbody tr { transition: background-color 0.2s ease; }
 table tbody tr:hover { background-color: var(--hover-tint); }
 table tbody tr:last-child { border-bottom: 0 !important; }
@@ -247,7 +249,9 @@ table tbody tr:last-child { border-bottom: 0 !important; }
 /* Form controls inherit the surface in dark mode. */
 input, select, textarea { transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease; }
 select option { background: var(--bg-surface); color: var(--text-primary); }
-input:focus, select:focus, textarea:focus { box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18); }
+input:focus, select:focus, textarea:focus { box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2); border-color: var(--brand) !important; }
+/* Clear keyboard focus on every button, link and tab (accessibility). */
+button:focus-visible, a:focus-visible, [role='tab']:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
 /* Hover utilities used across pages are light-only; give them theme-aware equivalents. */
 .hover\:bg-graphite-100:hover, .hover\:bg-graphite-50:hover, .hover\:bg-graphite-50\/50:hover { background-color: var(--hover-tint); }

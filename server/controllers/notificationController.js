@@ -1,6 +1,7 @@
 import Inventory from '../models/Inventory.js';
 import Batch from '../models/Batch.js';
 import Purchase from '../models/Purchase.js';
+import { PAYABLE_STATUSES, BILLED_EXPR } from '../utils/payables.js';
 import InwardDC from '../models/InwardDC.js';
 import OutwardDC from '../models/OutwardDC.js';
 import Sale from '../models/Sale.js';
@@ -24,7 +25,7 @@ export const listNotifications = catchAsync(async (req, res) => {
   const expiring = await Batch.countDocuments({ expiryDate: { $lte: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) }, availableQuantity: { $gt: 0 }, status: 'active' });
   if (expiring) notifications.push({ type: 'expiry', severity: 'warning', message: `${expiring} batch(es) expiring within 30 days.`, link: '/inventory/expiry-management' });
 
-  const pendingPayments = await Purchase.countDocuments({ status: { $in: ['received', 'invoiced'] }, $expr: { $lt: ['$amountPaid', '$grandTotal'] } });
+  const pendingPayments = await Purchase.countDocuments({ status: { $in: PAYABLE_STATUSES }, $expr: { $lt: ['$amountPaid', BILLED_EXPR] } });
   if (pendingPayments) notifications.push({ type: 'pending_payment', severity: 'info', message: `${pendingPayments} vendor invoice(s) have pending payment.`, link: '/finance/payables' });
 
   const pendingInward = await InwardDC.countDocuments({ status: 'pending' });

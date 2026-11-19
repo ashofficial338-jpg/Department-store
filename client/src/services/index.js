@@ -6,7 +6,22 @@ export const categoryService = createResourceService('/categories');
 export const brandService = createResourceService('/brands');
 export const storeService = createResourceService('/stores');
 export const dcMasterService = createResourceService('/distribution-centers');
-export const vendorService = { ...createResourceService('/vendors'), dashboard: (id) => api.get(`/vendors/${id}/dashboard`).then((r) => r.data) };
+export const vendorService = {
+  ...createResourceService('/vendors'),
+  dashboard: (id) => api.get(`/vendors/${id}/dashboard`).then((r) => r.data),
+  verified: () => api.get('/vendors/all', { params: { verified: true } }).then((r) => r.data),
+  checklist: (id) => api.get(`/vendors/${id}/checklist`).then((r) => r.data),
+  verify: (id, payload) => api.post(`/vendors/${id}/verify`, payload).then((r) => r.data),
+  uploadDocument: (id, docType, file) => {
+    const form = new FormData();
+    form.append('docType', docType);
+    form.append('file', file);
+    return api.post(`/vendors/${id}/documents`, form, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 120000 }).then((r) => r.data);
+  },
+  // Documents are private: fetched with the login token, then opened from a temporary blob URL.
+  documentBlob: (id, docId) => api.get(`/vendors/${id}/documents/${docId}`, { responseType: 'blob' }).then((r) => r.data),
+  removeDocument: (id, docId) => api.delete(`/vendors/${id}/documents/${docId}`).then((r) => r.data),
+};
 export const supplierService = createResourceService('/suppliers');
 export const accountService = { ...createResourceService('/accounts'), ledger: (id, params) => api.get(`/accounts/${id}/ledger`, { params }).then((r) => r.data) };
 export const rackItemService = createResourceService('/rack-items');
@@ -32,6 +47,7 @@ export const userService = {
 
 export const productService = {
   list: (params) => api.get('/products', { params }).then((r) => r.data),
+  names: () => api.get('/products/names').then((r) => r.data),
   getOne: (id) => api.get(`/products/${id}`).then((r) => r.data),
   create: (payload) => api.post('/products', payload).then((r) => r.data),
   update: (id, payload) => api.put(`/products/${id}`, payload).then((r) => r.data),
@@ -80,6 +96,7 @@ export const dcService = {
   listOutward: (params) => api.get('/dc/outward', { params }).then((r) => r.data),
   getOutward: (id) => api.get(`/dc/outward/${id}`).then((r) => r.data),
   createOutward: (payload) => api.post('/dc/outward', payload).then((r) => r.data),
+  submitOutward: (id, payload) => api.post(`/dc/outward/${id}/submit`, payload).then((r) => r.data),
   advanceOutward: (id) => api.post(`/dc/outward/${id}/advance`).then((r) => r.data),
   cancelOutward: (id) => api.post(`/dc/outward/${id}/cancel`).then((r) => r.data),
   stock: (id) => api.get(id ? `/dc/stock/${id}` : '/dc/stock').then((r) => r.data),
@@ -99,6 +116,7 @@ export const customerService = {
 export const salesService = {
   preview: (payload) => api.post('/sales/preview', payload).then((r) => r.data),
   create: (payload) => api.post('/sales', payload).then((r) => r.data),
+  createSimple: (payload) => api.post('/sales/simple', payload).then((r) => r.data),
   resume: (id, payload) => api.post(`/sales/${id}/resume`, payload).then((r) => r.data),
   list: (params) => api.get('/sales', { params }).then((r) => r.data),
   getOne: (id) => api.get(`/sales/${id}`).then((r) => r.data),
@@ -112,10 +130,14 @@ export const purchaseService = {
   list: (params) => api.get('/purchases', { params }).then((r) => r.data),
   getOne: (id) => api.get(`/purchases/${id}`).then((r) => r.data),
   create: (payload) => api.post('/purchases', payload).then((r) => r.data),
-  receive: (id, payload) => api.post(`/purchases/${id}/receive`, payload).then((r) => r.data),
+  approve: (id) => api.post(`/purchases/${id}/approve`).then((r) => r.data),
   pay: (id, payload) => api.post(`/purchases/${id}/pay`, payload).then((r) => r.data),
   createReturn: (payload) => api.post('/purchases/returns', payload).then((r) => r.data),
   listReturns: (params) => api.get('/purchases/returns', { params }).then((r) => r.data),
+  getReturn: (id) => api.get(`/purchases/returns/${id}`).then((r) => r.data),
+  listInvoices: (params) => api.get('/purchases/invoices', { params }).then((r) => r.data),
+  getInvoice: (id) => api.get(`/purchases/invoices/${id}`).then((r) => r.data),
+  createInvoice: (payload) => api.post('/purchases/invoices', payload).then((r) => r.data),
 };
 
 export const paymentService = {

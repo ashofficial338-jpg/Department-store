@@ -10,9 +10,7 @@ import { hasPermission } from '../utils/permissions.js';
 
 const ROUTE_MAP = {
   product: (id) => `/products?highlight=${id}`,
-  customer: (id) => `/customers?highlight=${id}`,
   vendor: (id) => `/purchasing/vendors?highlight=${id}`,
-  supplier: (id) => `/purchasing/suppliers?highlight=${id}`,
   sale: (id) => `/sales/invoices?highlight=${id}`,
   purchase: (id) => `/purchasing/orders?highlight=${id}`,
   batch: (id) => `/products/batches?highlight=${id}`,
@@ -57,7 +55,7 @@ export function GlobalSearch({ open, onClose }) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && pages.length) go(pages[0].to); }}
-          placeholder="Type a page (e.g. low stock) or a product, customer, invoice..."
+          placeholder="Type a page (e.g. low stock) or a product, invoice..."
           className="w-full rounded-lg border pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gold-400"
           style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
         />

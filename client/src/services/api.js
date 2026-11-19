@@ -25,7 +25,10 @@ api.interceptors.response.use(
       goToLogin();
     }
     const message = error.response?.data?.message || 'Unable to complete this request. Please try again.';
-    return Promise.reject(new Error(message));
+    const err = new Error(message);
+    err.status = error.response?.status;
+    err.details = error.response?.data?.details;
+    return Promise.reject(err);
   }
 );
 

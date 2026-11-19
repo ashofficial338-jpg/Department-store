@@ -14,17 +14,17 @@ import { generateDocNumber } from '../utils/docNumber.js';
 import { literalRegex, requireId, number, positive, oneOf } from '../utils/validate.js';
 import { sendExport } from '../utils/exporters.js';
 import { buildStockReport, stockReportOptions } from '../services/stockReport.js';
-import { assertActiveStore, assertActiveDC, ACTIVE_STORE_FILTER, ACTIVE_DC_FILTER } from '../utils/storeGuard.js';
+import { assertActiveStore, assertActiveDC, ACTIVE_STORE_FILTER, ACTIVE_DC_FILTER, mainStoreId } from '../utils/storeGuard.js';
 
-// Adjust the aggregated Inventory doc for (product, store|dc) by `delta` units.
+// Adjust a product's central stock by `delta` units. Single store: whichever store or distribution
+// center a document names, the stock is booked on the one central Inventory row (the main store), so
+// Inventory, POS and reports always read the same quantity. `store` / `distributionCenter` are accepted
+// for compatibility with callers and ignored.
 export async function applyStockDelta({ product, store, distributionCenter, delta, field = 'currentStock' }) {
-  const filter = { product };
-  if (store) filter.store = store;
-  if (distributionCenter) filter.distributionCenter = distributionCenter;
-
+  const central = await mainStoreId();
   const inv = await Inventory.findOneAndUpdate(
-    filter,
-    { $inc: { [field]: delta }, $setOnInsert: { product, store, distributionCenter } },
+    { product, store: central },
+    { $inc: { [field]: delta }, $setOnInsert: { product, store: central } },
     { upsert: true, new: true, setDefaultsOnInsert: true }
   );
   return inv;
@@ -53,7 +53,17 @@ export const stockOverview = catchAsync(async (req, res) => {
     Inventory.find(filter).populate('product', 'name sku unit reorderLevel sellingPrice purchasePrice').populate('store', 'name code').populate('distributionCenter', 'name code').sort({ updatedAt: -1 }).skip(skip).limit(limit),
     Inventory.countDocuments(filter),
   ]);
-  res.json({ success: true, ...buildPaginatedResponse({ docs, total, page, limit }) });
+  // Total inward / outward movement per product (from the stock ledger) beside the stock figure.
+  const moves = docs.length ? await InventoryTransaction.aggregate([
+    { $match: { product: { $in: docs.map((d) => d.product?._id || d.product) } } },
+    { $group: { _id: '$product', inward: { $sum: { $cond: [{ $gt: ['$quantity', 0] }, '$quantity', 0] } }, outward: { $sum: { $cond: [{ $lt: ['$quantity', 0] }, { $multiply: ['$quantity', -1] }, 0] } } } },
+  ]) : [];
+  const byProduct = new Map(moves.map((m) => [String(m._id), m]));
+  const rows = docs.map((d) => {
+    const m = byProduct.get(String(d.product?._id || d.product));
+    return { ...d.toJSON(), totalInward: m?.inward || 0, totalOutward: m?.outward || 0 };
+  });
+  res.json({ success: true, ...buildPaginatedResponse({ docs: rows, total, page, limit }) });
 });
 
 export const lowStock = catchAsync(async (req, res) => {
@@ -83,7 +93,15 @@ export const stockLedger = catchAsync(async (req, res) => {
   const { page, limit, skip } = getPagination(req.query);
   const filter = {};
   if (req.query.product) filter.product = req.query.product;
-  if (req.query.type) filter.type = req.query.type;
+  if (req.query.type) filter.type = String(req.query.type);
+  // Stock movements split by direction: inward (quantity > 0) or outward (quantity < 0).
+  if (req.query.direction === 'in') filter.quantity = { $gt: 0 };
+  if (req.query.direction === 'out') filter.quantity = { $lt: 0 };
+  if (req.query.search) {
+    const rx = literalRegex(req.query.search);
+    const ids = (await Product.find({ $or: [{ name: rx }, { sku: rx }] }).select('_id').limit(500).lean()).map((p) => p._id);
+    filter.$or = [{ product: { $in: ids } }, { referenceNumber: rx }];
+  }
   if (req.query.from || req.query.to) {
     filter.createdAt = {};
     if (req.query.from) filter.createdAt.$gte = new Date(req.query.from);
@@ -98,11 +116,9 @@ export const stockLedger = catchAsync(async (req, res) => {
 
 // Manual correction of stock quantity (damage found, stock count mismatch, etc.)
 export const adjustStock = catchAsync(async (req, res) => {
-  const { product, store, distributionCenter, type = 'stock_adjustment', notes } = req.body;
+  const { product, type = 'stock_adjustment', notes } = req.body;
   requireId(product, 'Product');
-  if (!store && !distributionCenter) throw new ApiError(400, 'Select a store or distribution center for this adjustment.');
-  if (store) await assertActiveStore(store);
-  else await assertActiveDC(distributionCenter);
+  // Single department store: a store / distribution center in the request is ignored (central stock).
   oneOf(type, ['stock_adjustment', 'damage', 'expiry_writeoff', 'opening_stock'], 'Adjustment type');
   const quantity = number(req.body.quantity, 'Quantity', { min: -1000000, max: 1000000, integer: true });
   if (quantity === 0) throw new ApiError(400, 'Quantity cannot be zero.');
@@ -112,7 +128,7 @@ export const adjustStock = catchAsync(async (req, res) => {
   if (!prod) throw new ApiError(404, 'Product not found.');
 
   const field = type === 'damage' ? 'damagedStock' : 'currentStock';
-  const loc = store ? { store } : { distributionCenter };
+  const loc = { store: await mainStoreId() }; // central stock
   let inv;
   if (quantity < 0) {
     // Conditional decrement: stock can never go below zero.
@@ -122,13 +138,13 @@ export const adjustStock = catchAsync(async (req, res) => {
       throw new ApiError(400, `Only ${have} in stock - you cannot remove ${-quantity}.`);
     }
   } else {
-    inv = await applyStockDelta({ product, store, distributionCenter, delta: quantity, field });
+    inv = await applyStockDelta({ product, store: loc.store, delta: quantity, field });
   }
 
   await recordInventoryTransaction({
     product, quantity: Number(quantity), type,
-    source: store || distributionCenter,
-    sourceModel: store ? 'Store' : 'DistributionCenter',
+    source: loc.store,
+    sourceModel: 'Store',
     referenceType: 'StockAdjustment', notes, user: req.user._id,
   });
 
@@ -148,19 +164,20 @@ export const createStockTransfer = catchAsync(async (req, res) => {
   if (destinationType === 'Store') await assertActiveStore(destination, 'Destination store');
   else await assertActiveDC(destination, 'Destination distribution center');
   if (sourceType === destinationType && String(source) === String(destination)) throw new ApiError(400, 'Source and destination must be different locations.');
-  const srcKey = sourceType === 'Store' ? 'store' : 'distributionCenter';
   for (const item of items) {
     requireId(item?.product, 'Product');
     item.quantity = positive(item.quantity, 'Transfer quantity', { integer: true, max: 1000000 });
   }
 
   // Reserve the stock at the source atomically; undo everything if any line is short.
+  // Central stock: the units leave the one Inventory row now and come back to it when the transfer completes.
+  const central = await mainStoreId();
   const taken = [];
   for (const item of items) {
-    const inv = await Inventory.findOneAndUpdate({ product: item.product, [srcKey]: source, currentStock: { $gte: item.quantity } }, { $inc: { currentStock: -item.quantity } });
+    const inv = await Inventory.findOneAndUpdate({ product: item.product, store: central, currentStock: { $gte: item.quantity } }, { $inc: { currentStock: -item.quantity } });
     if (!inv) {
       for (const t of taken) await Inventory.updateOne({ _id: t.id }, { $inc: { currentStock: t.qty } });
-      const have = (await Inventory.findOne({ product: item.product, [srcKey]: source }).lean())?.currentStock || 0;
+      const have = (await Inventory.findOne({ product: item.product, store: central }).lean())?.currentStock || 0;
       const name = (await Product.findById(item.product).select('name').lean())?.name || 'an item';
       throw new ApiError(400, `Only ${have} of ${name} at the source - cannot transfer ${item.quantity}.`);
     }

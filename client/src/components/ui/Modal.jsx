@@ -35,7 +35,7 @@ export function Modal({ open, onClose, title, children, footer, size = 'md' }) {
           >
             <div className="relative flex items-center justify-between gap-3 px-5 sm:px-6 py-4 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
               <h3 className="text-base sm:text-lg font-semibold tracking-tight" style={{ color: 'var(--text-primary)' }}>{title}</h3>
-              <button onClick={onClose} aria-label="Close" className="p-1.5 rounded-lg hover:bg-graphite-100 text-graphite-500 transition-colors">
+              <button onClick={onClose} aria-label="Close" className="p-1.5 rounded-lg hover:bg-[var(--hover-tint)] transition-colors" style={{ color: 'var(--text-muted)' }}>
                 <X size={18} />
               </button>
             </div>

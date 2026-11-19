@@ -12,6 +12,8 @@ const settingsSchema = new mongoose.Schema(
     currencySymbol: { type: String, default: '₹' },
     financialYearStartMonth: { type: Number, default: 4 }, // April
     invoicePrefix: { type: String, default: 'INV' },
+    // Billing GST type (Products > Pricing & GST): 'intra' = CGST + SGST (half each), 'inter' = IGST.
+    gstType: { type: String, enum: ['intra', 'inter'], default: 'intra' },
     lowStockThresholdDefault: { type: Number, default: 10 },
     paymentMethods: {
       type: [String],

@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import mongoose from 'mongoose';
 import { start, stop, api, tokenFor, USERS, stockedProduct, stockOf } from './helpers.js';
 import LedgerEntry from '../models/LedgerEntry.js';
+import { getMainStore } from '../utils/storeGuard.js';
 
 let cashier; let admin; let P; let store;
 const cash = (amount) => [{ method: 'cash', amount }];
@@ -50,10 +51,12 @@ test('POS-04 GST override must be a configured GST slab', async () => {
   assert.equal(r.status, 400);
 });
 
-test('POS-05 a bill needs a valid store', async () => {
+test('POS-05 a bill without a store is booked to the single department store', async () => {
   const total = await preview([{ product: P._id, quantity: 1 }]);
   const r = await api('POST', '/sales', { token: cashier, body: { items: [{ product: P._id, quantity: 1 }], payments: cash(total) } });
-  assert.equal(r.status, 400);
+  assert.equal(r.status, 201, JSON.stringify(r.body));
+  assert.equal(String(r.body.data.store), String((await getMainStore())._id));
+  assert.equal((await api('POST', `/sales/${r.body.data._id}/cancel`, { token: admin })).status, 200); // put the unit back
 });
 
 test('POS-06 cannot sell more than the store has in stock', async () => {

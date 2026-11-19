@@ -39,7 +39,6 @@ const COLUMNS = {
   ],
   stock: [
     { key: 'product', header: 'Product', render: (r) => r.product?.name },
-    { key: 'location', header: 'Location', render: (r) => r.store?.name || r.distributionCenter?.name },
     { key: 'currentStock', header: 'Stock' },
     { key: 'value', header: 'Value', render: (r) => formatCurrency((r.currentStock || 0) * (r.product?.purchasePrice || 0)) },
   ],
@@ -130,12 +129,6 @@ function DCReportView({ range }) {
       <div className="surface-card rounded-xl2 shadow-premium p-5">
         <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Pending Outward DC</div>
         <div className="text-2xl font-display font-semibold">{data.pendingOutward}</div>
-      </div>
-      <div className="md:col-span-2">
-        <DataTable
-          loading={false} rows={data.stockByDC} keyField="_id" emptyTitle="No DC stock recorded."
-          columns={[{ key: 'name', header: 'DC' }, { key: 'code', header: 'Code' }, { key: 'totalStock', header: 'Total Stock' }]}
-        />
       </div>
     </div>
   );

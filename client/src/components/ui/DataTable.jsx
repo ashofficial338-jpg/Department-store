@@ -38,7 +38,7 @@ export function DataTable({ columns, rows, loading, emptyTitle = 'No records fou
           <thead>
             <tr className="border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-surface-muted)' }}>
               {columns.map((col) => (
-                <th key={col.key} scope="col" className="text-left px-4 h-10 text-[11px] font-semibold uppercase whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
+                <th key={col.key} scope="col" className="text-left px-4 h-11 text-[11px] font-semibold uppercase whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
                   {col.header}
                 </th>
               ))}
@@ -49,7 +49,9 @@ export function DataTable({ columns, rows, loading, emptyTitle = 'No records fou
               <tr
                 key={row[keyField] ?? i}
                 onClick={() => onRowClick?.(row)}
-                className={onRowClick ? 'cursor-pointer hover:!bg-[var(--gold-tint)]' : undefined}
+                className={onRowClick ? 'cursor-pointer hover:!bg-[var(--gold-tint)] focus-visible:!bg-[var(--gold-tint)]' : undefined}
+                tabIndex={onRowClick ? 0 : undefined}
+                onKeyDown={onRowClick ? (e) => { if (e.key === 'Enter') onRowClick(row); } : undefined}
                 style={{ borderBottom: '1px solid var(--border-subtle)' }}
               >
                 {columns.map((col) => (

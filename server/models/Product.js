@@ -20,9 +20,10 @@ const productSchema = new mongoose.Schema(
     hsn: { type: String, trim: true },
     taxRate: { type: mongoose.Schema.Types.ObjectId, ref: 'TaxRate' },
     gstRate: { type: Number, default: 0 }, // denormalized snapshot for fast billing lookups
-    purchasePrice: { type: Number, required: true, min: 0 },
-    sellingPrice: { type: Number, required: true, min: 0 },
-    mrp: { type: Number, required: true, min: 0 },
+    // Product Master is a simple name list: prices are optional (billing takes the rate per kg at the counter).
+    purchasePrice: { type: Number, default: 0, min: 0 },
+    sellingPrice: { type: Number, default: 0, min: 0 },
+    mrp: { type: Number, default: 0, min: 0 },
     discountPercent: { type: Number, default: 0, min: 0, max: 100 },
     unit: { type: String, default: 'PCS' },
     reorderLevel: { type: Number, default: 10 },

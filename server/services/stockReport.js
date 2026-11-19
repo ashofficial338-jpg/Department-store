@@ -23,7 +23,6 @@ export const STOCK_TYPES = [
   { key: 'reserved', label: 'Reserved Stock', description: 'Stock held for orders', qty: 'reservedStock', match: { reservedStock: { $gt: 0 } } },
   { key: 'damaged', label: 'Damaged Stock', description: 'Stock written down as damaged', qty: 'damagedStock', match: { damagedStock: { $gt: 0 } } },
   { key: 'returned', label: 'Returned Stock', description: 'Stock returned by customers', qty: 'returnedStock', match: { returnedStock: { $gt: 0 } } },
-  { key: 'in_transit', label: 'In-Transit Stock', description: 'Stock moving between locations', qty: 'inTransitStock', match: { inTransitStock: { $gt: 0 } } },
   { key: 'expiring', label: 'Expiring Soon', description: 'Batches expiring within the chosen number of days', batch: true },
   { key: 'expired', label: 'Expired Stock', description: 'Batches past their expiry date with quantity remaining', batch: true },
 ];
@@ -35,12 +34,11 @@ const COMMON = [
   { key: 'product', label: 'Product', type: 'text', weight: 2.6 },
   { key: 'category', label: 'Category', type: 'text', weight: 1.5 },
   { key: 'brand', label: 'Brand', type: 'text', weight: 1.3 },
-  { key: 'location', label: 'Location', type: 'text', weight: 1.6 },
 ];
 const col = (key, label, type = 'int') => ({ key, label, type });
 const VALUE = col('value', 'Stock Value', 'currency');
 const TYPE_COLUMNS = {
-  all: [col('currentStock', 'Current'), col('reservedStock', 'Reserved'), col('availableStock', 'Available'), col('damagedStock', 'Damaged'), col('returnedStock', 'Returned'), col('inTransitStock', 'In Transit'), VALUE, col('stockStatus', 'Status', 'text')],
+  all: [col('currentStock', 'Current'), col('reservedStock', 'Reserved'), col('availableStock', 'Available'), col('damagedStock', 'Damaged'), col('returnedStock', 'Returned'), VALUE, col('stockStatus', 'Status', 'text')],
   in_stock: [col('currentStock', 'Current'), col('reservedStock', 'Reserved'), col('availableStock', 'Available'), col('reorderLevel', 'Reorder Level'), VALUE, col('stockStatus', 'Status', 'text')],
   low_stock: [col('currentStock', 'Current'), col('reorderLevel', 'Reorder Level'), col('shortfall', 'Shortfall'), VALUE],
   out_of_stock: [col('currentStock', 'Current'), col('reorderLevel', 'Reorder Level'), col('shortfall', 'Shortfall')],
@@ -193,17 +191,15 @@ async function batchRows(f) {
 
 async function describeFilters(f) {
   const name = async (Model, id) => (id ? (await Model.findById(id).select('name').lean())?.name || 'Unknown' : null);
-  const [category, subcategory, brand, store, dc] = await Promise.all([
-    name(Category, f.category), name(Category, f.subcategory), name(Brand, f.brand), name(Store, f.store), name(DistributionCenter, f.distributionCenter),
+  const [category, subcategory, brand] = await Promise.all([
+    name(Category, f.category), name(Category, f.subcategory), name(Brand, f.brand),
   ]);
-  const location = [store, dc].filter(Boolean).join(' / ') || (f.locationType === 'store' ? 'All stores' : f.locationType === 'dc' ? 'All distribution centers' : 'All locations');
   return [
     `Stock type: ${f.type.label}`,
     f.type.key === 'expiring' ? `Expiring within: ${f.days} days` : null,
     `Category: ${category || 'All'}`,
     subcategory ? `Subcategory: ${subcategory}` : null,
     `Brand: ${brand || 'All'}`,
-    `Location: ${location}`,
     f.status ? `Product status: ${f.status}` : null,
     f.searchText ? `Search: "${f.searchText}"` : null,
   ].filter(Boolean).join('  |  ');

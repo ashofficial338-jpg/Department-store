@@ -25,13 +25,17 @@ test('OPS-01 vendor payments must be positive and cannot exceed the bill balance
   assert.equal(after.amountPaid, po.amountPaid, 'nothing recorded');
 });
 
-test('OPS-02 goods receipts cannot be negative or exceed the ordered quantity', async () => {
-  const po = await Purchase.findOne({ status: 'ordered' });
+test('OPS-02 purchase invoices cannot be negative or exceed the ordered quantity; POs no longer receive stock', async () => {
+  const po = await Purchase.findOne({ status: { $in: ['approved', 'ordered'] } });
   const line = po.items[0];
-  for (const receivedQuantity of [-5, line.quantity + 100]) {
-    const r = await api('POST', `/purchases/${po._id}/receive`, { token: admin, body: { items: [{ product: line.product, receivedQuantity }] } });
-    assert.equal(r.status, 400, `received ${receivedQuantity} -> ${r.status}`);
+  for (const quantity of [-5, 0, line.quantity - (line.invoicedQuantity || 0) + 100]) {
+    const r = await api('POST', '/purchases/invoices', { token: admin, body: { purchaseId: po._id, items: [{ product: line.product, quantity }] } });
+    assert.equal(r.status, 400, `invoiced ${quantity} -> ${r.status}`);
   }
+  const rec = await api('POST', `/purchases/${po._id}/receive`, { token: admin, body: { items: [{ product: line.product, receivedQuantity: 1 }] } });
+  assert.equal(rec.status, 400, 'goods are received on Inward DC only');
+  const after = await Purchase.findById(po._id);
+  assert.deepEqual(after.items.map((l) => [l.invoicedQuantity || 0, l.receivedQuantity || 0]), po.items.map((l) => [l.invoicedQuantity || 0, l.receivedQuantity || 0]), 'nothing recorded');
 });
 
 test('OPS-03 stock transfers need stock at the source and a different destination', async () => {

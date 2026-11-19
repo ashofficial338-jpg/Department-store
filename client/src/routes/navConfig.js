@@ -1,13 +1,12 @@
 import {
   LayoutDashboard, FilePlus2, ShoppingCart, ReceiptText, Undo2, History,
   Package, Tags, Award, Images, Layers, Tag,
-  Boxes, SlidersHorizontal, ArrowLeftRight, ScrollText, AlertTriangle, CalendarClock,
-  LogIn, LogOut as LogOutIcon, ListChecks, Warehouse, Network,
-  ClipboardList, FileText, RotateCcw, Building2, Factory,
-  Users, Star, Wallet,
+  Boxes, SlidersHorizontal, ScrollText, AlertTriangle, CalendarClock,
+  LogIn, LogOut as LogOutIcon, ListChecks,
+  ClipboardList, FileText, RotateCcw, Building2,
   Landmark, ArrowDownCircle, ArrowUpCircle, Receipt, Coins, Percent, TrendingUp,
   BarChart3, FileBarChart, RefreshCcw, MapPin, FileSpreadsheet,
-  UserCog, ShieldCheck, Store, Percent as PercentIcon, FileCog, Settings as SettingsIcon, DatabaseZap,
+  UserCog, ShieldCheck, Percent as PercentIcon, FileCog, Settings as SettingsIcon, DatabaseZap,
 } from 'lucide-react';
 
 // module: used by requireModule() permission checks on the client (mirrors server config/permissions.js)
@@ -24,7 +23,7 @@ export const NAV_SECTIONS = [
     label: 'Sales',
     module: 'sales',
     items: [
-      { label: 'POS Billing', to: '/pos', icon: ShoppingCart, module: 'pos' },
+      { label: 'Billing', to: '/pos', icon: ShoppingCart, module: 'pos' },
       { label: 'Sales Invoices', to: '/sales/invoices', icon: ReceiptText, module: 'sales' },
       { label: 'Sales Returns', to: '/sales/returns', icon: Undo2, module: 'sales' },
       { label: 'Sales History', to: '/sales/history', icon: History, module: 'sales' },
@@ -49,7 +48,6 @@ export const NAV_SECTIONS = [
       { label: 'Rack Locator', to: '/inventory/racks', icon: MapPin, module: 'inventory' },
       { label: 'Stock Overview', to: '/inventory/overview', icon: Boxes, module: 'inventory' },
       { label: 'Stock Adjustment', to: '/inventory/adjustment', icon: SlidersHorizontal, module: 'inventory' },
-      { label: 'Stock Transfer', to: '/inventory/transfer', icon: ArrowLeftRight, module: 'inventory' },
       { label: 'Stock Ledger', to: '/inventory/ledger', icon: ScrollText, module: 'inventory' },
       { label: 'Low Stock', to: '/inventory/low-stock', icon: AlertTriangle, module: 'inventory' },
       { label: 'Expiry Management', to: '/inventory/expiry-management', icon: CalendarClock, module: 'inventory' },
@@ -63,8 +61,6 @@ export const NAV_SECTIONS = [
       { label: 'Inward DC', to: '/dc/inward', icon: LogIn, module: 'dc' },
       { label: 'Outward DC', to: '/dc/outward', icon: LogOutIcon, module: 'dc' },
       { label: 'DC History', to: '/dc/history', icon: ListChecks, module: 'dc' },
-      { label: 'DC-wise Stock', to: '/dc/stock', icon: Warehouse, module: 'dc' },
-      { label: 'Distribution Centers', to: '/dc/centers', icon: Network, module: 'dc' },
     ],
   },
   {
@@ -74,17 +70,7 @@ export const NAV_SECTIONS = [
       { label: 'Purchase Orders', to: '/purchasing/orders', icon: ClipboardList, module: 'purchasing' },
       { label: 'Purchase Invoices', to: '/purchasing/invoices', icon: FileText, module: 'purchasing' },
       { label: 'Purchase Returns', to: '/purchasing/returns', icon: RotateCcw, module: 'purchasing' },
-      { label: 'Vendors', to: '/purchasing/vendors', icon: Building2, module: 'vendors' },
-      { label: 'Suppliers', to: '/purchasing/suppliers', icon: Factory, module: 'vendors' },
-    ],
-  },
-  {
-    label: 'Customers',
-    module: 'customers',
-    items: [
-      { label: 'Customer Master', to: '/customers', icon: Users, module: 'customers' },
-      { label: 'Customer Loyalty', to: '/customers/loyalty', icon: Star, module: 'customers' },
-      { label: 'Outstanding Payments', to: '/customers/outstanding', icon: Wallet, module: 'customers' },
+      { label: 'Vendor Management', to: '/purchasing/vendors', icon: Building2, module: 'vendors' },
     ],
   },
   {
@@ -114,7 +100,6 @@ export const NAV_SECTIONS = [
     items: [
       { label: 'Users', to: '/settings/users', icon: UserCog, module: 'users' },
       { label: 'Roles & Permissions', to: '/settings/roles', icon: ShieldCheck, module: 'settings' },
-      { label: 'Store / Branch', to: '/settings/stores', icon: Store, module: 'settings' },
       { label: 'Tax Settings', to: '/settings/tax', icon: PercentIcon, module: 'settings' },
       { label: 'Invoice Settings', to: '/settings/invoice', icon: FileCog, module: 'settings' },
       { label: 'System Settings', to: '/settings/system', icon: SettingsIcon, module: 'settings' },

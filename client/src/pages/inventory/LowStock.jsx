@@ -23,7 +23,6 @@ export function LowStock() {
           emptyTitle="No low stock items."
           columns={[
             { key: 'product', header: 'Product', render: (r) => <div><div className="font-medium">{r.product?.name}</div><div className="text-xs" style={{ color: 'var(--text-muted)' }}>{r.product?.sku}</div></div> },
-            { key: 'store', header: 'Store', render: (r) => r.store?.name || '-' },
             { key: 'currentStock', header: 'Current Stock', render: (r) => <span className="text-rose-600 font-semibold">{r.currentStock}</span> },
             { key: 'reorderLevel', header: 'Reorder Level', render: (r) => r.product?.reorderLevel },
             { key: 'shortfall', header: 'Shortfall', render: (r) => Math.max(0, (r.product?.reorderLevel || 0) - r.currentStock) },

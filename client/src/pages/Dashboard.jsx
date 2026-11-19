@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import {
   IndianRupee, ShoppingBag, TrendingUp, Percent, Boxes, AlertTriangle, ArrowDownCircle, ArrowUpCircle,
-  ShoppingCart, FilePlus2, PackagePlus, UserPlus, ClipboardList, Receipt, FileBarChart, Undo2, ArrowLeftRight,
+  ShoppingCart, FilePlus2, PackagePlus, ClipboardList, Receipt, FileBarChart, Undo2,
   Wallet, RefreshCw, Hourglass, Landmark, Target, Lock,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -25,10 +25,8 @@ const QUICK_ACTIONS = [
   { label: 'Data Entry', to: '/data-entry', icon: FilePlus2, module: 'dashboard' },
   { label: 'ITR Analysis', to: '/analytics/itr', icon: RefreshCw, module: 'dashboard.inventory' },
   { label: 'Products', to: '/products', icon: PackagePlus, module: 'products' },
-  { label: 'Customers', to: '/customers', icon: UserPlus, module: 'customers' },
   { label: 'Sales Return', to: '/sales/returns', icon: Undo2, module: 'sales' },
   { label: 'Low Stock', to: '/inventory/low-stock', icon: AlertTriangle, module: 'inventory' },
-  { label: 'Stock Transfer', to: '/inventory/transfer', icon: ArrowLeftRight, module: 'inventory' },
   { label: 'Purchase Order', to: '/purchasing/orders', icon: ClipboardList, module: 'purchasing' },
   { label: 'Expenses', to: '/finance/expenses', icon: Receipt, module: 'finance' },
   { label: 'Reports', to: '/reports', icon: FileBarChart, module: 'reports' },

@@ -29,7 +29,6 @@ const Pricing = lazy(() => import('./pages/products/Pricing.jsx'));
 
 const StockOverview = lazy(() => import('./pages/inventory/StockOverview.jsx'));
 const StockAdjustment = lazy(() => import('./pages/inventory/StockAdjustment.jsx'));
-const StockTransfer = lazy(() => import('./pages/inventory/StockTransfer.jsx'));
 const StockLedger = lazy(() => import('./pages/inventory/StockLedger.jsx'));
 const StockReports = lazy(() => import('./pages/inventory/StockReports.jsx'));
 const LowStock = lazy(() => import('./pages/inventory/LowStock.jsx'));
@@ -39,17 +38,12 @@ const RackLocator = lazy(() => import('./pages/inventory/RackLocator.jsx'));
 const InwardDC = lazy(() => import('./pages/dc/InwardDC.jsx'));
 const OutwardDC = lazy(() => import('./pages/dc/OutwardDC.jsx'));
 const DCHistory = lazy(() => import('./pages/dc/DCHistory.jsx'));
-const DCStock = lazy(() => import('./pages/dc/DCStock.jsx'));
-const DistributionCenters = lazy(() => import('./pages/dc/DistributionCenters.jsx'));
 
 const PurchaseOrders = lazy(() => import('./pages/purchasing/PurchaseOrders.jsx'));
+const PurchaseInvoices = lazy(() => import('./pages/purchasing/PurchaseInvoices.jsx'));
 const PurchaseReturns = lazy(() => import('./pages/purchasing/PurchaseReturns.jsx'));
 const Vendors = lazy(() => import('./pages/purchasing/Vendors.jsx'));
-const Suppliers = lazy(() => import('./pages/purchasing/Suppliers.jsx'));
 
-const CustomerMaster = lazy(() => import('./pages/customers/CustomerMaster.jsx'));
-const Loyalty = lazy(() => import('./pages/customers/Loyalty.jsx'));
-const Outstanding = lazy(() => import('./pages/customers/Outstanding.jsx'));
 
 const Accounts = lazy(() => import('./pages/finance/Accounts.jsx'));
 const Receivables = lazy(() => import('./pages/finance/Receivables.jsx'));
@@ -64,7 +58,6 @@ const AdvancedReports = lazy(() => import('./pages/reports/AdvancedReports.jsx')
 
 const UsersSettings = lazy(() => import('./pages/settings/UsersSettings.jsx'));
 const RolesSettings = lazy(() => import('./pages/settings/RolesSettings.jsx'));
-const StoresSettings = lazy(() => import('./pages/settings/StoresSettings.jsx'));
 const TaxSettings = lazy(() => import('./pages/settings/TaxSettings.jsx'));
 const InvoiceSettings = lazy(() => import('./pages/settings/InvoiceSettings.jsx'));
 const SystemSettings = lazy(() => import('./pages/settings/SystemSettings.jsx'));
@@ -122,7 +115,6 @@ export default function App() {
             <Route path="/inventory/racks" element={<RequirePermission any={['inventory', 'products']}><RackLocator /></RequirePermission>} />
             <Route path="/inventory/overview" element={<RequirePermission any={['inventory']}><StockOverview /></RequirePermission>} />
             <Route path="/inventory/adjustment" element={<RequirePermission any={['inventory']}><StockAdjustment /></RequirePermission>} />
-            <Route path="/inventory/transfer" element={<RequirePermission any={['inventory']}><StockTransfer /></RequirePermission>} />
             <Route path="/inventory/ledger" element={<RequirePermission any={['inventory']}><StockLedger /></RequirePermission>} />
             <Route path="/inventory/reports" element={<RequirePermission any={['inventory']}><StockReports /></RequirePermission>} />
             <Route path="/inventory/low-stock" element={<RequirePermission any={['inventory']}><LowStock /></RequirePermission>} />
@@ -131,18 +123,14 @@ export default function App() {
             <Route path="/dc/inward" element={<RequirePermission any={['dc']}><InwardDC /></RequirePermission>} />
             <Route path="/dc/outward" element={<RequirePermission any={['dc']}><OutwardDC /></RequirePermission>} />
             <Route path="/dc/history" element={<RequirePermission any={['dc']}><DCHistory /></RequirePermission>} />
-            <Route path="/dc/stock" element={<RequirePermission any={['dc']}><DCStock /></RequirePermission>} />
-            <Route path="/dc/centers" element={<RequirePermission any={['dc']}><DistributionCenters /></RequirePermission>} />
 
             <Route path="/purchasing/orders" element={<RequirePermission any={['purchasing']}><PurchaseOrders /></RequirePermission>} />
-            <Route path="/purchasing/invoices" element={<RequirePermission any={['purchasing']}><PurchaseOrders /></RequirePermission>} />
+            <Route path="/purchasing/invoices" element={<RequirePermission any={['purchasing']}><PurchaseInvoices /></RequirePermission>} />
             <Route path="/purchasing/returns" element={<RequirePermission any={['purchasing']}><PurchaseReturns /></RequirePermission>} />
             <Route path="/purchasing/vendors" element={<RequirePermission any={['vendors']}><Vendors /></RequirePermission>} />
-            <Route path="/purchasing/suppliers" element={<RequirePermission any={['vendors']}><Suppliers /></RequirePermission>} />
+            {/* Suppliers were merged into Vendor Management. */}
+            <Route path="/purchasing/suppliers" element={<Navigate to="/purchasing/vendors" replace />} />
 
-            <Route path="/customers" element={<RequirePermission any={['customers']}><CustomerMaster /></RequirePermission>} />
-            <Route path="/customers/loyalty" element={<RequirePermission any={['customers']}><Loyalty /></RequirePermission>} />
-            <Route path="/customers/outstanding" element={<RequirePermission any={['customers']}><Outstanding /></RequirePermission>} />
 
             <Route path="/finance/accounts" element={<RequirePermission any={['finance']}><Accounts /></RequirePermission>} />
             <Route path="/finance/receivables" element={<RequirePermission any={['finance']}><Receivables /></RequirePermission>} />
@@ -157,7 +145,6 @@ export default function App() {
 
             <Route path="/settings/users" element={<RequirePermission admin><UsersSettings /></RequirePermission>} />
             <Route path="/settings/roles" element={<RequirePermission admin><RolesSettings /></RequirePermission>} />
-            <Route path="/settings/stores" element={<RequirePermission admin><StoresSettings /></RequirePermission>} />
             <Route path="/settings/tax" element={<RequirePermission admin><TaxSettings /></RequirePermission>} />
             <Route path="/settings/invoice" element={<RequirePermission admin><InvoiceSettings /></RequirePermission>} />
             <Route path="/settings/system" element={<RequirePermission admin><SystemSettings /></RequirePermission>} />

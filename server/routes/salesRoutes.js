@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import {
-  previewSale, createSale, resumeSale, listSales, getSale, heldSales, cancelSale,
+  previewSale, createSale, createSimpleBill, resumeSale, listSales, getSale, heldSales, cancelSale,
   createSalesReturn, listSalesReturns,
 } from '../controllers/salesController.js';
 import { protect, requirePermission } from '../middleware/auth.js';
@@ -9,6 +9,7 @@ const router = Router();
 router.use(protect, requirePermission('sales', 'pos'));
 
 router.post('/preview', previewSale);
+router.post('/simple', requirePermission('pos'), createSimpleBill);
 router.get('/held', heldSales);
 router.get('/returns', requirePermission('sales'), listSalesReturns);
 router.post('/returns', requirePermission('sales'), createSalesReturn);

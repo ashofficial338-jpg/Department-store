@@ -9,6 +9,7 @@ import TaxRate from '../models/TaxRate.js';
 import Inventory from '../models/Inventory.js';
 import LedgerEntry from '../models/LedgerEntry.js';
 import Account from '../models/Account.js';
+import Settings from '../models/Settings.js';
 import ApiError from '../utils/ApiError.js';
 import catchAsync from '../utils/catchAsync.js';
 import recordAudit from '../utils/audit.js';
@@ -18,7 +19,7 @@ import { calculateLineGst, summarizeInvoice, round2 } from '../utils/gstCalculat
 import { recordInventoryTransaction } from './inventoryController.js';
 import { postLedgerPair, methodToAccountKey } from '../utils/ledger.js';
 import { searchRegex, requireId, number, positive, oneOf } from '../utils/validate.js';
-import { assertActiveStore } from '../utils/storeGuard.js';
+import { assertActiveStore, mainStoreId } from '../utils/storeGuard.js';
 
 // POS billing. Everything that affects money or stock is decided here, never by the browser:
 // prices come from the product master, quantities/discounts/payments are validated, stock is
@@ -105,7 +106,9 @@ function settlePayments(payments, grandTotal, customer) {
 
 // Reserves stock atomically (a conditional decrement), so two tills cannot sell the same last units.
 // Returns an undo function that puts everything back if a later step fails.
-async function reserveStock(lines, store) {
+// Single store: stock is taken from the central Inventory row, the same quantity Inventory shows.
+async function reserveStock(lines) {
+  const store = await mainStoreId();
   const done = [];
   const undo = async () => {
     for (const d of done.reverse()) {
@@ -125,7 +128,7 @@ async function reserveStock(lines, store) {
       if (!inv) {
         const have = (await Inventory.findOne({ product, store }).select('currentStock').lean())?.currentStock || 0;
         const name = lines.find((l) => String(l.product) === product).productName;
-        throw new ApiError(400, `Only ${have} of ${name} in stock at this store (bill needs ${qty}).`);
+        throw new ApiError(400, have > 0 ? `Only ${have} of ${name} in stock (bill needs ${qty}).` : `${name} is out of stock.`);
       }
       done.push({ kind: 'inv', id: inv._id, qty });
     }
@@ -133,15 +136,15 @@ async function reserveStock(lines, store) {
       if (line.batch) {
         if (!mongoose.isValidObjectId(line.batch)) throw new ApiError(400, 'Invalid batch selected.');
         const b = await Batch.findOneAndUpdate(
-          { _id: line.batch, product: line.product, store, availableQuantity: { $gte: line.quantity } },
+          { _id: line.batch, product: line.product, availableQuantity: { $gte: line.quantity } },
           { $inc: { availableQuantity: -line.quantity } },
         );
-        if (!b) throw new ApiError(400, `The selected batch of ${line.productName} doesn't belong to this store or has too little stock.`);
+        if (!b) throw new ApiError(400, `The selected batch of ${line.productName} has too little stock.`);
         done.push({ kind: 'batch', id: b._id, qty: line.quantity });
       } else {
         // First-expiry-first-out: the earliest-expiring batch that can cover the whole line.
         const b = await Batch.findOneAndUpdate(
-          { product: line.product, store, status: 'active', availableQuantity: { $gte: line.quantity } },
+          { product: line.product, status: 'active', availableQuantity: { $gte: line.quantity } },
           { $inc: { availableQuantity: -line.quantity } },
           { sort: { expiryDate: 1 } },
         );
@@ -170,7 +173,8 @@ async function existingFor(clientRequestId) {
 
 // Creates a completed sale from a request body. Shared by "New bill" and "Resume held bill".
 async function completeSale(req, body) {
-  const { items = [], customer, store, payments = [], isInterState = false, notes } = body;
+  const { items = [], customer, payments = [], isInterState = false, notes } = body;
+  const store = await mainStoreId(); // single department store: every bill belongs to it
   const clientRequestId = body.clientRequestId ? String(body.clientRequestId).slice(0, 100) : undefined;
   const prior = await existingFor(clientRequestId);
   if (prior) return { sale: prior, duplicate: true };
@@ -180,7 +184,7 @@ async function completeSale(req, body) {
   const summary = summarizeInvoice(lines);
   const settled = settlePayments(payments, summary.grandTotal, customer);
 
-  const undo = await reserveStock(lines, store);
+  const undo = await reserveStock(lines);
   let sale;
   try {
     const invoiceNumber = await generateDocNumber('sale');
@@ -234,6 +238,7 @@ async function completeSale(req, body) {
 export const createSale = catchAsync(async (req, res) => {
   const body = req.body || {};
   if (body.status === 'held') {
+    body.store = await mainStoreId();
     await validateParties({ store: body.store, customer: body.customer });
     const lines = await buildSaleLines(body.items, !!body.isInterState, req);
     const sale = await Sale.create({
@@ -320,8 +325,9 @@ export const cancelSale = catchAsync(async (req, res) => {
     // Flip the status first (atomically) so two simultaneous cancels cannot both restock.
     const claimed = await Sale.findOneAndUpdate({ _id: sale._id, status: 'completed' }, { status: 'cancelled' });
     if (!claimed) throw new ApiError(409, 'This invoice was changed by someone else. Refresh and try again.');
-    for (const line of sale.items) {
-      await Inventory.updateOne({ product: line.product, store: sale.store }, { $inc: { currentStock: line.quantity } }, { upsert: true });
+    // Simple bills never took stock, so cancelling them gives none back.
+    if (sale.billType !== 'simple') for (const line of sale.items) {
+      await Inventory.updateOne({ product: line.product, store: await mainStoreId() }, { $inc: { currentStock: line.quantity } }, { upsert: true });
       if (line.batch) await Batch.updateOne({ _id: line.batch }, { $inc: { availableQuantity: line.quantity } });
       await recordInventoryTransaction({
         product: line.product, batch: line.batch, quantity: line.quantity, type: 'sale_return',
@@ -347,6 +353,82 @@ export const cancelSale = catchAsync(async (req, res) => {
   res.json({ success: true, data: await Sale.findById(sale._id) });
 });
 
+// ---------- Simple bill (Billing screen) ----------
+// Lines: product (from the Product Master name list), quantity in g or kg, rate per kg (before GST).
+// Taxable amount = quantity in kg x rate; GST = taxable x the product's GST % (Pricing & GST). The GST type
+// in Pricing & GST decides the split: Intra-State -> CGST + SGST (half each), Inter-State -> IGST.
+// Bill total = taxable + GST. No stock movement.
+const SIMPLE_PAYMENTS = ['cash', 'upi', 'card'];
+
+export const createSimpleBill = catchAsync(async (req, res) => {
+  const { items, paymentMethod = 'cash' } = req.body || {};
+  oneOf(paymentMethod, SIMPLE_PAYMENTS, 'Payment method');
+  const clientRequestId = req.body?.clientRequestId ? String(req.body.clientRequestId).slice(0, 100) : undefined;
+  if (clientRequestId) {
+    const first = await Sale.findOne({ clientRequestId });
+    if (first) return res.json({ success: true, data: first, duplicate: true });
+  }
+  if (!Array.isArray(items) || !items.length) throw new ApiError(400, 'Add at least one product to the bill.');
+  if (items.length > MAX_LINES) throw new ApiError(400, `A bill can have at most ${MAX_LINES} lines.`);
+
+  const settings = await Settings.findOne().select('gstType').lean();
+  const interState = settings?.gstType === 'inter';
+  const lines = [];
+  for (const it of items) {
+    requireId(it?.product, 'Product');
+    const product = await Product.findById(it.product).select('name sku status gstRate').lean();
+    if (!product || product.status === 'discontinued') throw new ApiError(400, 'A product on this bill is no longer in the product list.');
+    const unit = String(it.unit || '').toLowerCase();
+    oneOf(unit, ['g', 'kg'], 'Unit');
+    const quantity = positive(it.quantity, `Quantity for ${product.name}`, { max: unit === 'g' ? 1000000 : 1000 });
+    const rate = number(it.rate, `Rate for ${product.name}`, { min: 0, max: 1000000 });
+    const quantityKg = unit === 'g' ? quantity / 1000 : quantity;
+    const taxable = round2(quantityKg * rate);
+    const gstRate = Number(product.gstRate) || 0;
+    const tax = round2((taxable * gstRate) / 100);
+    const cgst = interState ? 0 : round2(tax / 2);
+    const sgst = interState ? 0 : round2(tax - cgst);
+    lines.push({
+      product: product._id, productName: product.name, sku: product.sku, quantity, unit, quantityKg, unitPrice: rate,
+      gstRate, grossAmount: taxable, discountAmount: 0, taxableAmount: taxable, cgst, sgst, igst: interState ? tax : 0, taxAmount: tax,
+      totalAmount: round2(taxable + tax),
+    });
+  }
+  const sum = (k) => round2(lines.reduce((t, l) => t + (l[k] || 0), 0));
+  const taxableTotal = sum('taxableAmount');
+  const taxTotal = sum('taxAmount');
+  const total = round2(taxableTotal + taxTotal);
+  if (total <= 0) throw new ApiError(400, 'The bill total must be more than zero.');
+
+  let sale;
+  try {
+    sale = await Sale.create({
+      invoiceNumber: await generateDocNumber('sale'), store: await mainStoreId(), items: lines, billType: 'simple',
+      subtotal: taxableTotal, discount: 0, taxableAmount: taxableTotal, cgst: sum('cgst'), sgst: sum('sgst'), igst: sum('igst'),
+      taxAmount: taxTotal, roundOff: 0, grandTotal: total, isInterState: interState,
+      amountPaid: total, payments: [{ method: paymentMethod, amount: total }], status: 'completed', cashier: req.user._id, clientRequestId,
+    });
+  } catch (err) {
+    if (err.code === 11000 && clientRequestId) {
+      const first = await Sale.findOne({ clientRequestId });
+      if (first) return res.json({ success: true, data: first, duplicate: true });
+    }
+    throw err;
+  }
+  await postLedgerPair({
+    debitKey: methodToAccountKey(paymentMethod), creditKey: 'sales', amount: total,
+    narration: `Sale ${sale.invoiceNumber}`, referenceType: 'Sale', referenceId: sale._id, userId: req.user._id,
+  });
+  if (taxTotal > 0) {
+    await postLedgerPair({
+      debitKey: 'sales', creditKey: 'gstOutput', amount: taxTotal,
+      narration: `GST on ${sale.invoiceNumber}`, referenceType: 'Sale', referenceId: sale._id, userId: req.user._id,
+    });
+  }
+  await recordAudit({ req, action: 'sale.create', entity: 'Sale', entityId: sale._id, newValue: { invoiceNumber: sale.invoiceNumber, grandTotal: total, billType: 'simple' } });
+  res.status(201).json({ success: true, data: sale });
+});
+
 // ---------- Sales Returns ----------
 
 export const createSalesReturn = catchAsync(async (req, res) => {
@@ -355,6 +437,7 @@ export const createSalesReturn = catchAsync(async (req, res) => {
   oneOf(refundMethod, REFUND_METHODS, 'Refund method');
   const sale = await Sale.findById(saleId);
   if (!sale) throw new ApiError(404, 'Original invoice not found.');
+  if (sale.billType === 'simple') throw new ApiError(400, 'This bill was made on the simple Billing screen - cancel the bill instead of returning items.');
   if (!['completed', 'partially_returned'].includes(sale.status)) throw new ApiError(400, `Items cannot be returned against a ${sale.status.replace('_', ' ')} invoice.`);
   if (!Array.isArray(items) || !items.length) throw new ApiError(400, 'Select at least one item to return.');
   if (refundMethod === 'store_credit' && !sale.customer) throw new ApiError(400, 'Store credit needs a customer on the invoice.');
@@ -387,7 +470,7 @@ export const createSalesReturn = catchAsync(async (req, res) => {
     const restockStatus = ret.restockStatus || 'restocked';
     returnItems.push({ product: line.product, batch: line.batch, quantity: qty, unitPrice: line.unitPrice, refundAmount, reason: ret.reason ? String(ret.reason).slice(0, 200) : undefined, restockStatus });
     if (restockStatus === 'restocked') {
-      await Inventory.updateOne({ product: line.product, store: sale.store }, { $inc: { currentStock: qty } }, { upsert: true });
+      await Inventory.updateOne({ product: line.product, store: await mainStoreId() }, { $inc: { currentStock: qty } }, { upsert: true });
       if (line.batch) await Batch.updateOne({ _id: line.batch }, { $inc: { availableQuantity: qty } });
     }
     await recordInventoryTransaction({

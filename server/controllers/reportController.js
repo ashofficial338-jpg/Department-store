@@ -1,5 +1,6 @@
 import Sale from '../models/Sale.js';
 import Purchase from '../models/Purchase.js';
+import { PAYABLE_STATUSES, BILLED_EXPR } from '../utils/payables.js';
 import Inventory from '../models/Inventory.js';
 import Batch from '../models/Batch.js';
 import Vendor from '../models/Vendor.js';
@@ -156,11 +157,12 @@ export const outstandingReport = catchAsync(async (req, res) => {
   const [receivables, payables] = await Promise.all([
     Customer.find({ outstanding: { $gt: 0 } }).select('name phone outstanding').sort({ outstanding: -1 }),
     Purchase.aggregate([
-      { $match: { status: { $in: ['received', 'invoiced'] } } },
-      { $project: { vendor: 1, poNumber: 1, balance: { $subtract: ['$grandTotal', '$amountPaid'] } } },
+      { $match: { status: { $in: PAYABLE_STATUSES } } },
+      { $project: { vendor: 1, poNumber: 1, balance: { $subtract: [BILLED_EXPR, '$amountPaid'] } } },
       { $match: { balance: { $gt: 0 } } },
       { $lookup: { from: 'vendors', localField: 'vendor', foreignField: '_id', as: 'vendor' } },
       { $unwind: '$vendor' },
+      { $project: { poNumber: 1, balance: 1, 'vendor._id': 1, 'vendor.name': 1, 'vendor.verificationStatus': 1 } },
     ]),
   ]);
   res.json({ success: true, data: { receivables, payables } });

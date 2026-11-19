@@ -14,6 +14,10 @@ export function errorHandler(err, req, res, next) {
     statusCode = 409;
     const field = Object.keys(err.keyValue || {})[0];
     message = field ? `A record with this ${field} already exists.` : 'Duplicate record.';
+  } else if (err.name === 'MulterError') {
+    statusCode = 400;
+    message = err.code === 'LIMIT_FILE_SIZE' ? 'The file is too large.' : `Upload failed: ${err.message}`;
+    err.isOperational = true;
   } else if (err.name === 'CastError') {
     statusCode = 400;
     message = 'Invalid identifier supplied.';

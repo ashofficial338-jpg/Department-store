@@ -79,7 +79,7 @@ export function Header({ onMenuClick }) {
             style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)', background: 'var(--bg-surface)' }}
           >
             <Search size={15} className="shrink-0 transition-colors group-hover:text-gold-600" />
-            <span className="hidden sm:block flex-1 text-left truncate">Search pages, products, customers…</span>
+            <span className="hidden sm:block flex-1 text-left truncate">Search pages, products, vendors, bills…</span>
             <kbd className="hidden sm:inline text-[10px] font-semibold px-1.5 py-0.5 rounded-md border" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-surface-muted)' }}>Ctrl K</kbd>
           </button>
         </div>
@@ -89,7 +89,7 @@ export function Header({ onMenuClick }) {
             <button
               onClick={() => navigate('/pos')}
               title="New Bill (F2)"
-              className="sheen flex items-center gap-1.5 bg-gold-gradient text-white rounded-xl px-3.5 py-2 text-sm font-semibold mr-1 shadow-gold transition-transform duration-300 ease-luxe hover:-translate-y-0.5 active:translate-y-0"
+              className="flex items-center gap-1.5 bg-gold-600 hover:bg-gold-700 text-white rounded-lg px-3.5 h-9 text-sm font-semibold mr-1 shadow-sm transition-colors duration-200"
             >
               <ShoppingCart size={15} />
               <span className="hidden sm:inline">New Bill</span>

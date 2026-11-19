@@ -4,19 +4,18 @@ import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { PageHeader, DataTable, Button, Modal, Input, Select, ConfirmDialog } from '../../components/ui/index.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { isAdmin } from '../../utils/permissions.js';
-import { expenseService, storeService } from '../../services/index.js';
+import { expenseService } from '../../services/index.js';
 import { formatCurrency, formatDate } from '../../utils/format.js';
 
 const CATEGORIES = ['rent', 'utilities', 'salaries', 'marketing', 'logistics', 'maintenance', 'supplies', 'other',
   // Below-the-line items: deducted for net profit, added back for EBITDA.
   'interest', 'income_tax', 'depreciation', 'amortization'];
-const EMPTY = { category: 'other', description: '', amount: '', paymentMethod: 'cash', store: '', expenseDate: new Date().toISOString().slice(0, 10) };
+const EMPTY = { category: 'other', description: '', amount: '', paymentMethod: 'cash', expenseDate: new Date().toISOString().slice(0, 10) };
 
 export function Expenses() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
-  const [stores, setStores] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState(EMPTY);
   const [saving, setSaving] = useState(false);
@@ -29,13 +28,13 @@ export function Expenses() {
     setLoading(true);
     expenseService.list({ limit: 30 }).then((r) => { setRows(r.data); setTotal(r.totalAmount); }).finally(() => setLoading(false));
   }
-  useEffect(() => { load(); storeService.listAll().then((r) => setStores(r.data)); }, []);
+  useEffect(() => { load(); }, []);
 
   async function handleSubmit(e) {
     e.preventDefault();
     setSaving(true);
     try {
-      const payload = { ...form, amount: Number(form.amount), store: form.store || undefined };
+      const payload = { ...form, amount: Number(form.amount) };
       if (editing) { await expenseService.update(editing._id, payload); toast.success('Expense updated.'); }
       else { await expenseService.create(payload); toast.success('Expense recorded.'); }
       setModalOpen(false); setForm(EMPTY); setEditing(null);
@@ -48,7 +47,7 @@ export function Expenses() {
     setEditing(row);
     setForm({
       category: row.category, description: row.description, amount: row.amount, paymentMethod: row.paymentMethod,
-      store: row.store?._id || row.store || '', expenseDate: (row.expenseDate || '').slice(0, 10),
+      expenseDate: (row.expenseDate || '').slice(0, 10),
     });
     setModalOpen(true);
   }
@@ -100,14 +99,6 @@ export function Expenses() {
           <Input label="Amount" type="number" required value={form.amount} onChange={(e) => setForm((s) => ({ ...s, amount: e.target.value }))} />
           <Select label="Payment Method" value={form.paymentMethod} onChange={(e) => setForm((s) => ({ ...s, paymentMethod: e.target.value }))}>
             <option value="cash">Cash</option><option value="upi">UPI</option><option value="card">Card</option><option value="bank_transfer">Bank Transfer</option>
-          </Select>
-          <Select label="Store (optional)" value={form.store} onChange={(e) => setForm((s) => ({ ...s, store: e.target.value }))}>
-            <option value="">Not applicable</option>
-            {/* An old expense may point at a store that is now inactive: show it, but don't offer it for selection. */}
-            {form.store && !stores.some((s) => s._id === form.store) && (
-              <option value={form.store} disabled>{editing?.store?.name ? `${editing.store.name} (inactive)` : 'Inactive store'}</option>
-            )}
-            {stores.map((s) => <option key={s._id} value={s._id}>{s.name}</option>)}
           </Select>
           <Input label="Date" type="date" value={form.expenseDate} onChange={(e) => setForm((s) => ({ ...s, expenseDate: e.target.value }))} />
         </form>

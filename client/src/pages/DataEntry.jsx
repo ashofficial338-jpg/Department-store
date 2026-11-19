@@ -2,12 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import clsx from 'clsx';
 import toast from 'react-hot-toast';
 import {
-  Store, Percent, Tags, Award, Package, Boxes, Users, Building2, Factory, Receipt, HandCoins, Check, Save, Pencil, Trash2, X,
+  Percent, Tags, Award, Package, Boxes, Building2, Receipt, HandCoins, Check, Save, Pencil, Trash2, X,
 } from 'lucide-react';
 import { PageHeader, Button, Input, Select, Textarea, ConfirmDialog } from '../components/ui/index.js';
 import {
-  storeService, gstService, categoryService, brandService, productService, inventoryService,
-  customerService, vendorService, supplierService, expenseService, paymentService,
+  gstService, categoryService, brandService, productService, inventoryService,
+  customerService, vendorService, expenseService, paymentService,
 } from '../services/index.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { hasPermission, isAdmin } from '../utils/permissions.js';
@@ -43,7 +43,6 @@ function productPayload(f) {
 
 // Dropdown data shared by several forms. Each loader returns [{ value, label }].
 const LOOKUPS = {
-  stores: () => storeService.listAll().then((r) => toList(r).map((s) => ({ value: s._id, label: `${s.name} (${s.code})` }))),
   taxRates: () => gstService.rates().then((r) => toList(r).map((t) => ({ value: t._id, label: `${t.name} – ${t.ratePercent}%` }))),
   categories: () => categoryService.listAll().then((r) => toList(r).map((c) => ({ value: c._id, label: c.name }))),
   brands: () => brandService.listAll().then((r) => toList(r).map((b) => ({ value: b._id, label: b.name }))),
@@ -55,26 +54,6 @@ const LOOKUPS = {
 // Every data-entry form, grouped by category. `module` hides forms the user's role cannot use.
 // `refresh` lists which dropdowns must reload after saving (e.g. a new brand appears in the Product form).
 const ENTITIES = [
-  {
-    key: 'store', group: 'Setup', label: 'Store / Branch', icon: Store, module: 'settings', refresh: ['stores'],
-    hint: 'Every sale and every stock item belongs to a store. Add at least one first.',
-    defaults: { code: '', name: '', phone: '', gstin: '', address: '', city: '', state: '', pincode: '' },
-    fields: [
-      { name: 'name', label: 'Store Name', required: true, placeholder: 'e.g. Main Branch' },
-      { name: 'code', label: 'Store Code', required: true, placeholder: 'e.g. MAIN' },
-      { name: 'phone', label: 'Phone' },
-      { name: 'gstin', label: 'GSTIN' },
-      { name: 'address', label: 'Address', type: 'textarea', full: true },
-      { name: 'city', label: 'City' },
-      { name: 'state', label: 'State' },
-      { name: 'pincode', label: 'Pincode' },
-    ],
-    create: (f) => storeService.create(f),
-    update: (id, f) => storeService.update(id, f),
-    remove: (id) => storeService.remove(id),
-    recent: () => storeService.list({ limit: 6 }),
-    row: (r) => [r.name, r.code],
-  },
   {
     key: 'tax', group: 'Setup', label: 'GST Rate', icon: Percent, module: 'settings', refresh: ['taxRates'],
     hint: 'Common Indian slabs: 0%, 5%, 12%, 18%, 28%.',
@@ -147,45 +126,26 @@ const ENTITIES = [
   },
   {
     key: 'stock', group: 'Products', label: 'Opening Stock', icon: Boxes, module: 'inventory',
-    hint: 'Adds stock for a product at a store. Use a negative number to reduce stock.',
-    defaults: { product: '', store: '', quantity: '', notes: '' },
+    hint: 'Adds stock for a product. Use a negative number to reduce stock.',
+    defaults: { product: '', quantity: '', notes: '' },
     fields: [
       { name: 'product', label: 'Product', type: 'select', lookup: 'products', required: true, full: true },
-      { name: 'store', label: 'Store', type: 'select', lookup: 'stores', required: true },
       { name: 'quantity', label: 'Quantity', type: 'number', required: true },
       { name: 'notes', label: 'Notes', full: true, placeholder: 'Opening stock' },
     ],
     create: (f) => inventoryService.adjust({ ...f, quantity: Number(f.quantity), type: 'opening_stock', notes: f.notes || 'Opening stock' }),
     recent: () => inventoryService.overview({ limit: 6 }),
-    row: (r) => [r.product?.name || '-', `${r.currentStock} in ${r.store?.name || r.distributionCenter?.name || '-'}`],
-  },
-  {
-    key: 'customer', group: 'People', label: 'Customer', icon: Users, module: 'customers', refresh: ['customers'],
-    defaults: { name: '', phone: '', email: '', customerType: 'retail', gstin: '', creditLimit: '', address: '' },
-    fields: [
-      { name: 'name', label: 'Customer Name', required: true },
-      { name: 'phone', label: 'Phone', required: true, placeholder: '10-digit mobile' },
-      { name: 'email', label: 'Email', inputType: 'email' },
-      { name: 'customerType', label: 'Type', type: 'select', noEmpty: true, options: [{ value: 'retail', label: 'Retail' }, { value: 'wholesale', label: 'Wholesale' }, { value: 'corporate', label: 'Corporate' }] },
-      { name: 'gstin', label: 'GSTIN' },
-      { name: 'creditLimit', label: 'Credit Limit (₹)', type: 'number' },
-      { name: 'address', label: 'Address', type: 'textarea', full: true },
-    ],
-    create: (f) => customerService.create({ ...f, creditLimit: Number(f.creditLimit || 0) }),
-    update: (id, f) => customerService.update(id, { ...f, creditLimit: Number(f.creditLimit || 0) }),
-    remove: (id) => customerService.remove(id),
-    recent: () => customerService.list({ limit: 6 }),
-    row: (r) => [r.name, r.phone],
+    row: (r) => [r.product?.name || '-', `${r.currentStock} in stock`],
   },
   {
     key: 'vendor', group: 'People', label: 'Vendor', icon: Building2, module: 'vendors', refresh: ['vendors'],
-    hint: 'Companies you place purchase orders with.',
+    hint: 'Registered as Pending Verification. Upload documents and verify it in Purchasing > Vendor Management before using it in purchase orders.',
     defaults: { name: '', companyName: '', contactPerson: '', phone: '', email: '', gstin: '', paymentTerms: 'Net 30', address: '' },
     fields: [
       { name: 'name', label: 'Vendor Name', required: true },
       { name: 'companyName', label: 'Company Name' },
       { name: 'contactPerson', label: 'Contact Person' },
-      { name: 'phone', label: 'Phone' },
+      { name: 'phone', label: 'Mobile Number', required: true, placeholder: '10-digit mobile' },
       { name: 'email', label: 'Email', inputType: 'email' },
       { name: 'gstin', label: 'GSTIN' },
       { name: 'paymentTerms', label: 'Payment Terms', placeholder: 'Net 30' },
@@ -198,36 +158,18 @@ const ENTITIES = [
     row: (r) => [r.name, r.phone || '-'],
   },
   {
-    key: 'supplier', group: 'People', label: 'Supplier', icon: Factory, module: 'vendors',
-    defaults: { name: '', contactPerson: '', phone: '', email: '', paymentTerms: 'Net 30', address: '' },
-    fields: [
-      { name: 'name', label: 'Supplier Name', required: true },
-      { name: 'contactPerson', label: 'Contact Person' },
-      { name: 'phone', label: 'Phone' },
-      { name: 'email', label: 'Email', inputType: 'email' },
-      { name: 'paymentTerms', label: 'Payment Terms', placeholder: 'Net 30' },
-      { name: 'address', label: 'Address', type: 'textarea', full: true },
-    ],
-    create: (f) => supplierService.create(f),
-    update: (id, f) => supplierService.update(id, f),
-    remove: (id) => supplierService.remove(id),
-    recent: () => supplierService.list({ limit: 6 }),
-    row: (r) => [r.name, r.phone || '-'],
-  },
-  {
     key: 'expense', group: 'Money', label: 'Expense', icon: Receipt, module: 'finance',
     hint: 'Rent, electricity, salaries and other shop running costs.',
-    defaults: { category: 'rent', description: '', amount: '', paymentMethod: 'cash', store: '', expenseDate: new Date().toISOString().slice(0, 10) },
+    defaults: { category: 'rent', description: '', amount: '', paymentMethod: 'cash', expenseDate: new Date().toISOString().slice(0, 10) },
     fields: [
       { name: 'category', label: 'Expense Type', type: 'select', options: EXPENSE_CATEGORIES, noEmpty: true, required: true },
       { name: 'amount', label: 'Amount (₹)', type: 'number', required: true },
       { name: 'description', label: 'Description', required: true, full: true, placeholder: 'e.g. September shop rent' },
       { name: 'paymentMethod', label: 'Paid By', type: 'select', options: PAYMENT_METHODS, noEmpty: true },
-      { name: 'store', label: 'Store', type: 'select', lookup: 'stores' },
       { name: 'expenseDate', label: 'Date', inputType: 'date' },
     ],
-    create: (f) => expenseService.create({ ...f, amount: Number(f.amount), store: f.store || undefined }),
-    update: (id, f) => expenseService.update(id, { ...f, amount: Number(f.amount), store: f.store || undefined }),
+    create: (f) => expenseService.create({ ...f, amount: Number(f.amount) }),
+    update: (id, f) => expenseService.update(id, { ...f, amount: Number(f.amount) }),
     remove: (id) => expenseService.remove(id),
     recent: () => expenseService.list({ limit: 6 }),
     row: (r) => [r.description, formatCurrency(r.amount)],

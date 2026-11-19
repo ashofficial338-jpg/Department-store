@@ -41,4 +41,20 @@ export async function assertActiveDC(id, label = 'Distribution center') {
   return dc;
 }
 
+// ---- Single department store ----
+// The app runs one shop with one central stock: every stock movement (purchase receipts, inward/outward
+// DCs, adjustments, transfers, sales, returns) is booked on ONE Inventory row per product, held at the
+// main store. The main store is the oldest active store (falling back to the oldest store of all).
+export async function getMainStore() {
+  const sort = { createdAt: 1, _id: 1 };
+  const store = (await Store.findOne(ACTIVE_STORE_FILTER).sort(sort).select('_id name code').lean())
+    || (await Store.findOne().sort(sort).select('_id name code').lean());
+  if (!store) throw new ApiError(400, 'No store is set up yet. Add your store in Settings > Store / Branch.');
+  return store;
+}
+
+export async function mainStoreId() {
+  return (await getMainStore())._id;
+}
+
 export default assertActiveStore;

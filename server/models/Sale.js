@@ -6,7 +6,11 @@ const saleItemSchema = new mongoose.Schema(
     batch: { type: mongoose.Schema.Types.ObjectId, ref: 'Batch' },
     productName: String,
     sku: String,
-    quantity: { type: Number, required: true, min: 1 },
+    // POS bills: whole units (validated in the controller). Simple bills: quantity as entered in `unit`
+    // (g or kg), `quantityKg` the same in kg, and unitPrice = rate per kg.
+    quantity: { type: Number, required: true, min: 0.001 },
+    unit: { type: String, enum: ['g', 'kg'] },
+    quantityKg: Number,
     unitPrice: { type: Number, required: true },
     discountPercent: { type: Number, default: 0 },
     gstRate: { type: Number, default: 0 },
@@ -52,6 +56,8 @@ const saleSchema = new mongoose.Schema(
     payments: [paymentSplitSchema],
     isInterState: { type: Boolean, default: false },
     status: { type: String, enum: ['held', 'completed', 'cancelled', 'returned', 'partially_returned'], default: 'completed' },
+    // 'simple' = name / quantity (g or kg) / rate per kg bill from the Billing screen: no stock, no GST.
+    billType: { type: String, enum: ['pos', 'simple'], default: 'pos' },
     cashier: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     notes: { type: String },
     // Idempotency key sent by the POS for each bill attempt, so a retried or double-submitted bill is created once.

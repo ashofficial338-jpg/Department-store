@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { Plus } from 'lucide-react';
 import { PageHeader, DataTable, Button, Modal, StatusBadge, Input, Select } from '../../components/ui/index.js';
-import { userService, storeService } from '../../services/index.js';
+import { userService } from '../../services/index.js';
 import { formatDateTime } from '../../utils/format.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 
@@ -10,10 +10,9 @@ function roleLabel(r) { return r.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.to
 
 export function UsersSettings() {
   const [rows, setRows] = useState([]);
-  const [stores, setStores] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'cashier', store: '' });
+  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'cashier' });
   const [saving, setSaving] = useState(false);
   const [roleOptions, setRoleOptions] = useState([]);
   const { user: me } = useAuth();
@@ -30,16 +29,16 @@ export function UsersSettings() {
     } finally { setLoading(false); }
   }
 
-  useEffect(() => { load(); storeService.listAll().then((r) => setStores(r.data)); }, []);
+  useEffect(() => { load(); }, []);
 
   async function handleCreate(e) {
     e.preventDefault();
     setSaving(true);
     try {
-      await userService.create({ ...form, store: form.store || undefined });
+      await userService.create(form);
       toast.success('User created.');
       setModalOpen(false);
-      setForm({ name: '', email: '', password: '', role: 'cashier', store: '' });
+      setForm({ name: '', email: '', password: '', role: 'cashier' });
       load();
     } catch (err) { toast.error(err.message); } finally { setSaving(false); }
   }
@@ -88,7 +87,6 @@ export function UsersSettings() {
                 </select>
               )),
           },
-          { key: 'store', header: 'Store', render: (r) => r.store?.name || '-' },
           { key: 'lastLoginAt', header: 'Last Login', render: (r) => formatDateTime(r.lastLoginAt) },
           { key: 'isActive', header: 'Status', render: (r) => <StatusBadge status={r.isActive ? 'active' : 'inactive'} /> },
           { key: 'actions', header: '', render: (r) => (r._id === me?._id ? null : <Button size="sm" variant="outline" onClick={() => toggleActive(r)}>{r.isActive ? 'Deactivate' : 'Activate'}</Button>) },
@@ -104,10 +102,6 @@ export function UsersSettings() {
           <Input label="Password" type="password" required minLength={6} value={form.password} onChange={(e) => setForm((s) => ({ ...s, password: e.target.value }))} />
           <Select label="Role" required value={form.role} onChange={(e) => setForm((s) => ({ ...s, role: e.target.value }))}>
             {assignable.map((r) => <option key={r.role} value={r.role}>{r.label}</option>)}
-          </Select>
-          <Select label="Store (optional)" value={form.store} onChange={(e) => setForm((s) => ({ ...s, store: e.target.value }))}>
-            <option value="">Not assigned</option>
-            {stores.map((s) => <option key={s._id} value={s._id}>{s.name}</option>)}
           </Select>
         </form>
       </Modal>

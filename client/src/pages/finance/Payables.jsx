@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { VendorName } from '../../components/vendors/VendorStatus.jsx';
 import toast from 'react-hot-toast';
 import { PageHeader, DataTable, Button, Modal, Input } from '../../components/ui/index.js';
 import { reportService, purchaseService } from '../../services/index.js';
@@ -38,7 +39,7 @@ export function Payables() {
         emptyTitle="No outstanding payables."
         columns={[
           { key: 'poNumber', header: 'PO #', render: (r) => <span className="font-mono text-xs">{r.poNumber}</span> },
-          { key: 'vendor', header: 'Vendor', render: (r) => r.vendor?.name },
+          { key: 'vendor', header: 'Vendor', render: (r) => <VendorName vendor={r.vendor} /> },
           { key: 'balance', header: 'Balance Due', render: (r) => <span className="text-rose-600 font-semibold">{formatCurrency(r.balance)}</span> },
           { key: 'actions', header: '', render: (r) => <Button size="sm" variant="outline" onClick={() => { setPayTarget(r); setAmount(r.balance); }}>Pay</Button> },
         ]}

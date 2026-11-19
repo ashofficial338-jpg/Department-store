@@ -11,7 +11,7 @@ const VARIANT_VARS = {
 
 const STATUS_MAP = {
   active: 'success', completed: 'success', received: 'success', paid: 'success', approved: 'success', dispatched: 'success', success: 'success', restocked: 'success',
-  pending: 'warning', held: 'warning', partially_received: 'warning', partially_returned: 'warning', picking: 'warning', packed: 'warning', warning: 'warning', low_stock: 'warning', partial: 'warning',
+  pending: 'warning', held: 'warning', partially_received: 'warning', partially_returned: 'warning', picking: 'warning', packed: 'warning', warning: 'warning', low_stock: 'warning', partial: 'warning', pending_receipt: 'warning', pending_dispatch: 'warning', partially_invoiced: 'warning', partially_dispatched: 'warning',
   cancelled: 'danger', rejected: 'danger', expired: 'danger', discontinued: 'danger', out_of_stock: 'danger', error: 'danger', failed: 'danger', blocked: 'danger', damaged: 'danger', overdue: 'danger',
   ordered: 'info', invoiced: 'info', in_transit: 'info', returned: 'info', info: 'info',
   inactive: 'neutral', draft: 'neutral', exhausted: 'neutral',

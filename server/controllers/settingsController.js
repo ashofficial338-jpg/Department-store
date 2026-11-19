@@ -22,6 +22,9 @@ export const getSettings = catchAsync(async (req, res) => {
 
 export const updateSettings = catchAsync(async (req, res) => {
   const settings = await getOrCreateSettings();
+  if (req.body.gstType !== undefined && !['intra', 'inter'].includes(req.body.gstType)) {
+    throw new ApiError(400, 'GST type must be Intra-State or Inter-State.');
+  }
   Object.assign(settings, req.body);
   await settings.save();
   await recordAudit({ req, action: 'settings.update', entity: 'Settings', entityId: settings._id, newValue: req.body });

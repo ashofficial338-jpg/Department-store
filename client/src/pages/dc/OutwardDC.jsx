@@ -1,25 +1,30 @@
 import { useEffect, useState } from 'react';
+import { VendorName } from '../../components/vendors/VendorStatus.jsx';
+import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { X } from 'lucide-react';
-import { PageHeader, DataTable, Button, Select, StatusBadge, Modal, ConfirmDialog } from '../../components/ui/index.js';
-import ProductPicker from '../../components/ProductPicker.jsx';
-import { dcService, inventoryService } from '../../services/index.js';
-import { formatDateTime } from '../../utils/format.js';
+import { PageHeader, DataTable, Button, StatusBadge, Modal, ConfirmDialog, SearchBox } from '../../components/ui/index.js';
+import { dcService, purchaseService } from '../../services/index.js';
+import { formatDateTime, formatCurrency } from '../../utils/format.js';
 
+// Older outward DCs (not linked to a purchase return) keep their status steps.
 const NEXT_LABEL = { draft: 'Approve', approved: 'Start Picking', picking: 'Mark Packed', packed: 'Dispatch', dispatched: 'Mark Received' };
 
+// Outward DC: goods sent back to the vendor against a Purchase Return. Stock goes down only when the DC
+// is submitted (Submit Dispatch) with the quantities actually dispatched; each DC can be submitted once.
 export function OutwardDC() {
+  const [params, setParams] = useSearchParams();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [dcs, setDcs] = useState([]);
-  const [stores, setStores] = useState([]);
   const [createOpen, setCreateOpen] = useState(false);
-  const [sourceDC, setSourceDC] = useState('');
-  const [destinationType, setDestinationType] = useState('Store');
-  const [destination, setDestination] = useState('');
+  const [retSearch, setRetSearch] = useState('');
+  const [returns, setReturns] = useState([]);
+  const [ret, setRet] = useState(null);
   const [items, setItems] = useState([]);
   const [saving, setSaving] = useState(false);
   const [cancelTarget, setCancelTarget] = useState(null);
+  const [dispatching, setDispatching] = useState(null);
+  const [dispatchQty, setDispatchQty] = useState({});
+  const [submitting, setSubmitting] = useState(false);
 
   function load() {
     setLoading(true);
@@ -28,26 +33,66 @@ export function OutwardDC() {
 
   useEffect(() => {
     load();
-    inventoryService.locations().then((r) => { setDcs(r.data.distributionCenters); setStores(r.data.stores); });
-  }, []);
+    // Opened from a Purchase Return ("Outward DC").
+    const id = params.get('return');
+    if (id) {
+      setCreateOpen(true);
+      selectReturn({ _id: id });
+      params.delete('return');
+      setParams(params, { replace: true });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function addItem(product) {
-    setItems((prev) => prev.some((i) => i.product._id === product._id) ? prev : [...prev, { product, quantity: 1 }]);
+  useEffect(() => {
+    if (!createOpen || ret) return;
+    purchaseService.listReturns({ search: retSearch || undefined, dispatchable: true, limit: 10 }).then((r) => setReturns(r.data));
+  }, [retSearch, createOpen, ret]);
+
+  async function selectReturn(row) {
+    try {
+      const full = (await purchaseService.getReturn(row._id)).data;
+      setRet(full);
+      setItems(full.items
+        .map((it) => ({ product: it.product, returned: it.quantity, dispatched: it.dispatchedQuantity || 0, quantity: it.quantity - (it.dispatchedQuantity || 0) }))
+        .filter((it) => it.returned - it.dispatched > 0));
+    } catch (err) { toast.error(err.message); }
   }
+
+  function closeCreate() { setCreateOpen(false); setRet(null); setItems([]); setRetSearch(''); }
 
   async function handleCreate(e) {
     e.preventDefault();
-    if (!sourceDC || !destination || !items.length) { toast.error('Select a source DC, destination and items.'); return; }
+    const lines = items.filter((i) => Number(i.quantity) > 0);
+    if (!lines.length) { toast.error('Enter the quantity for at least one item.'); return; }
     setSaving(true);
     try {
       await dcService.createOutward({
-        sourceDC, destinationType, destination,
-        items: items.map((i) => ({ product: i.product._id, quantity: Number(i.quantity) })),
+        purchaseReturn: ret._id,
+        items: lines.map((i) => ({ product: i.product._id, quantity: Number(i.quantity) })),
       });
-      toast.success('Outward DC created.');
-      setCreateOpen(false); setItems([]); setSourceDC(''); setDestination('');
+      toast.success('Outward DC created. Submit the dispatch to reduce stock.');
+      closeCreate();
       load();
     } catch (err) { toast.error(err.message); } finally { setSaving(false); }
+  }
+
+  function openDispatch(row) {
+    setDispatching(row);
+    const init = {};
+    row.items.forEach((it) => { init[it.product._id] = it.quantity; });
+    setDispatchQty(init);
+  }
+
+  async function submitDispatch() {
+    setSubmitting(true);
+    try {
+      await dcService.submitOutward(dispatching._id, {
+        items: dispatching.items.map((it) => ({ product: it.product._id, dispatchedQuantity: Number(dispatchQty[it.product._id]) || 0 })),
+      });
+      toast.success('Outward DC submitted - stock updated.');
+      setDispatching(null);
+      load();
+    } catch (err) { toast.error(err.message); } finally { setSubmitting(false); }
   }
 
   async function advance(row) {
@@ -60,7 +105,7 @@ export function OutwardDC() {
     catch (err) { toast.error(err.message); }
   }
 
-  const destOptions = destinationType === 'Store' ? stores : dcs;
+  const open = (r) => !['dispatched', 'received', 'cancelled'].includes(r.status) && !r.stockPosted;
 
   return (
     <div>
@@ -72,55 +117,89 @@ export function OutwardDC() {
         emptyTitle="No outward DC documents yet."
         columns={[
           { key: 'docNumber', header: 'Doc #', render: (r) => <span className="font-mono text-xs">{r.docNumber}</span> },
-          { key: 'sourceDC', header: 'From DC', render: (r) => r.sourceDC?.name },
-          { key: 'destinationType', header: 'To', render: (r) => r.destinationType },
+          { key: 'returnNumber', header: 'Purchase Return', render: (r) => (r.returnNumber ? <span className="font-mono text-xs">{r.returnNumber}</span> : '-') },
+          { key: 'vendor', header: 'Vendor', render: (r) => <VendorName vendor={r.vendor} /> },
           { key: 'items', header: 'Items', render: (r) => `${r.items.length} product(s)` },
           { key: 'createdAt', header: 'Date', render: (r) => formatDateTime(r.createdAt) },
           { key: 'status', header: 'Status', render: (r) => <StatusBadge status={r.status} /> },
           {
             key: 'actions', header: '', render: (r) => (
               <div className="flex gap-1.5 justify-end">
-                {NEXT_LABEL[r.status] && <Button size="sm" variant="outline" onClick={() => advance(r)}>{NEXT_LABEL[r.status]}</Button>}
-                {!['dispatched', 'received', 'cancelled'].includes(r.status) && <Button size="sm" variant="ghost" onClick={() => setCancelTarget(r)}>Cancel</Button>}
+                {r.purchaseReturn
+                  ? open(r) && <Button size="sm" variant="outline" onClick={() => openDispatch(r)}>Submit Dispatch</Button>
+                  : NEXT_LABEL[r.status] && <Button size="sm" variant="outline" onClick={() => advance(r)}>{NEXT_LABEL[r.status]}</Button>}
+                {open(r) && <Button size="sm" variant="ghost" onClick={() => setCancelTarget(r)}>Cancel</Button>}
               </div>
             ),
           },
         ]}
       />
 
-      <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="New Outward DC"
-        footer={<><Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button><Button type="submit" form="outward-form" loading={saving}>Create</Button></>}
+      <Modal open={createOpen} onClose={closeCreate} title="New Outward DC" size="lg"
+        footer={ret && <><Button variant="outline" onClick={() => { setRet(null); setItems([]); }}>Change Return</Button><Button type="submit" form="outward-form" loading={saving}>Create</Button></>}
       >
-        <form id="outward-form" onSubmit={handleCreate} className="space-y-4">
-          <Select label="Source DC" required value={sourceDC} onChange={(e) => setSourceDC(e.target.value)}>
-            <option value="">Select DC</option>
-            {dcs.map((d) => <option key={d._id} value={d._id}>{d.name}</option>)}
-          </Select>
-          <div className="grid grid-cols-2 gap-2">
-            <Select label="Destination Type" value={destinationType} onChange={(e) => { setDestinationType(e.target.value); setDestination(''); }}>
-              <option value="Store">Store</option><option value="DistributionCenter">DC</option>
-            </Select>
-            <Select label="Destination" required value={destination} onChange={(e) => setDestination(e.target.value)}>
-              <option value="">Select</option>
-              {destOptions.map((l) => <option key={l._id} value={l._id}>{l.name}</option>)}
-            </Select>
-          </div>
+        {!ret ? (
           <div>
-            <span className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>Add Items</span>
-            <ProductPicker onSelect={addItem} />
+            <SearchBox value={retSearch} onChange={setRetSearch} placeholder="Search purchase return or invoice number..." />
+            <div className="mt-3 space-y-1.5">
+              {returns.length === 0 && <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No purchase returns waiting to be dispatched.</p>}
+              {returns.map((r) => (
+                <button key={r._id} onClick={() => selectReturn(r)} className="w-full flex justify-between items-center px-3 py-2.5 rounded-lg hover:bg-gold-50 text-sm text-left border" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <span className="font-mono text-xs">{r.returnNumber}</span>
+                  <span className="font-mono text-xs">{r.purchaseInvoice?.invoiceNumber || r.invoiceNumber}</span>
+                  <span>{r.vendor?.name}</span>
+                  <span>{formatCurrency(r.totalAmount)}</span>
+                  <StatusBadge status={r.status} />
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="space-y-1.5">
-            {items.map((it) => (
-              <div key={it.product._id} className="flex items-center gap-2 text-sm px-2.5 py-1.5 rounded-lg" style={{ background: 'var(--bg-surface-muted)' }}>
-                <span className="flex-1 truncate">{it.product.name}</span>
-                <input type="number" min={1} value={it.quantity}
-                  onChange={(e) => setItems((prev) => prev.map((p) => p.product._id === it.product._id ? { ...p, quantity: e.target.value } : p))}
-                  className="w-16 rounded border px-1.5 py-1 text-xs" style={{ borderColor: 'var(--border-subtle)' }} />
-                <button type="button" onClick={() => setItems((prev) => prev.filter((p) => p.product._id !== it.product._id))} className="text-graphite-400 hover:text-rose-500"><X size={14} /></button>
-              </div>
-            ))}
-          </div>
-        </form>
+        ) : (
+          <form id="outward-form" onSubmit={handleCreate} className="space-y-4">
+            <p className="text-sm">Sending back against <strong>{ret.returnNumber}</strong> ({ret.purchaseInvoice?.invoiceNumber || ret.invoiceNumber}, {ret.vendor?.name})</p>
+            <table className="w-full text-sm">
+              <thead><tr className="text-xs" style={{ color: 'var(--text-muted)' }}><th className="text-left py-1">Product</th><th className="text-right">Returned</th><th className="text-right">Dispatched</th><th className="text-right">Dispatch Now</th></tr></thead>
+              <tbody>
+                {items.map((it) => (
+                  <tr key={it.product._id} style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                    <td className="py-1.5">{it.product.name}</td>
+                    <td className="text-right">{it.returned}</td>
+                    <td className="text-right">{it.dispatched}</td>
+                    <td className="text-right">
+                      <input type="number" min={0} max={it.returned - it.dispatched} value={it.quantity}
+                        onChange={(e) => setItems((prev) => prev.map((p) => (p.product._id === it.product._id ? { ...p, quantity: e.target.value } : p)))}
+                        className="w-20 rounded border px-1.5 py-1 text-xs text-right" style={{ borderColor: 'var(--border-subtle)' }} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Creating the DC does not change stock. Stock is reduced when you submit the dispatch.</p>
+          </form>
+        )}
+      </Modal>
+
+      <Modal open={!!dispatching} onClose={() => setDispatching(null)} title={`Dispatch ${dispatching?.docNumber || ''}`}
+        footer={<><Button variant="outline" onClick={() => setDispatching(null)}>Cancel</Button><Button onClick={submitDispatch} loading={submitting}>Submit &amp; Update Stock</Button></>}
+      >
+        {dispatching && (
+          <table className="w-full text-sm">
+            <thead><tr className="text-xs" style={{ color: 'var(--text-muted)' }}><th className="text-left py-1">Product</th><th className="text-right">Planned</th><th className="text-right">Dispatched Qty</th></tr></thead>
+            <tbody>
+              {dispatching.items.map((it) => (
+                <tr key={it.product._id} style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                  <td className="py-1.5">{it.product.name}</td>
+                  <td className="text-right">{it.quantity}</td>
+                  <td className="text-right">
+                    <input type="number" min={0} max={it.quantity} value={dispatchQty[it.product._id] ?? ''}
+                      onChange={(e) => setDispatchQty((s) => ({ ...s, [it.product._id]: e.target.value }))}
+                      className="w-20 rounded border px-1.5 py-1 text-xs text-right" style={{ borderColor: 'var(--border-subtle)' }} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </Modal>
 
       <ConfirmDialog open={!!cancelTarget} onClose={() => setCancelTarget(null)} onConfirm={cancel} title="Cancel Outward DC?" description="This outward DC document will be cancelled and no stock will move." confirmLabel="Cancel Document" />

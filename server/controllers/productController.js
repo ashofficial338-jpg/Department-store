@@ -46,9 +46,10 @@ export const listProducts = catchAsync(async (req, res) => {
 
   if (req.query.withStock === 'true') {
     const ids = docs.map((d) => d._id);
+    // Single store: one central stock per product - the same quantity the Inventory pages show and the
+    // quantity POS billing deducts from. (`?store=` is accepted but no longer splits stock by location.)
     const inv = await Inventory.aggregate([
-      // With ?store=, stock is for that store only (what the POS can actually sell); otherwise all locations.
-      { $match: { product: { $in: ids }, ...(req.query.store && mongoose.isValidObjectId(req.query.store) ? { store: new mongoose.Types.ObjectId(String(req.query.store)) } : {}) } },
+      { $match: { product: { $in: ids } } },
       { $group: { _id: '$product', stock: { $sum: '$currentStock' } } },
     ]);
     const stockMap = new Map(inv.map((i) => [String(i._id), i.stock]));
@@ -56,6 +57,12 @@ export const listProducts = catchAsync(async (req, res) => {
   }
 
   res.json({ success: true, ...buildPaginatedResponse({ docs, total, page, limit }) });
+});
+
+// Every active product name (for the Billing dropdown), A-Z.
+export const productNames = catchAsync(async (req, res) => {
+  const rows = await Product.find({ status: 'active' }).select('name gstRate').sort({ name: 1 }).collation({ locale: 'en' }).lean();
+  res.json({ success: true, data: rows });
 });
 
 export const getProduct = catchAsync(async (req, res) => {
@@ -68,15 +75,34 @@ export const getProduct = catchAsync(async (req, res) => {
   res.json({ success: true, data: { ...product.toObject(), stock: stock[0]?.total || 0 } });
 });
 
+// Product names are unique (ignoring case and extra spaces) among products that are not deleted.
+async function assertNameFree(name, exceptId) {
+  const clean = String(name || '').trim().replace(/\s+/g, ' ');
+  if (!clean) throw new ApiError(400, 'Product name is required.');
+  if (clean.length > 120) throw new ApiError(400, 'Product name is too long (max 120 characters).');
+  const dup = await Product.findOne({
+    name: new RegExp(`^${escapeRegex(clean)}$`, 'i'), status: { $ne: 'discontinued' }, ...(exceptId ? { _id: { $ne: exceptId } } : {}),
+  }).select('_id').lean();
+  if (dup) throw new ApiError(409, `"${clean}" is already in the product list.`);
+  return clean;
+}
+
+export const GST_SLABS = [0, 5, 12, 18, 28];
+
+const autoSku = () => `P${Date.now().toString(36).toUpperCase()}${Math.floor(Math.random() * 1296).toString(36).toUpperCase().padStart(2, '0')}`;
+
 export const createProduct = catchAsync(async (req, res) => {
   const body = { ...req.body, createdBy: req.user._id };
+  // The Product Master only needs a name; SKU and GST are optional extras.
+  body.name = await assertNameFree(body.name);
+  if (!body.sku || !String(body.sku).trim()) body.sku = autoSku();
 
   if (body.taxRate) {
     const tax = await TaxRate.findById(body.taxRate);
     if (!tax) throw new ApiError(400, 'Selected GST rate was not found.');
     body.gstRate = tax.ratePercent;
   } else if (body.gstRate === undefined) {
-    throw new ApiError(400, 'GST calculation requires a valid GST rate.');
+    body.gstRate = 0;
   }
 
   const existing = await Product.findOne({ sku: body.sku?.toUpperCase() });
@@ -92,6 +118,11 @@ export const updateProduct = catchAsync(async (req, res) => {
   if (!before) throw new ApiError(404, 'Product not found.');
 
   const body = { ...req.body };
+  if (body.name !== undefined) body.name = await assertNameFree(body.name, before._id);
+  if (body.gstRate !== undefined) {
+    body.gstRate = Number(body.gstRate);
+    if (!GST_SLABS.includes(body.gstRate)) throw new ApiError(400, `GST % must be one of ${GST_SLABS.join(', ')}.`);
+  }
   if (body.taxRate) {
     const tax = await TaxRate.findById(body.taxRate);
     if (!tax) throw new ApiError(400, 'Selected GST rate was not found.');

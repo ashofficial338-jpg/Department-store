@@ -1,334 +1,251 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Search, Plus, Minus, Trash2, PauseCircle, PlayCircle, User, X, Printer } from 'lucide-react';
-import { Button, Modal, Select } from '../../components/ui/index.js';
-import AlphabetFilter from '../../components/ui/AlphabetFilter.jsx';
-import { productService, categoryService, customerService, salesService, storeService } from '../../services/index.js';
-import { useDebounce } from '../../hooks/useDebounce.js';
+import { Plus, Trash2, Printer, RotateCcw } from 'lucide-react';
+import { Button, Modal } from '../../components/ui/index.js';
+import { productService, salesService, settingsService } from '../../services/index.js';
 import { formatCurrency } from '../../utils/format.js';
 import ReceiptView from './ReceiptView.jsx';
-import { calculateLineGst, summarizeInvoice } from '../../utils/gst.js';
 
-// One id per bill attempt: if the network drops after the server saved the bill, retrying returns that bill
-// instead of charging the customer twice. A new id is issued once a bill completes or the cart is cleared.
+// Simple billing: pick a product name, type the quantity in g or kg and the rate per kg (before GST).
+// Amount = quantity (in kg) x rate = taxable value. GST comes from Products > Pricing & GST: each product's
+// GST % and the GST type (Intra-State -> CGST + SGST, Inter-State -> IGST). Total = taxable + GST.
+// The server recalculates the same way when the bill is saved.
+
 const newRequestId = () => (globalThis.crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+let seq = 0;
+const blankLine = () => ({ key: ++seq, product: '', quantity: '', unit: 'kg', rate: '' });
+const round2 = (v) => Math.round((v + Number.EPSILON) * 100) / 100;
+const PAYMENT_MODES = [['cash', 'Cash'], ['upi', 'UPI'], ['card', 'Card']];
 
-const PAYMENT_METHODS = [{ value: 'cash', label: 'Cash' }, { value: 'upi', label: 'UPI' }, { value: 'card', label: 'Card' }, { value: 'bank_transfer', label: 'Bank Transfer' }, { value: 'credit', label: 'Credit' }];
+export function lineAmount(line) {
+  const q = Number(line.quantity);
+  const r = Number(line.rate);
+  if (!(q > 0) || !(r >= 0)) return 0;
+  return round2((line.unit === 'g' ? q / 1000 : q) * r);
+}
+
+// GST on one line, rounded the same way as the server: tax to paise, CGST = half, SGST = the rest.
+export function lineGst(taxable, gstRate, interState) {
+  const tax = round2((taxable * (Number(gstRate) || 0)) / 100);
+  const cgst = interState ? 0 : round2(tax / 2);
+  return { tax, cgst, sgst: interState ? 0 : round2(tax - cgst), igst: interState ? tax : 0 };
+}
+
+function printReceipt() {
+  const node = document.getElementById('receipt');
+  if (!node) return;
+  const frame = document.createElement('iframe');
+  frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
+  document.body.appendChild(frame);
+  const doc = frame.contentWindow.document;
+  doc.open();
+  doc.write(`<!doctype html><html><head><meta charset="utf-8"><title>Bill</title><style>
+    body{font-family:'Courier New',monospace;font-size:12px;margin:8px;width:280px;color:#000}
+    .row{display:flex;justify-content:space-between;gap:8px}.center{text-align:center}.b{font-weight:700}
+    .sep{border-top:1px dashed #000;margin:6px 0}.muted{color:#444}
+  </style></head><body>${node.innerHTML}</body></html>`);
+  doc.close();
+  setTimeout(() => { frame.contentWindow.focus(); frame.contentWindow.print(); setTimeout(() => frame.remove(), 1000); }, 150);
+}
 
 export function POSBilling() {
   const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [stores, setStores] = useState([]);
-  const [store, setStore] = useState('');
-  const [search, setSearch] = useState('');
-  const [category, setCategory] = useState('');
-  const [letter, setLetter] = useState('ALL');
-  const debouncedSearch = useDebounce(search, 250);
-
-  const [cart, setCart] = useState([]); // [{product, quantity, discountPercent}]
-  const [customer, setCustomer] = useState(null);
-  const [customerSearch, setCustomerSearch] = useState('');
-  const [customerResults, setCustomerResults] = useState([]);
-  const [isInterState, setIsInterState] = useState(false);
-
-  const [payments, setPayments] = useState([{ method: 'cash', amount: 0 }]);
-  const [heldBills, setHeldBills] = useState([]);
-  const [heldOpen, setHeldOpen] = useState(false);
-  const [completing, setCompleting] = useState(false);
+  const [loadingProducts, setLoadingProducts] = useState(true);
+  const [lines, setLines] = useState([blankLine()]);
+  const [payment, setPayment] = useState('cash');
+  const [saving, setSaving] = useState(false);
   const [receipt, setReceipt] = useState(null);
+  const [gstType, setGstType] = useState('intra');
   const requestId = useRef(newRequestId());
-  const debouncedCustomerSearch = useDebounce(customerSearch, 300);
 
   useEffect(() => {
-    categoryService.listAll().then((r) => setCategories(r.data.filter((c) => !c.parent)));
-    storeService.listAll().then((r) => { setStores(r.data); if (r.data[0]) setStore(r.data[0]._id); });
+    productService.names()
+      .then((r) => setProducts(r.data))
+      .catch((err) => toast.error(err.message))
+      .finally(() => setLoadingProducts(false));
+    settingsService.get().then((r) => setGstType(r.data.gstType || 'intra')).catch(() => {});
   }, []);
 
-  useEffect(() => {
-    if (!store) return;
-    // Stock shown is for the selected store - the stock this till can actually sell.
-    productService.list({ search: debouncedSearch || undefined, category: category || undefined, letter: letter !== 'ALL' ? letter : undefined, limit: 24, status: 'active', withStock: true, store })
-      .then((r) => setProducts(r.data))
-      .catch((err) => toast.error(err.message));
-  }, [debouncedSearch, category, letter, store]);
+  // "Save & Print": print as soon as the saved bill is on screen.
+  useEffect(() => { if (receipt) setTimeout(printReceipt, 200); }, [receipt]);
 
-  useEffect(() => {
-    if (!debouncedCustomerSearch.trim()) { setCustomerResults([]); return; }
-    customerService.list({ search: debouncedCustomerSearch, limit: 5 }).then((r) => setCustomerResults(r.data)).catch(() => setCustomerResults([]));
-  }, [debouncedCustomerSearch]);
-
-  function addToCart(product) {
-    const inCart = cart.find((i) => i.product._id === product._id)?.quantity || 0;
-    if (product.stock !== undefined && inCart + 1 > product.stock) {
-      toast.error(product.stock > 0 ? `Only ${product.stock} of ${product.name} in stock at this store.` : `${product.name} is out of stock at this store.`);
-      return;
-    }
-    setCart((prev) => {
-      const existing = prev.find((i) => i.product._id === product._id);
-      if (existing) return prev.map((i) => i.product._id === product._id ? { ...i, quantity: i.quantity + 1 } : i);
-      return [...prev, { product, quantity: 1, discountPercent: product.discountPercent || 0 }];
-    });
-  }
-  function updateQty(id, delta) {
-    const item = cart.find((i) => i.product._id === id);
-    if (delta > 0 && item?.product.stock !== undefined && item.quantity + delta > item.product.stock) {
-      toast.error(`Only ${item.product.stock} of ${item.product.name} in stock at this store.`);
-      return;
-    }
-    setCart((prev) => prev.map((i) => i.product._id === id ? { ...i, quantity: Math.max(1, i.quantity + delta) } : i).filter((i) => i.quantity > 0));
-  }
-  function removeItem(id) {
-    setCart((prev) => prev.filter((i) => i.product._id !== id));
-  }
-
+  const interState = gstType === 'inter';
+  // Taxable value, GST grouped by rate (for "CGST @ 2.5%" rows) and the final total.
   const summary = useMemo(() => {
-    const lines = cart.map((item) => calculateLineGst({
-      quantity: item.quantity, unitPrice: item.product.sellingPrice, discountPercent: item.discountPercent || 0, gstRate: item.product.gstRate, isInterState,
-    }));
-    const s = summarizeInvoice(lines);
-    const byRate = new Map(); // GST rate -> { cgst, sgst, igst } for the "CGST @ 9%" rows
-    lines.forEach((l) => {
-      const r = byRate.get(l.gstRate) || { cgst: 0, sgst: 0, igst: 0 };
-      r.cgst += l.cgst; r.sgst += l.sgst; r.igst += l.igst;
-      byRate.set(l.gstRate, r);
-    });
-    const gstByRate = [...byRate.entries()].sort((a, b) => a[0] - b[0]).map(([rate, t]) => ({ rate, ...t }));
-    return { ...s, taxable: s.taxableAmount, gstByRate };
-  }, [cart, isInterState]);
+    const rateOf = new Map(products.map((p) => [p._id, Number(p.gstRate) || 0]));
+    const groups = new Map();
+    let taxable = 0;
+    for (const l of lines) {
+      const amt = lineAmount(l);
+      if (!amt || !l.product) continue;
+      const rate = rateOf.get(l.product) || 0;
+      const g = lineGst(amt, rate, interState);
+      taxable += amt;
+      const grp = groups.get(rate) || { rate, cgst: 0, sgst: 0, igst: 0 };
+      grp.cgst += g.cgst; grp.sgst += g.sgst; grp.igst += g.igst;
+      groups.set(rate, grp);
+    }
+    const rows = [...groups.values()].filter((g) => g.rate > 0).sort((a, b) => a.rate - b.rate)
+      .map((g) => ({ rate: g.rate, cgst: round2(g.cgst), sgst: round2(g.sgst), igst: round2(g.igst) }));
+    const tax = round2(rows.reduce((t, g) => t + g.cgst + g.sgst + g.igst, 0));
+    taxable = round2(taxable);
+    return { taxable, rows, tax, total: round2(taxable + tax) };
+  }, [lines, products, interState]);
+  const { total } = summary;
 
-  const totalPaid = payments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
-  const cashPaid = payments.filter((p) => p.method === 'cash').reduce((s, p) => s + (Number(p.amount) || 0), 0);
-  const changeDue = Math.max(0, Math.round((totalPaid - summary.grandTotal) * 100) / 100);
-  const overpaidNonCash = totalPaid - cashPaid > summary.grandTotal + 0.001;
+  function update(key, patch) {
+    setLines((prev) => prev.map((l) => (l.key === key ? { ...l, ...patch } : l)));
+  }
 
-  useEffect(() => {
-    setPayments((prev) => prev.length === 1 ? [{ ...prev[0], amount: summary.grandTotal }] : prev);
-  }, [summary.grandTotal]);  
+  function addLine() {
+    const line = blankLine();
+    setLines((prev) => [...prev, line]);
+    setTimeout(() => document.getElementById(`product-${line.key}`)?.focus(), 0);
+  }
 
-  function resetCart() {
-    setCart([]); setCustomer(null); setPayments([{ method: 'cash', amount: 0 }]);
+  function removeLine(key) {
+    setLines((prev) => (prev.length === 1 ? [blankLine()] : prev.filter((l) => l.key !== key)));
+  }
+
+  function clearBill() {
+    setLines([blankLine()]);
+    setPayment('cash');
     requestId.current = newRequestId();
   }
 
-  async function holdBill() {
-    if (!cart.length) { toast.error('Cart is empty.'); return; }
-    try {
-      await salesService.create({
-        store, customer: customer?._id, isInterState, status: 'held',
-        items: cart.map((i) => ({ product: i.product._id, quantity: i.quantity, discountPercent: i.discountPercent })),
-      });
-      toast.success('Bill held.');
-      resetCart();
-    } catch (err) { toast.error(err.message); }
-  }
-
-  async function openHeld() {
-    const res = await salesService.held();
-    setHeldBills(res.data);
-    setHeldOpen(true);
-  }
-
-  async function resumeBill(bill) {
-    setHeldOpen(false);
-    try {
-      // Re-price with today's catalogue prices so the total shown is what the server will bill.
-      const items = bill.items.map((i) => ({ product: i.product, quantity: i.quantity, discountPercent: i.discountPercent }));
-      const { data } = await salesService.preview({ items, isInterState: bill.isInterState });
-      setCart(data.lines.map((l) => ({
-        product: { _id: l.product, name: l.productName, sku: l.sku, sellingPrice: l.unitPrice, gstRate: l.gstRate },
-        quantity: l.quantity, discountPercent: l.discountPercent, __heldId: bill._id,
-      })));
-      if (bill.store) setStore(bill.store);
-      setIsInterState(!!bill.isInterState);
-      requestId.current = newRequestId();
-      toast.success(data.summary.grandTotal !== bill.grandTotal ? 'Bill resumed - prices were updated to today\'s prices.' : 'Bill resumed. Complete payment to finalise.');
-    } catch (err) { toast.error(err.message); }
-  }
-
-  async function completeSale() {
-    if (!cart.length) { toast.error('Cart is empty.'); return; }
-    if (completing) return; // ignore a second click while the bill is being saved
-    if (totalPaid < summary.grandTotal && !payments.some((p) => p.method === 'credit')) {
-      toast.error('Collected amount is less than the grand total.'); return;
+  async function saveBill() {
+    const filled = lines.filter((l) => l.product || l.quantity !== '' || l.rate !== '');
+    if (!filled.length) { toast.error('Add at least one product to the bill.'); return; }
+    for (const [i, l] of filled.entries()) {
+      if (!l.product) { toast.error(`Row ${i + 1}: select a product.`); return; }
+      if (!(Number(l.quantity) > 0)) { toast.error(`Row ${i + 1}: enter the quantity.`); return; }
+      if (l.rate === '' || !(Number(l.rate) >= 0)) { toast.error(`Row ${i + 1}: enter the rate.`); return; }
     }
-    if (overpaidNonCash) { toast.error('Card, UPI, bank and credit amounts cannot be more than the bill. Only cash can be overpaid.'); return; }
-    if (payments.some((p) => p.method === 'credit') && !customer) { toast.error('Select a customer to bill on credit.'); return; }
-    setCompleting(true);
+    if (!(total > 0)) { toast.error('The bill total must be more than zero.'); return; }
+    setSaving(true);
     try {
-      const heldId = cart[0]?.__heldId;
-      const payload = {
-        store, customer: customer?._id, isInterState,
-        items: cart.map((i) => ({ product: i.product._id, quantity: i.quantity, discountPercent: i.discountPercent })),
-        payments: payments.filter((p) => Number(p.amount) > 0).map((p) => ({ ...p, amount: Number(p.amount) })),
+      const res = await salesService.createSimple({
+        items: filled.map((l) => ({ product: l.product, quantity: Number(l.quantity), unit: l.unit, rate: Number(l.rate) })),
+        paymentMethod: payment,
         clientRequestId: requestId.current,
-      };
-      const res = heldId ? await salesService.resume(heldId, payload) : await salesService.create(payload);
-      toast.success(res.duplicate ? `Invoice ${res.data.invoiceNumber} was already saved.` : `Invoice ${res.data.invoiceNumber} created.`);
+      });
       setReceipt(res.data);
-      resetCart();
-    } catch (err) { toast.error(err.message); } finally { setCompleting(false); }
+      clearBill();
+    } catch (err) { toast.error(err.message); } finally { setSaving(false); }
   }
+
+  const inputCls = 'w-full h-10 rounded-lg border px-3 text-sm bg-[var(--bg-surface)] focus:outline-none focus:!border-gold-500';
+  const inputStyle = { borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' };
 
   return (
-    <div className="lg:h-[calc(100vh-6rem)] flex flex-col">
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <h1 className="font-display text-2xl font-semibold">POS Billing</h1>
-        <div className="flex flex-wrap items-center gap-2">
-          <Select value={store} onChange={(e) => setStore(e.target.value)} className="text-sm">
-            {stores.map((s) => <option key={s._id} value={s._id}>{s.name}</option>)}
-          </Select>
-          <Button variant="outline" icon={PauseCircle} onClick={holdBill}>Hold Bill</Button>
-          <Button variant="outline" icon={PlayCircle} onClick={openHeld}>Held Bills</Button>
+    <div className="max-w-5xl mx-auto">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h1 className="text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>Billing</h1>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Select a product, enter the quantity in g or kg and the rate per kg (before GST).</p>
+        </div>
+        <span className="ml-auto mr-3 px-3 h-8 inline-flex items-center rounded-full text-xs font-semibold" style={{ background: 'var(--brand-soft)', color: 'var(--brand)' }}
+          title="Change in Products > Pricing & GST">
+          GST: {interState ? 'Inter-State (IGST)' : 'Intra-State (CGST + SGST)'}
+        </span>
+        <Button variant="outline" icon={RotateCcw} onClick={clearBill}>New Bill</Button>
+      </div>
+
+      <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-surface)' }}>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[640px]">
+            <thead>
+              <tr className="text-left text-xs uppercase tracking-wide" style={{ background: 'var(--bg-surface-muted)', color: 'var(--text-muted)' }}>
+                <th className="px-3 py-2.5 font-semibold">Product Name</th>
+                <th className="px-3 py-2.5 font-semibold w-32">Quantity</th>
+                <th className="px-3 py-2.5 font-semibold w-32">Unit</th>
+                <th className="px-3 py-2.5 font-semibold w-36">Rate (₹ / kg)</th>
+                <th className="px-3 py-2.5 font-semibold w-36 text-right">Amount</th>
+                <th className="w-10" />
+              </tr>
+            </thead>
+            <tbody>
+              {lines.map((l, i) => (
+                <tr key={l.key} style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                  <td className="px-3 py-2">
+                    <select id={`product-${l.key}`} value={l.product} onChange={(e) => update(l.key, { product: e.target.value })} className={inputCls} style={inputStyle} aria-label={`Row ${i + 1} product`}>
+                      <option value="">{loadingProducts ? 'Loading…' : products.length ? 'Select product' : 'No products – add in Product Master'}</option>
+                      {products.map((p) => <option key={p._id} value={p._id}>{p.name}</option>)}
+                    </select>
+                  </td>
+                  <td className="px-3 py-2">
+                    <input type="number" inputMode="decimal" min="0" step="any" placeholder="0" value={l.quantity}
+                      onChange={(e) => update(l.key, { quantity: e.target.value })} className={`${inputCls} text-right`} style={inputStyle} aria-label={`Row ${i + 1} quantity`} />
+                  </td>
+                  <td className="px-3 py-2">
+                    <div className="inline-flex rounded-lg border p-0.5" style={{ borderColor: 'var(--border-subtle)' }} role="group" aria-label={`Row ${i + 1} unit`}>
+                      {['g', 'kg'].map((u) => (
+                        <button key={u} type="button" onClick={() => update(l.key, { unit: u })}
+                          className={`px-3.5 h-8 rounded-md text-sm font-medium transition-colors ${l.unit === u ? 'bg-gold-600 text-white' : 'text-graphite-600 hover:bg-gold-50'}`}>
+                          {u}
+                        </button>
+                      ))}
+                    </div>
+                  </td>
+                  <td className="px-3 py-2">
+                    <input type="number" inputMode="decimal" min="0" step="any" placeholder="0.00" value={l.rate}
+                      onChange={(e) => update(l.key, { rate: e.target.value })}
+                      onKeyDown={(e) => { if (e.key === 'Enter' && i === lines.length - 1) { e.preventDefault(); addLine(); } }}
+                      className={`${inputCls} text-right`} style={inputStyle} aria-label={`Row ${i + 1} rate per kg`} />
+                  </td>
+                  <td className="px-3 py-2 text-right font-semibold tabular-nums" style={{ color: 'var(--text-primary)' }}>{formatCurrency(lineAmount(l))}</td>
+                  <td className="pr-2 py-2 text-center">
+                    <button type="button" onClick={() => removeLine(l.key)} title="Remove row" className="p-1.5 rounded-lg text-graphite-400 hover:text-rose-600 hover:bg-rose-50"><Trash2 size={15} /></button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="px-3 py-2.5" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+          <Button variant="ghost" size="sm" icon={Plus} onClick={addLine}>Add Item</Button>
         </div>
       </div>
 
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1.4fr_1fr_0.9fr] gap-5 lg:min-h-0">
-        {/* LEFT: catalog */}
-        <div className="surface-card rounded-xl2 shadow-premium p-4 flex flex-col lg:min-h-0">
-          <div className="relative mb-3">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-graphite-400" />
-            <input
-              value={search} onChange={(e) => setSearch(e.target.value)}
-              placeholder="Scan barcode or search product..."
-              className="w-full rounded-lg border pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gold-400"
-              style={{ borderColor: 'var(--border-subtle)' }}
-            />
-          </div>
-          <div className="flex gap-1.5 flex-wrap mb-2">
-            <Chip active={!category} onClick={() => setCategory('')}>All</Chip>
-            {categories.map((c) => <Chip key={c._id} active={category === c._id} onClick={() => setCategory(c._id)}>{c.name}</Chip>)}
-          </div>
-          <AlphabetFilter value={letter} onChange={setLetter} />
-          <div className="flex-1 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 gap-3 pr-1 max-h-[55vh] lg:max-h-none">
-            {products.map((p) => (
-              <button
-                key={p._id} type="button" onClick={() => addToCart(p)} disabled={(p.stock ?? 0) <= 0}
-                aria-label={`Add ${p.name}, ${formatCurrency(p.sellingPrice * (1 + (p.gstRate || 0) / 100), { decimals: 2 })}, ${p.stock ?? 0} in stock`}
-                className="text-left surface-card rounded-xl p-3 hover:border-gold-400 hover:shadow-premium transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-transparent" style={{ borderColor: 'var(--border-subtle)' }}
-              >
-                <div className="text-sm font-medium truncate" title={p.name}>{p.name}</div>
-                <div className="text-xs mb-1.5" style={{ color: (p.stock ?? 0) <= 0 ? '#DC2626' : (p.stock <= p.reorderLevel ? '#B45309' : 'var(--text-muted)') }}>
-                  {p.sku} &middot; {(p.stock ?? 0) <= 0 ? 'Out of stock' : `Stock ${p.stock}`}
-                </div>
-                <div className="text-sm font-display font-semibold text-gold-700">{formatCurrency(p.sellingPrice * (1 + (p.gstRate || 0) / 100), { decimals: 2 })} <span className="text-[10px] font-sans font-normal" style={{ color: 'var(--text-muted)' }}>incl. GST</span></div>
-              </button>
-            ))}
-            {products.length === 0 && <p className="col-span-full text-center py-10 text-sm" style={{ color: 'var(--text-muted)' }}>No products match your search.</p>}
-          </div>
-        </div>
-
-        {/* CENTER: cart */}
-        <div className="surface-card rounded-xl2 shadow-premium p-4 flex flex-col lg:min-h-0 min-h-[160px]">
-          <h3 className="font-display text-base font-semibold mb-3">Cart ({cart.length})</h3>
-          <div className="flex-1 overflow-y-auto space-y-2">
-            {cart.map((item) => (
-              <div key={item.product._id} className="flex items-center gap-2 p-2.5 rounded-lg" style={{ background: 'var(--bg-surface-muted)' }}>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate">{item.product.name}</div>
-                  <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{formatCurrency(item.product.sellingPrice)} &times; {item.quantity} &middot; GST {item.product.gstRate}%</div>
-                </div>
-                <button type="button" aria-label={`Decrease ${item.product.name}`} onClick={() => updateQty(item.product._id, -1)} className="w-8 h-8 rounded-full border flex items-center justify-center" style={{ borderColor: 'var(--border-subtle)' }}><Minus size={12} /></button>
-                <span className="w-6 text-center text-sm" aria-live="polite">{item.quantity}</span>
-                <button type="button" aria-label={`Increase ${item.product.name}`} onClick={() => updateQty(item.product._id, 1)} className="w-8 h-8 rounded-full border flex items-center justify-center" style={{ borderColor: 'var(--border-subtle)' }}><Plus size={12} /></button>
-                <button type="button" aria-label={`Remove ${item.product.name}`} onClick={() => removeItem(item.product._id)} className="w-8 h-8 flex items-center justify-center text-graphite-400 hover:text-rose-500"><Trash2 size={14} /></button>
-              </div>
-            ))}
-            {cart.length === 0 && <p className="text-center py-10 text-sm" style={{ color: 'var(--text-muted)' }}>Cart is empty. Click a product to add it.</p>}
-          </div>
-        </div>
-
-        {/* RIGHT: billing */}
-        <div className="surface-card rounded-xl2 shadow-premium p-4 flex flex-col lg:min-h-0">
-          <div className="mb-3">
-            {customer ? (
-              <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-gold-50 text-sm">
-                <span className="flex items-center gap-1.5"><User size={13} /> {customer.name}</span>
-                <button onClick={() => setCustomer(null)}><X size={14} /></button>
-              </div>
-            ) : (
-              <div className="relative">
-                <input value={customerSearch} onChange={(e) => setCustomerSearch(e.target.value)} placeholder="Customer (optional)" className="w-full rounded-lg border px-3 py-2 text-sm" style={{ borderColor: 'var(--border-subtle)' }} />
-                {customerResults.length > 0 && (
-                  <div className="absolute z-10 mt-1 w-full surface-card rounded-lg shadow-premium-lg max-h-40 overflow-y-auto">
-                    {customerResults.map((c) => (
-                      <button key={c._id} onClick={() => { setCustomer(c); setCustomerSearch(''); setCustomerResults([]); }} className="w-full text-left px-3 py-2 text-sm hover:bg-gold-50">{c.name} &middot; {c.phone}</button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          <label className="flex items-center gap-2 text-xs mb-3" style={{ color: 'var(--text-secondary)' }}>
-            <input type="checkbox" checked={isInterState} onChange={(e) => setIsInterState(e.target.checked)} className="accent-gold-500" /> Interstate sale (apply IGST)
-          </label>
-
-          <div className="space-y-1.5 text-sm mb-3 pb-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-            <SummaryRow label="Subtotal" value={summary.subtotal} />
-            <SummaryRow label="Discount" value={-summary.discount} />
-            <SummaryRow label="Taxable Amount" value={summary.taxable} />
-            {summary.gstByRate.map(({ rate, cgst, sgst, igst }) => isInterState
-              ? <SummaryRow key={rate} label={`IGST @ ${rate}%`} value={igst} />
-              : (<Fragment key={rate}><SummaryRow label={`CGST @ ${rate / 2}%`} value={cgst} /><SummaryRow label={`SGST @ ${rate / 2}%`} value={sgst} /></Fragment>))}
-            <SummaryRow label="Round Off" value={summary.roundOff} />
-            <div className="flex justify-between font-display text-lg font-semibold pt-1"><span>Grand Total</span><span>{formatCurrency(summary.grandTotal)}</span></div>
-          </div>
-
-          <div className="space-y-2 mb-3">
-            {payments.map((p, idx) => (
-              <div key={idx} className="flex items-center gap-2">
-                <select aria-label={`Payment ${idx + 1} method`} value={p.method} onChange={(e) => setPayments((prev) => prev.map((x, i) => i === idx ? { ...x, method: e.target.value } : x))} className="rounded-lg border px-2 py-1.5 text-xs" style={{ borderColor: 'var(--border-subtle)' }}>
-                  {PAYMENT_METHODS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-                </select>
-                <input type="number" min="0" step="0.01" inputMode="decimal" aria-label={`Payment ${idx + 1} amount`} value={p.amount} onChange={(e) => setPayments((prev) => prev.map((x, i) => i === idx ? { ...x, amount: e.target.value } : x))} className="flex-1 rounded-lg border px-2 py-1.5 text-xs" style={{ borderColor: 'var(--border-subtle)' }} />
-                {payments.length > 1 && <button type="button" aria-label={`Remove payment ${idx + 1}`} onClick={() => setPayments((prev) => prev.filter((_, i) => i !== idx))} className="p-1.5"><X size={13} /></button>}
-              </div>
-            ))}
-            <button onClick={() => setPayments((prev) => [...prev, { method: 'cash', amount: 0 }])} className="text-xs text-gold-700 font-medium">+ Split Payment</button>
-            <div className="text-xs flex justify-between" style={{ color: totalPaid < summary.grandTotal ? '#DC2626' : 'var(--text-muted)' }}>
-              <span>Collected</span><span>{formatCurrency(totalPaid, { decimals: 2 })}</span>
-            </div>
-            {changeDue > 0 && !overpaidNonCash && (
-              <div className="text-sm font-semibold flex justify-between text-emerald-700" aria-live="polite"><span>Change to return</span><span>{formatCurrency(changeDue, { decimals: 2 })}</span></div>
-            )}
-            {overpaidNonCash && <div className="text-xs text-rose-600">Only cash can be more than the bill total.</div>}
-          </div>
-
-          <Button className="w-full mt-auto" size="lg" loading={completing} disabled={!cart.length} onClick={completeSale}>Complete Sale</Button>
-        </div>
-      </div>
-
-      <Modal open={heldOpen} onClose={() => setHeldOpen(false)} title="Held Bills">
-        <div className="space-y-2">
-          {heldBills.map((b) => (
-            <button key={b._id} onClick={() => resumeBill(b)} className="w-full flex justify-between px-3 py-2.5 rounded-lg hover:bg-gold-50 text-sm border" style={{ borderColor: 'var(--border-subtle)' }}>
-              <span>{b.items.length} item(s) &middot; {new Date(b.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
-              <span>{formatCurrency(b.grandTotal)}</span>
+      <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border p-4" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-surface)' }}>
+        <div className="flex items-center gap-2">
+          <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Payment</span>
+          {PAYMENT_MODES.map(([m, label]) => (
+            <button key={m} type="button" onClick={() => setPayment(m)}
+              className={`px-3.5 h-9 rounded-full text-sm font-medium border transition-colors ${payment === m ? 'bg-gold-600 text-white border-transparent' : 'hover:bg-gold-50'}`}
+              style={payment === m ? {} : { borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}>
+              {label}
             </button>
           ))}
-          {heldBills.length === 0 && <p className="text-sm text-center py-6" style={{ color: 'var(--text-muted)' }}>No bills on hold.</p>}
         </div>
-      </Modal>
+        <div className="flex items-end gap-5">
+          <div className="text-sm tabular-nums min-w-[240px]" style={{ color: 'var(--text-secondary)' }}>
+            <div className="flex justify-between gap-6"><span>Taxable Amount</span><span>{formatCurrency(summary.taxable)}</span></div>
+            {summary.rows.map((g) => (interState ? (
+              <div key={g.rate} className="flex justify-between gap-6"><span>IGST @ {g.rate}%</span><span>{formatCurrency(g.igst)}</span></div>
+            ) : (
+              <div key={g.rate}>
+                <div className="flex justify-between gap-6"><span>CGST @ {g.rate / 2}%</span><span>{formatCurrency(g.cgst)}</span></div>
+                <div className="flex justify-between gap-6"><span>SGST @ {g.rate / 2}%</span><span>{formatCurrency(g.sgst)}</span></div>
+              </div>
+            )))}
+            <div className="flex justify-between gap-6"><span>Total GST</span><span>{formatCurrency(summary.tax)}</span></div>
+            <div className="flex justify-between gap-6 mt-1 pt-1 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+              <span className="text-xs uppercase tracking-wide self-center" style={{ color: 'var(--text-muted)' }}>Total Amount</span>
+              <span className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(total)}</span>
+            </div>
+          </div>
+          <Button icon={Printer} onClick={saveBill} loading={saving} disabled={!(total > 0)}>Save &amp; Print</Button>
+        </div>
+      </div>
 
-      <Modal open={!!receipt} onClose={() => setReceipt(null)} title="Sale Complete" size="sm"
-        footer={<Button icon={Printer} onClick={() => window.print()} className="w-full">Print Receipt</Button>}
+      <Modal open={!!receipt} onClose={() => setReceipt(null)} title="Bill Saved" size="sm"
+        footer={<Button icon={Printer} onClick={printReceipt} className="w-full">Print Bill</Button>}
       >
         {receipt && <ReceiptView sale={receipt} />}
       </Modal>
     </div>
   );
-}
-
-function Chip({ active, children, onClick }) {
-  return (
-    <button onClick={onClick} className={`px-2.5 py-1 rounded-full text-xs font-medium ${active ? 'bg-graphite-900 text-white' : 'border'}`} style={active ? {} : { borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}>
-      {children}
-    </button>
-  );
-}
-
-function SummaryRow({ label, value }) {
-  return <div className="flex justify-between"><span style={{ color: 'var(--text-muted)' }}>{label}</span><span>{formatCurrency(value, { decimals: 2 })}</span></div>;
 }
 
 export default POSBilling;

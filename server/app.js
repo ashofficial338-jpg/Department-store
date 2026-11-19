@@ -5,6 +5,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import morgan from 'morgan';
+import mongoose from 'mongoose';
 import mongoSanitize from 'express-mongo-sanitize';
 import rateLimit from 'express-rate-limit';
 
@@ -40,7 +41,18 @@ app.use('/api', (req, res, next) => {
 
 app.use('/uploads', express.static(path.join(__dirname, env.uploadDir)));
 
-app.get('/api/health', (req, res) => res.json({ success: true, status: 'ok', env: env.nodeEnv }));
+// Reports whether the API is up and whether MongoDB Atlas is connected (tries to connect if not).
+app.get('/api/health', async (req, res) => {
+  let database = 'connected';
+  let dbError;
+  try {
+    await connectDB();
+  } catch (err) {
+    database = 'disconnected';
+    dbError = err.message;
+  }
+  res.json({ success: true, status: 'ok', env: env.nodeEnv, database, dbName: mongoose.connection.name || undefined, dbError });
+});
 
 // Ensure the database is connected before any API route runs.
 app.use('/api', async (req, res, next) => {

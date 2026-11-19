@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import {
-  listProducts, getProduct, createProduct, updateProduct, deleteProduct,
+  listProducts, productNames, getProduct, createProduct, updateProduct, deleteProduct,
   uploadProductImages, setPrimaryImage, deleteProductImage, extractFromImage,
 } from '../controllers/productController.js';
 import { exportProducts, importTemplate, importProducts, importUpload } from '../controllers/productTransferController.js';
@@ -12,6 +12,7 @@ const router = Router();
 router.use(protect, requirePermissionForWrites('products'));
 
 router.get('/', listProducts);
+router.get('/names', productNames);
 // Import / export - declared before '/:id' so the paths aren't read as product ids.
 router.get('/export', requirePermission('products', 'reports'), exportProducts);
 router.get('/import/template', requirePermission('products'), importTemplate);

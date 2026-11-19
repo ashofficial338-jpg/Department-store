@@ -1,5 +1,6 @@
 import Sale from '../models/Sale.js';
 import Purchase from '../models/Purchase.js';
+import { PAYABLE_STATUSES, BILLED_EXPR, billedAmount } from '../utils/payables.js';
 import Expense from '../models/Expense.js';
 import Customer from '../models/Customer.js';
 import { round2 } from '../utils/gstCalculator.js';
@@ -299,11 +300,11 @@ async function receivablesList() {
 }
 
 async function payablesList() {
-  const docs = await Purchase.find({ status: { $in: ['received', 'invoiced'] }, $expr: { $gt: ['$grandTotal', '$amountPaid'] } })
+  const docs = await Purchase.find({ status: { $in: PAYABLE_STATUSES }, $expr: { $gt: [BILLED_EXPR, '$amountPaid'] } })
     .populate('vendor', 'name').sort({ createdAt: 1 }).limit(ROW_LIMIT).lean();
   const rows = docs.map((d) => ({
     poNumber: d.poNumber, invoiceNumber: d.invoiceNumber || '-', date: d.createdAt, vendor: d.vendor?.name || '-',
-    total: d.grandTotal, paid: d.amountPaid, balance: round2(d.grandTotal - d.amountPaid),
+    total: billedAmount(d), paid: d.amountPaid, balance: round2(billedAmount(d) - d.amountPaid),
   }));
   return {
     columns: [

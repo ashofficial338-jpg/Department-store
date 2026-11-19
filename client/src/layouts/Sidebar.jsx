@@ -47,20 +47,18 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }) {
       className={clsx('relative h-screen flex flex-col transition-[width] duration-500 ease-luxe shrink-0 overflow-hidden', expanded ? 'w-64' : 'w-[76px]')}
       style={{ background: 'var(--sidebar-bg)' }}
     >
-      {/* Ambient champagne glow and a hairline edge give the rail depth. */}
-      <div className="pointer-events-none absolute -top-24 -left-16 w-64 h-64 rounded-full bg-gold-500/10 blur-3xl" />
-      <div className="pointer-events-none absolute bottom-0 right-0 w-48 h-48 rounded-full bg-gold-500/5 blur-3xl" />
-      <div className="pointer-events-none absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-white/10 to-transparent" />
+      {/* Hairline edge between the rail and the page. */}
+      <div className="pointer-events-none absolute inset-y-0 right-0 w-px bg-white/[0.06]" />
       <div className="relative flex items-center justify-between gap-2.5 px-5 h-[72px] shrink-0">
         <div className="relative flex items-center gap-3">
-          <div className="relative w-9 h-9 rounded-xl bg-gold-gradient flex items-center justify-center font-display font-bold text-white shrink-0 shadow-gold">
+          <div className="relative w-9 h-9 rounded-xl bg-gold-600 flex items-center justify-center font-display font-bold text-white shrink-0">
             <span className="relative z-10 text-lg">A</span>
             <span className="absolute inset-0 rounded-xl ring-1 ring-inset ring-white/40" />
           </div>
           {expanded && (
             <div className="leading-none">
-              <div className="font-display text-lg font-semibold text-white tracking-[0.12em]">ARKA MART</div>
-              <div className="text-[9px] tracking-[0.32em] uppercase text-gold-400/80 mt-1">Department Store</div>
+              <div className="font-display text-[15px] font-bold text-white tracking-[0.08em]">ARKA MART</div>
+              <div className="text-[10px] tracking-[0.14em] uppercase text-graphite-400 mt-1">Department Store</div>
             </div>
           )}
         </div>
@@ -79,7 +77,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }) {
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
               placeholder="Find a page..."
-              className="w-full rounded-xl bg-white/[0.04] border border-white/10 pl-8 pr-3 py-2 text-sm text-white placeholder:text-graphite-500 focus:outline-none focus:border-gold-400/70 focus:bg-white/[0.07] transition-colors"
+              className="w-full rounded-lg bg-white/[0.05] border border-white/10 pl-8 pr-3 py-2 text-sm text-white placeholder:text-graphite-500 focus:outline-none focus:!border-gold-400/70 focus:bg-white/[0.08] focus:!shadow-none transition-colors"
             />
           </div>
         </div>
@@ -98,8 +96,8 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }) {
                 <button
                   onClick={() => setOpenSections((o) => ({ ...o, [section.label]: !o[section.label] }))}
                   className={clsx(
-                    'w-full flex items-center justify-between px-3 py-2 rounded-lg text-[10.5px] font-bold uppercase tracking-[0.16em] transition-colors duration-300',
-                    hasActive ? 'text-gold-400' : 'text-graphite-500 hover:text-graphite-200'
+                    'w-full flex items-center justify-between px-3 pt-3 pb-1.5 rounded-lg text-[11px] font-semibold uppercase tracking-[0.08em] transition-colors duration-200',
+                    hasActive ? 'text-white' : 'text-graphite-400 hover:text-graphite-200'
                   )}
                 >
                   {section.label}
@@ -122,8 +120,8 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }) {
                       end
                       title={!expanded ? item.label : undefined}
                       className={({ isActive }) => clsx(
-                        'group relative flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors duration-300',
-                        isActive ? 'text-gold-300' : 'text-[var(--sidebar-text)] hover:text-white'
+                        'group relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors duration-200',
+                        isActive ? 'text-white font-medium' : 'text-[var(--sidebar-text)] hover:text-white'
                       )}
                     >
                       {({ isActive }) => (
@@ -131,16 +129,16 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }) {
                           {isActive ? (
                             <motion.span
                               layoutId="sidebar-active"
-                              className="absolute inset-0 rounded-xl bg-gradient-to-r from-gold-500/20 via-gold-500/[0.08] to-transparent ring-1 ring-inset ring-gold-400/20"
+                              className="absolute inset-0 rounded-lg bg-white/[0.08]"
                               transition={{ type: 'spring', stiffness: 420, damping: 36 }}
                             >
-                              <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-gold-gradient shadow-[0_0_10px_rgba(99,102,241,0.8)]" />
+                              <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-gold-400" />
                             </motion.span>
                           ) : (
-                            <span className="absolute inset-0 rounded-xl group-hover:bg-white/[0.045] transition-colors duration-300" />
+                            <span className="absolute inset-0 rounded-lg group-hover:bg-white/[0.05] transition-colors duration-200" />
                           )}
-                          <item.icon size={17} className="relative shrink-0 transition-transform duration-300 ease-luxe group-hover:scale-110" />
-                          {expanded && <span className="relative truncate transition-transform duration-300 ease-luxe group-hover:translate-x-0.5">{item.label}</span>}
+                          <item.icon size={17} className={clsx('relative shrink-0', isActive ? 'text-gold-300' : 'opacity-80 group-hover:opacity-100')} />
+                          {expanded && <span className="relative truncate">{item.label}</span>}
                         </>
                       )}
                     </NavLink>
