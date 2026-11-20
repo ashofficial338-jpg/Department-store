@@ -48,6 +48,8 @@ export const userService = {
 export const productService = {
   list: (params) => api.get('/products', { params }).then((r) => r.data),
   names: () => api.get('/products/names').then((r) => r.data),
+  units: () => api.get('/products/units').then((r) => r.data),
+  createUnit: (payload) => api.post('/products/units', payload).then((r) => r.data),
   getOne: (id) => api.get(`/products/${id}`).then((r) => r.data),
   create: (payload) => api.post('/products', payload).then((r) => r.data),
   update: (id, payload) => api.put(`/products/${id}`, payload).then((r) => r.data),

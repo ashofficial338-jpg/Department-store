@@ -20,7 +20,15 @@ function gstBreakup(items) {
 const row = { display: 'flex', justifyContent: 'space-between', gap: 8 };
 const sep = { borderTop: '1px dashed #94a3b8', margin: '6px 0' };
 
-// Simple bill: Product, Quantity + Unit, Rate per kg, Amount, Total. Inline styles so it prints the same
+// Unit names on the printed bill (codes are stored on each bill line; custom units print as their code).
+const UNIT_TEXT = { l: 'L', pcs: 'pc', half_dozen: 'half dozen' };
+const unitText = (code, qty) => {
+  const s = UNIT_TEXT[code] || String(code || '').replace(/_/g, ' ');
+  return s === 'pc' && Number(qty) !== 1 ? 'pcs' : s;
+};
+const qtyText = (q, unit) => `${Number(q).toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${unitText(unit, q)}`;
+
+// Simple bill: Product, Quantity + Unit, Rate per unit, GST, Discount, Amount, Total. Inline styles so it prints the same
 // in the print window as on screen.
 function SimpleReceipt({ sale }) {
   return (
@@ -38,12 +46,16 @@ function SimpleReceipt({ sale }) {
         <div key={i} style={{ marginBottom: 4 }}>
           <div style={{ fontWeight: 700 }}>{it.productName}</div>
           <div style={row}>
-            <span>{Number(it.quantity).toLocaleString('en-IN', { maximumFractionDigits: 3 })} {it.unit} x {money(it.unitPrice)}/kg{it.gstRate ? ` (GST ${it.gstRate}%)` : ''}</span>
-            <span>{money(it.taxableAmount ?? it.totalAmount)}</span>
+            <span>{qtyText(it.quantity, it.unit)} x {money(it.unitPrice)}/{unitText(it.rateUnit || (it.unit === 'pcs' ? 'pcs' : 'kg'), 1)}{it.gstRate ? ` (GST ${it.gstRate}%)` : ''}</span>
+            <span>{money(it.grossAmount ?? it.taxableAmount ?? it.totalAmount)}</span>
           </div>
+          {it.discountAmount > 0 && (
+            <div style={row}><span>  Discount {it.discountPercent ? `${it.discountPercent}%` : ''}</span><span>-{money(it.discountAmount)}</span></div>
+          )}
         </div>
       ))}
       <div style={sep} />
+      {sale.discount > 0 && <div style={row}><span>Discount</span><span>-{money(sale.discount)}</span></div>}
       <div style={row}><span>Taxable Amount</span><span>{money(sale.taxableAmount ?? sale.subtotal)}</span></div>
       {gstBreakup(sale.items).filter((g) => g.rate > 0).map((g) => (sale.isInterState ? (
         <div key={g.rate} style={row}><span>IGST @ {g.rate}%</span><span>{money(g.igst)}</span></div>

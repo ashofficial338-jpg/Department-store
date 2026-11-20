@@ -7,10 +7,16 @@ const saleItemSchema = new mongoose.Schema(
     productName: String,
     sku: String,
     // POS bills: whole units (validated in the controller). Simple bills: quantity as entered in `unit`
-    // (g or kg), `quantityKg` the same in kg, and unitPrice = rate per kg.
+    // in `unit` (g, kg, ml, l, pcs, packet...), unitPrice = rate per `rateUnit`.
     quantity: { type: Number, required: true, min: 0.001 },
-    unit: { type: String, enum: ['g', 'kg'] },
+    unit: { type: String, trim: true },
     quantityKg: Number,
+    // Simple bills, saved with the bill so old bills never change when the product changes:
+    // rateUnit = the unit unitPrice is per (kg, l, pcs, packet...); baseQty / baseUnit = what was taken from stock
+    // (absent = no stock taken).
+    rateUnit: { type: String, trim: true },
+    baseQty: Number,
+    baseUnit: { type: String, trim: true },
     unitPrice: { type: Number, required: true },
     discountPercent: { type: Number, default: 0 },
     gstRate: { type: Number, default: 0 },
@@ -56,7 +62,7 @@ const saleSchema = new mongoose.Schema(
     payments: [paymentSplitSchema],
     isInterState: { type: Boolean, default: false },
     status: { type: String, enum: ['held', 'completed', 'cancelled', 'returned', 'partially_returned'], default: 'completed' },
-    // 'simple' = name / quantity (g or kg) / rate per kg bill from the Billing screen: no stock, no GST.
+    // 'simple' = bill from the Billing screen: priced products take stock (baseQty), unpriced name-only lines (rate typed) do not.
     billType: { type: String, enum: ['pos', 'simple'], default: 'pos' },
     cashier: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     notes: { type: String },

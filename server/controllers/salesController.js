@@ -20,6 +20,7 @@ import { recordInventoryTransaction } from './inventoryController.js';
 import { postLedgerPair, methodToAccountKey } from '../utils/ledger.js';
 import { searchRegex, requireId, number, positive, oneOf } from '../utils/validate.js';
 import { assertActiveStore, mainStoreId } from '../utils/storeGuard.js';
+import { unitMap, normCode, compatible, convert, productUnits, round } from '../utils/units.js';
 
 // POS billing. Everything that affects money or stock is decided here, never by the browser:
 // prices come from the product master, quantities/discounts/payments are validated, stock is
@@ -325,12 +326,14 @@ export const cancelSale = catchAsync(async (req, res) => {
     // Flip the status first (atomically) so two simultaneous cancels cannot both restock.
     const claimed = await Sale.findOneAndUpdate({ _id: sale._id, status: 'completed' }, { status: 'cancelled' });
     if (!claimed) throw new ApiError(409, 'This invoice was changed by someone else. Refresh and try again.');
-    // Simple bills never took stock, so cancelling them gives none back.
-    if (sale.billType !== 'simple') for (const line of sale.items) {
-      await Inventory.updateOne({ product: line.product, store: await mainStoreId() }, { $inc: { currentStock: line.quantity } }, { upsert: true });
-      if (line.batch) await Batch.updateOne({ _id: line.batch }, { $inc: { availableQuantity: line.quantity } });
+    // Simple bills took stock only for priced lines (baseQty, in the product's base unit) - only that goes back.
+    for (const line of sale.items) {
+      if (sale.billType === 'simple' && !(line.baseQty > 0)) continue;
+      const qty = sale.billType === 'simple' ? line.baseQty : line.quantity;
+      await Inventory.updateOne({ product: line.product, store: await mainStoreId() }, { $inc: { currentStock: qty } }, { upsert: true });
+      if (line.batch) await Batch.updateOne({ _id: line.batch }, { $inc: { availableQuantity: qty } });
       await recordInventoryTransaction({
-        product: line.product, batch: line.batch, quantity: line.quantity, type: 'sale_return',
+        product: line.product, batch: line.batch, quantity: qty, type: 'sale_return',
         destination: sale.store, destinationModel: 'Store',
         referenceType: 'Sale', referenceId: sale._id, referenceNumber: sale.invoiceNumber,
         notes: 'Invoice cancelled', user: req.user._id,
@@ -354,11 +357,54 @@ export const cancelSale = catchAsync(async (req, res) => {
 });
 
 // ---------- Simple bill (Billing screen) ----------
-// Lines: product (from the Product Master name list), quantity in g or kg, rate per kg (before GST).
-// Taxable amount = quantity in kg x rate; GST = taxable x the product's GST % (Pricing & GST). The GST type
-// in Pricing & GST decides the split: Intra-State -> CGST + SGST (half each), Inter-State -> IGST.
-// Bill total = taxable + GST. No stock movement.
+// Each line: product, quantity + unit (g, kg, mg, ml, L, pcs, dozen, packet, ... see utils/units.js).
+// * Priced product (Product Master selling price > 0): the rate is the catalogue price per the product's selling
+//   unit (anything the browser sends is ignored), the quantity is converted to that unit (250 g of Rs 60/kg rice
+//   = Rs 15), the product's discount % applies, and the stock is checked and taken in the product's base unit.
+// * Name-only product (no selling price): the cashier types the rate per `rateUnit` (kg by default) - no stock.
+// Only compatible units convert (weight <-> weight, volume <-> volume, pcs <-> dozen); a packet converts to
+// grams only when the product's net content per packet is set. GST = taxable x the product's GST %; the GST type
+// in Pricing & GST decides the split (Intra-State -> CGST + SGST, Inter-State -> IGST). Total = taxable + GST.
+// Unit, rate and amounts are stored on the bill, so later price changes never alter old bills.
 const SIMPLE_PAYMENTS = ['cash', 'upi', 'card'];
+
+function priceLine(it, product, units) {
+  const unit = normCode(it.unit);
+  if (!units.has(unit)) throw new ApiError(400, `Unknown unit "${it.unit}" for ${product.name}.`);
+  const quantity = positive(it.quantity, `Quantity for ${product.name}`, { max: 1000000 });
+  const pack = product.packUnit ? product : null;
+  const catalogue = product.sellingPrice > 0;
+  let rateUnit; let rate; let base;
+  if (catalogue) {
+    if (product.status !== 'active') throw new ApiError(400, `${product.name} is ${product.status} and cannot be sold.`);
+    const { sellingUnit, baseUnit } = productUnits(product, units);
+    rateUnit = sellingUnit;
+    rate = product.sellingPrice;
+    base = baseUnit;
+  } else {
+    rateUnit = normCode(it.rateUnit || 'kg');
+    if (!units.has(rateUnit)) throw new ApiError(400, `Unknown rate unit "${it.rateUnit}" for ${product.name}.`);
+    rate = number(it.rate, `Rate for ${product.name}`, { min: 0, max: 1000000 });
+  }
+  const u = units.get(unit);
+  if (!compatible(unit, rateUnit, units, pack)) {
+    throw new ApiError(400, `${product.name} is priced per ${units.get(rateUnit).short}; ${u.short} cannot be converted to ${units.get(rateUnit).short}.`);
+  }
+  // Pieces and packs are counted whole (half a dozen = 6 pcs is fine, 1.5 packets is not).
+  if (u.family === 'each' && !Number.isInteger(round(quantity * u.factor, 6))) throw new ApiError(400, `Quantity for ${product.name} must be whole pieces.`);
+  if (u.family.startsWith('pack:') && !Number.isInteger(quantity)) throw new ApiError(400, `Quantity for ${product.name} must be a whole number of ${u.short}s.`);
+  const rateQty = convert(quantity, unit, rateUnit, units, pack);
+  const gross = round2(rateQty * rate);
+  const discountPercent = catalogue ? Math.min(100, Math.max(0, Number(product.discountPercent) || 0)) : 0;
+  const discountAmount = round2((gross * discountPercent) / 100);
+  const line = {
+    product: product._id, productName: product.name, sku: product.sku, quantity, unit, rateUnit, unitPrice: rate,
+    discountPercent, grossAmount: gross, discountAmount, taxableAmount: round2(gross - discountAmount),
+  };
+  if (u.family === 'mass') line.quantityKg = convert(quantity, unit, 'kg', units);
+  if (catalogue) { line.baseUnit = base; line.baseQty = convert(quantity, unit, base, units, pack); }
+  return line;
+}
 
 export const createSimpleBill = catchAsync(async (req, res) => {
   const { items, paymentMethod = 'cash' } = req.body || {};
@@ -371,28 +417,21 @@ export const createSimpleBill = catchAsync(async (req, res) => {
   if (!Array.isArray(items) || !items.length) throw new ApiError(400, 'Add at least one product to the bill.');
   if (items.length > MAX_LINES) throw new ApiError(400, `A bill can have at most ${MAX_LINES} lines.`);
 
-  const settings = await Settings.findOne().select('gstType').lean();
+  const settings = await Settings.findOne().select('gstType customUnits').lean();
   const interState = settings?.gstType === 'inter';
+  const units = unitMap(settings?.customUnits);
   const lines = [];
   for (const it of items) {
     requireId(it?.product, 'Product');
-    const product = await Product.findById(it.product).select('name sku status gstRate').lean();
+    const product = await Product.findById(it.product)
+      .select('name sku status gstRate sellingPrice discountPercent unit sellingUnit baseUnit packUnit packQuantity packQuantityUnit').lean();
     if (!product || product.status === 'discontinued') throw new ApiError(400, 'A product on this bill is no longer in the product list.');
-    const unit = String(it.unit || '').toLowerCase();
-    oneOf(unit, ['g', 'kg'], 'Unit');
-    const quantity = positive(it.quantity, `Quantity for ${product.name}`, { max: unit === 'g' ? 1000000 : 1000 });
-    const rate = number(it.rate, `Rate for ${product.name}`, { min: 0, max: 1000000 });
-    const quantityKg = unit === 'g' ? quantity / 1000 : quantity;
-    const taxable = round2(quantityKg * rate);
+    const line = priceLine(it, product, units);
     const gstRate = Number(product.gstRate) || 0;
-    const tax = round2((taxable * gstRate) / 100);
+    const tax = round2((line.taxableAmount * gstRate) / 100);
     const cgst = interState ? 0 : round2(tax / 2);
     const sgst = interState ? 0 : round2(tax - cgst);
-    lines.push({
-      product: product._id, productName: product.name, sku: product.sku, quantity, unit, quantityKg, unitPrice: rate,
-      gstRate, grossAmount: taxable, discountAmount: 0, taxableAmount: taxable, cgst, sgst, igst: interState ? tax : 0, taxAmount: tax,
-      totalAmount: round2(taxable + tax),
-    });
+    lines.push({ ...line, gstRate, cgst, sgst, igst: interState ? tax : 0, taxAmount: tax, totalAmount: round2(line.taxableAmount + tax) });
   }
   const sum = (k) => round2(lines.reduce((t, l) => t + (l[k] || 0), 0));
   const taxableTotal = sum('taxableAmount');
@@ -400,20 +439,49 @@ export const createSimpleBill = catchAsync(async (req, res) => {
   const total = round2(taxableTotal + taxTotal);
   if (total <= 0) throw new ApiError(400, 'The bill total must be more than zero.');
 
+  // Priced products: check the stock (in the base unit, with a clear message), then take it atomically -
+  // the conditional decrement in reserveStock never lets stock go below zero.
+  const stockLines = lines.filter((l) => l.baseQty !== undefined).map((l) => ({ product: l.product, quantity: l.baseQty, productName: l.productName, ref: l }));
+  if (stockLines.length) {
+    const need = new Map();
+    for (const l of stockLines) need.set(String(l.product), round((need.get(String(l.product)) || 0) + l.quantity, 6));
+    const storeId = await mainStoreId();
+    const have = new Map((await Inventory.find({ product: { $in: [...need.keys()] }, store: storeId }).select('product currentStock').lean())
+      .map((i) => [String(i.product), i.currentStock || 0]));
+    for (const [id, qty] of need) {
+      const avail = have.get(id) || 0;
+      if (avail + 1e-9 < qty) {
+        const l = stockLines.find((x) => String(x.product) === id).ref;
+        const short = units.get(l.baseUnit)?.short || l.baseUnit;
+        throw new ApiError(400, avail > 0 ? `Only ${round(avail, 3)} ${short} of ${l.productName} in stock (bill needs ${round(qty, 3)} ${short}).` : `${l.productName} is out of stock.`);
+      }
+    }
+  }
+  const undo = stockLines.length ? await reserveStock(stockLines) : async () => {};
+  for (const l of stockLines) if (l.batch) l.ref.batch = l.batch;
+  const store = await mainStoreId();
   let sale;
   try {
     sale = await Sale.create({
-      invoiceNumber: await generateDocNumber('sale'), store: await mainStoreId(), items: lines, billType: 'simple',
-      subtotal: taxableTotal, discount: 0, taxableAmount: taxableTotal, cgst: sum('cgst'), sgst: sum('sgst'), igst: sum('igst'),
+      invoiceNumber: await generateDocNumber('sale'), store, items: lines, billType: 'simple',
+      subtotal: sum('grossAmount'), discount: sum('discountAmount'), taxableAmount: taxableTotal, cgst: sum('cgst'), sgst: sum('sgst'), igst: sum('igst'),
       taxAmount: taxTotal, roundOff: 0, grandTotal: total, isInterState: interState,
       amountPaid: total, payments: [{ method: paymentMethod, amount: total }], status: 'completed', cashier: req.user._id, clientRequestId,
     });
   } catch (err) {
+    await undo();
     if (err.code === 11000 && clientRequestId) {
       const first = await Sale.findOne({ clientRequestId });
       if (first) return res.json({ success: true, data: first, duplicate: true });
     }
     throw err;
+  }
+  for (const line of stockLines) {
+    await recordInventoryTransaction({
+      product: line.product, batch: line.batch, quantity: -line.quantity, type: 'sale',
+      source: store, sourceModel: 'Store',
+      referenceType: 'Sale', referenceId: sale._id, referenceNumber: sale.invoiceNumber, user: req.user._id,
+    });
   }
   await postLedgerPair({
     debitKey: methodToAccountKey(paymentMethod), creditKey: 'sales', amount: total,
