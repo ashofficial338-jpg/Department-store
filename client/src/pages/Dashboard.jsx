@@ -13,6 +13,7 @@ import { KPICard, ChartCard, PageHeader } from '../components/ui/index.js';
 import DashboardFilters from '../components/dashboard/DashboardFilters.jsx';
 import ExportMenu from '../components/dashboard/ExportMenu.jsx';
 import ProductCatalog from '../components/dashboard/ProductCatalog.jsx';
+import TradeSummary from '../components/dashboard/TradeSummary.jsx';
 import { readFilters, toQueryString } from '../components/dashboard/filters.js';
 import { dashboardService } from '../services/index.js';
 import { formatCurrency, formatNumber, formatDate } from '../utils/format.js';
@@ -169,6 +170,8 @@ export function Dashboard() {
           </div>
         </div>
       )}
+
+      {(can('dashboard.sales') || can('dashboard.financials')) && <TradeSummary />}
 
       {canFilter && <DashboardFilters value={filters} onChange={(next) => setSearchParams(next, { replace: true })} />}
 

@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { PageHeader, DataTable, Button, Modal, Input, SearchBox, StatusBadge } from '../../components/ui/index.js';
 import { purchaseService } from '../../services/index.js';
 import { formatCurrency, formatDate } from '../../utils/format.js';
+import { lineKey, lineRef, lineLabel } from '../../utils/lines.js';
 
 // Purchase Return: raised against the original Purchase Invoice. It does not change stock - the goods
 // leave when an Outward DC against the return is submitted.
@@ -55,8 +56,8 @@ export function PurchaseReturns() {
   async function handleSubmit(e) {
     e.preventDefault();
     const items = selected.items
-      .filter((it) => Number(returnQty[it.product._id || it.product]) > 0)
-      .map((it) => ({ product: it.product._id || it.product, quantity: Number(returnQty[it.product._id || it.product]), reason }));
+      .filter((it) => Number(returnQty[lineKey(it)]) > 0)
+      .map((it) => ({ ...lineRef(it), quantity: Number(returnQty[lineKey(it)]), reason }));
     if (!items.length) { toast.error('Enter a return quantity for at least one item.'); return; }
     setSaving(true);
     try {
@@ -112,15 +113,15 @@ export function PurchaseReturns() {
               <thead><tr className="text-xs" style={{ color: 'var(--text-muted)' }}><th className="text-left py-1">Product</th><th className="text-right">Received</th><th className="text-right">Returned</th><th className="text-right">Return Qty</th></tr></thead>
               <tbody>
                 {selected.items.map((it) => {
-                  const pid = it.product._id || it.product;
+                  const pid = lineKey(it);
                   const left = (it.receivedQuantity || 0) - (it.returnedQuantity || 0);
                   return (
                     <tr key={pid} style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                      <td className="py-1.5">{it.product.name || pid}</td>
+                      <td className="py-1.5">{lineLabel(it) || pid}</td>
                       <td className="text-right">{it.receivedQuantity || 0}</td>
                       <td className="text-right">{it.returnedQuantity || 0}</td>
                       <td className="text-right">
-                        <input type="number" min={0} max={left} disabled={left <= 0} value={returnQty[pid] || ''}
+                        <input type="number" min={0} step="any" max={left} disabled={left <= 0} value={returnQty[pid] || ''}
                           onChange={(e) => setReturnQty((s) => ({ ...s, [pid]: e.target.value }))}
                           className="w-20 rounded border px-1.5 py-1 text-xs text-right" style={{ borderColor: 'var(--border-subtle)' }} />
                       </td>

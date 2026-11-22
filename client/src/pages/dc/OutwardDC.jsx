@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { PageHeader, DataTable, Button, StatusBadge, Modal, ConfirmDialog, SearchBox } from '../../components/ui/index.js';
 import { dcService, purchaseService } from '../../services/index.js';
+import { lineKey, lineRef, lineLabel } from '../../utils/lines.js';
 import { formatDateTime, formatCurrency } from '../../utils/format.js';
 
 // Older outward DCs (not linked to a purchase return) keep their status steps.
@@ -53,7 +54,7 @@ export function OutwardDC() {
       const full = (await purchaseService.getReturn(row._id)).data;
       setRet(full);
       setItems(full.items
-        .map((it) => ({ product: it.product, returned: it.quantity, dispatched: it.dispatchedQuantity || 0, quantity: it.quantity - (it.dispatchedQuantity || 0) }))
+        .map((it) => ({ product: it.product, brand: it.brand, unit: it.unit, baseUnit: it.baseUnit, baseFactor: it.baseFactor, returned: it.quantity, dispatched: it.dispatchedQuantity || 0, quantity: it.quantity - (it.dispatchedQuantity || 0) }))
         .filter((it) => it.returned - it.dispatched > 0));
     } catch (err) { toast.error(err.message); }
   }
@@ -68,7 +69,7 @@ export function OutwardDC() {
     try {
       await dcService.createOutward({
         purchaseReturn: ret._id,
-        items: lines.map((i) => ({ product: i.product._id, quantity: Number(i.quantity) })),
+        items: lines.map((i) => ({ ...lineRef(i), quantity: Number(i.quantity) })),
       });
       toast.success('Outward DC created. Submit the dispatch to reduce stock.');
       closeCreate();
@@ -79,7 +80,7 @@ export function OutwardDC() {
   function openDispatch(row) {
     setDispatching(row);
     const init = {};
-    row.items.forEach((it) => { init[it.product._id] = it.quantity; });
+    row.items.forEach((it) => { init[lineKey(it)] = it.quantity; });
     setDispatchQty(init);
   }
 
@@ -87,7 +88,7 @@ export function OutwardDC() {
     setSubmitting(true);
     try {
       await dcService.submitOutward(dispatching._id, {
-        items: dispatching.items.map((it) => ({ product: it.product._id, dispatchedQuantity: Number(dispatchQty[it.product._id]) || 0 })),
+        items: dispatching.items.map((it) => ({ ...lineRef(it), dispatchedQuantity: Number(dispatchQty[lineKey(it)]) || 0 })),
       });
       toast.success('Outward DC submitted - stock updated.');
       setDispatching(null);
@@ -161,13 +162,13 @@ export function OutwardDC() {
               <thead><tr className="text-xs" style={{ color: 'var(--text-muted)' }}><th className="text-left py-1">Product</th><th className="text-right">Returned</th><th className="text-right">Dispatched</th><th className="text-right">Dispatch Now</th></tr></thead>
               <tbody>
                 {items.map((it) => (
-                  <tr key={it.product._id} style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                    <td className="py-1.5">{it.product.name}</td>
+                  <tr key={lineKey(it)} style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                    <td className="py-1.5">{lineLabel(it)}</td>
                     <td className="text-right">{it.returned}</td>
                     <td className="text-right">{it.dispatched}</td>
                     <td className="text-right">
-                      <input type="number" min={0} max={it.returned - it.dispatched} value={it.quantity}
-                        onChange={(e) => setItems((prev) => prev.map((p) => (p.product._id === it.product._id ? { ...p, quantity: e.target.value } : p)))}
+                      <input type="number" min={0} step="any" max={it.returned - it.dispatched} value={it.quantity}
+                        onChange={(e) => setItems((prev) => prev.map((p) => (lineKey(p) === lineKey(it) ? { ...p, quantity: e.target.value } : p)))}
                         className="w-20 rounded border px-1.5 py-1 text-xs text-right" style={{ borderColor: 'var(--border-subtle)' }} />
                     </td>
                   </tr>
@@ -187,12 +188,12 @@ export function OutwardDC() {
             <thead><tr className="text-xs" style={{ color: 'var(--text-muted)' }}><th className="text-left py-1">Product</th><th className="text-right">Planned</th><th className="text-right">Dispatched Qty</th></tr></thead>
             <tbody>
               {dispatching.items.map((it) => (
-                <tr key={it.product._id} style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                  <td className="py-1.5">{it.product.name}</td>
+                <tr key={lineKey(it)} style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                  <td className="py-1.5">{lineLabel(it)}</td>
                   <td className="text-right">{it.quantity}</td>
                   <td className="text-right">
-                    <input type="number" min={0} max={it.quantity} value={dispatchQty[it.product._id] ?? ''}
-                      onChange={(e) => setDispatchQty((s) => ({ ...s, [it.product._id]: e.target.value }))}
+                    <input type="number" min={0} step="any" max={it.quantity} value={dispatchQty[lineKey(it)] ?? ''}
+                      onChange={(e) => setDispatchQty((s) => ({ ...s, [lineKey(it)]: e.target.value }))}
                       className="w-20 rounded border px-1.5 py-1 text-xs text-right" style={{ borderColor: 'var(--border-subtle)' }} />
                   </td>
                 </tr>

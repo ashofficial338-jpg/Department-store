@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import {
-  listProducts, productNames, listUnits, createUnit, getProduct, createProduct, updateProduct, deleteProduct,
+  listProducts, productNames, productOverview, listUnits, createUnit, updateUnit, deleteUnit, unitUsage, getProduct, createProduct, updateProduct, deleteProduct,
   uploadProductImages, setPrimaryImage, deleteProductImage, extractFromImage,
 } from '../controllers/productController.js';
 import { exportProducts, importTemplate, importProducts, importUpload } from '../controllers/productTransferController.js';
@@ -14,11 +14,15 @@ router.use(protect, requirePermissionForWrites('products'));
 router.get('/', listProducts);
 router.get('/names', productNames);
 router.get('/units', listUnits);
-router.post('/units', createUnit);
+router.post('/units', adminOnly, createUnit);
+router.get('/units/usage', unitUsage);
+router.put('/units/:code', adminOnly, updateUnit);
+router.delete('/units/:code', adminOnly, deleteUnit);
 // Import / export - declared before '/:id' so the paths aren't read as product ids.
 router.get('/export', requirePermission('products', 'reports'), exportProducts);
 router.get('/import/template', requirePermission('products'), importTemplate);
 router.post('/import', importUpload, importProducts);
+router.get('/:id/overview', requirePermission('products', 'inventory', 'purchasing', 'reports'), productOverview);
 router.get('/:id', getProduct);
 router.post('/', createProduct);
 router.put('/:id', adminOnly, updateProduct);

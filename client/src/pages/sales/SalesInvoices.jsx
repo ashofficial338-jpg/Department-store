@@ -4,6 +4,9 @@ import { PageHeader, DataTable, StatusBadge, SearchBox, Modal, Button, ConfirmDi
 import { salesService } from '../../services/index.js';
 import { useDebounce } from '../../hooks/useDebounce.js';
 import { formatCurrency, formatDateTime } from '../../utils/format.js';
+import SalePaymentPanel from '../../components/sales/SalePaymentPanel.jsx';
+import { useAuth } from '../../context/AuthContext.jsx';
+import { isAdmin } from '../../utils/permissions.js';
 
 export function SalesInvoices() {
   const [rows, setRows] = useState([]);
@@ -14,6 +17,7 @@ export function SalesInvoices() {
   const [detail, setDetail] = useState(null);
   const [cancelTarget, setCancelTarget] = useState(null);
   const debounced = useDebounce(search);
+  const { user } = useAuth();
 
   function load() {
     setLoading(true);
@@ -50,12 +54,13 @@ export function SalesInvoices() {
           { key: 'customer', header: 'Customer', render: (r) => r.customer?.name || 'Walk-in' },
           { key: 'cashier', header: 'Cashier', render: (r) => r.cashier?.name },
           { key: 'grandTotal', header: 'Total', render: (r) => formatCurrency(r.grandTotal) },
+          { key: 'amountDue', header: 'Due', render: (r) => (r.amountDue > 0 ? <span className="text-rose-600">{formatCurrency(r.amountDue)}</span> : '-') },
           { key: 'status', header: 'Status', render: (r) => <StatusBadge status={r.status} /> },
         ]}
       />
 
       <Modal open={!!detail} onClose={() => setDetail(null)} title={detail?.invoiceNumber} size="lg"
-        footer={detail?.status === 'completed' && <Button variant="danger" size="sm" onClick={() => setCancelTarget(detail)}>Cancel Invoice</Button>}
+        footer={detail?.status === 'completed' && isAdmin(user) && !(detail.receipts?.length) && <Button variant="danger" size="sm" onClick={() => setCancelTarget(detail)}>Cancel Invoice</Button>}
       >
         {detail && (
           <div>
@@ -68,7 +73,7 @@ export function SalesInvoices() {
               <tbody>
                 {detail.items.map((it, i) => (
                   <tr key={i} style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                    <td className="py-1.5">{it.productName}</td>
+                    <td className="py-1.5">{it.productName}{it.brandName ? <span style={{ color: 'var(--text-muted)' }}> - {it.brandName}</span> : null}</td>
                     <td className="text-right">{it.quantity}</td>
                     <td className="text-right">{formatCurrency(it.unitPrice)}</td>
                     <td className="text-right">{formatCurrency(it.totalAmount)}</td>
@@ -81,6 +86,9 @@ export function SalesInvoices() {
               <div className="flex justify-between"><span style={{ color: 'var(--text-muted)' }}>CGST</span><span>{formatCurrency(detail.cgst)}</span></div>
               <div className="flex justify-between"><span style={{ color: 'var(--text-muted)' }}>SGST</span><span>{formatCurrency(detail.sgst)}</span></div>
               <div className="flex justify-between font-semibold pt-1 border-t" style={{ borderColor: 'var(--border-subtle)' }}><span>Grand Total</span><span>{formatCurrency(detail.grandTotal)}</span></div>
+            </div>
+            <div className="mt-4 pt-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+              <SalePaymentPanel sale={detail} onChange={(s) => { setDetail({ ...detail, ...s, customer: detail.customer }); load(); }} />
             </div>
           </div>
         )}

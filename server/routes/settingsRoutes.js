@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import {
-  getSettings, updateSettings, permissionCatalog, listRolePermissions, createRole, updateRolePermission, deleteRole,
+  getSettings, updateSettings, getFieldRulesConfig, updateFieldRules, permissionCatalog, listRolePermissions, createRole, updateRolePermission, deleteRole,
 } from '../controllers/settingsController.js';
 import { protect, adminOnly } from '../middleware/auth.js';
 
@@ -10,6 +10,8 @@ router.use(protect);
 // Company/invoice settings are read by POS receipts and invoices for every signed-in user.
 router.get('/', getSettings);
 router.put('/', adminOnly, updateSettings);
+router.get('/field-rules', getFieldRulesConfig);
+router.put('/field-rules', adminOnly, updateFieldRules);
 
 // Roles & Permissions: administrators only.
 router.get('/permissions', adminOnly, permissionCatalog);

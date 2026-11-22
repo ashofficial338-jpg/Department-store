@@ -6,6 +6,8 @@ import recordAudit from '../utils/audit.js';
 import { getPagination, buildPaginatedResponse } from '../utils/pagination.js';
 import { literalRegex, pick } from '../utils/validate.js';
 import Counter from '../models/Counter.js';
+import { ensureCustomerPhoneIndex } from '../models/Customer.js';
+import { requireFields } from '../utils/fieldRules.js';
 
 export const listCustomers = catchAsync(async (req, res) => {
   const { page, limit, skip } = getPagination(req.query);
@@ -51,9 +53,27 @@ async function nextCustomerId() {
   return `CUST${String(c.seq).padStart(5, '0')}`;
 }
 
+// Only the name is essential; mobile and the rest are optional unless made mandatory in Settings.
+function cleanCustomer(body) {
+  const out = pick(body, CREATE_FIELDS);
+  for (const k of Object.keys(out)) if (typeof out[k] === 'string') { out[k] = out[k].trim(); if (!out[k]) delete out[k]; }
+  if (out.phone) {
+    let d = out.phone.replace(/\D/g, '');
+    if (d.length === 12 && d.startsWith('91')) d = d.slice(2);
+    if (!/^[6-9][0-9]{9}$/.test(d)) throw new ApiError(400, 'Mobile number must be 10 digits (starting with 6-9).', { field: 'phone' });
+    out.phone = d;
+  }
+  return out;
+}
+
 export const createCustomer = catchAsync(async (req, res) => {
+  const body = cleanCustomer(req.body);
+  if (!body.name) throw new ApiError(400, 'Customer name is required.', { field: 'name' });
+  await requireFields('customer', body);
+  await ensureCustomerPhoneIndex();
+  if (body.phone && await Customer.exists({ phone: body.phone })) throw new ApiError(409, `A customer with mobile ${body.phone} already exists.`, { field: 'phone' });
   const customerId = await nextCustomerId();
-  const customer = await Customer.create({ ...pick(req.body, CREATE_FIELDS), customerId });
+  const customer = await Customer.create({ ...body, customerId });
   await recordAudit({ req, action: 'customer.create', entity: 'Customer', entityId: customer._id, newValue: { name: customer.name, phone: customer.phone } });
   res.status(201).json({ success: true, data: customer });
 });

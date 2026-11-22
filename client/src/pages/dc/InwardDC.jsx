@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { CheckCircle2, XCircle } from 'lucide-react';
 import { PageHeader, DataTable, Button, StatusBadge, Modal, SearchBox } from '../../components/ui/index.js';
 import { dcService, purchaseService } from '../../services/index.js';
+import { lineKey, lineRef, lineLabel } from '../../utils/lines.js';
 import { formatDateTime, formatCurrency } from '../../utils/format.js';
 
 // Inward DC: goods arriving against a Purchase Invoice. Stock goes up only when the DC is submitted
@@ -50,7 +51,7 @@ export function InwardDC() {
       const full = (await purchaseService.getInvoice(row._id)).data;
       setInvoice(full);
       setItems(full.items
-        .map((it) => ({ product: it.product, invoiced: it.quantity, received: it.receivedQuantity || 0, expectedQuantity: it.quantity - (it.receivedQuantity || 0) }))
+        .map((it) => ({ product: it.product, brand: it.brand, unit: it.unit, baseUnit: it.baseUnit, baseFactor: it.baseFactor, invoiced: it.quantity, received: it.receivedQuantity || 0, expectedQuantity: it.quantity - (it.receivedQuantity || 0) }))
         .filter((it) => it.invoiced - it.received > 0));
     } catch (err) { toast.error(err.message); }
   }
@@ -65,7 +66,7 @@ export function InwardDC() {
     try {
       await dcService.createInward({
         purchaseInvoice: invoice._id,
-        items: lines.map((i) => ({ product: i.product._id, expectedQuantity: Number(i.expectedQuantity) })),
+        items: lines.map((i) => ({ ...lineRef(i), expectedQuantity: Number(i.expectedQuantity) })),
       });
       toast.success('Inward DC created. Submit it with the received quantities to add stock.');
       closeCreate();
@@ -77,7 +78,7 @@ export function InwardDC() {
     setProcessing(row);
     const init = {};
     row.items.forEach((it) => {
-      init[it.product._id] = { receivedQuantity: it.expectedQuantity, qualityCheckPassed: true, rejectReason: '', expiryDate: it.expiryDate ? String(it.expiryDate).slice(0, 10) : '' };
+      init[lineKey(it)] = { receivedQuantity: it.expectedQuantity, qualityCheckPassed: true, rejectReason: '', expiryDate: it.expiryDate ? String(it.expiryDate).slice(0, 10) : '' };
     });
     setProcessItems(init);
   }
@@ -87,8 +88,8 @@ export function InwardDC() {
     try {
       await dcService.processInward(processing._id, {
         items: processing.items.map((it) => {
-          const v = processItems[it.product._id] || {};
-          return { product: it.product._id, receivedQuantity: Number(v.receivedQuantity) || 0, qualityCheckPassed: v.qualityCheckPassed, rejectReason: v.rejectReason, expiryDate: v.expiryDate || undefined };
+          const v = processItems[lineKey(it)] || {};
+          return { ...lineRef(it), receivedQuantity: Number(v.receivedQuantity) || 0, qualityCheckPassed: v.qualityCheckPassed, rejectReason: v.rejectReason, expiryDate: v.expiryDate || undefined };
         }),
       });
       toast.success('Inward DC submitted - stock updated.');
@@ -142,13 +143,13 @@ export function InwardDC() {
               <thead><tr className="text-xs" style={{ color: 'var(--text-muted)' }}><th className="text-left py-1">Product</th><th className="text-right">Invoiced</th><th className="text-right">Received</th><th className="text-right">Expected Now</th></tr></thead>
               <tbody>
                 {items.map((it) => (
-                  <tr key={it.product._id} style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                    <td className="py-1.5">{it.product.name}</td>
+                  <tr key={lineKey(it)} style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                    <td className="py-1.5">{lineLabel(it)}</td>
                     <td className="text-right">{it.invoiced}</td>
                     <td className="text-right">{it.received}</td>
                     <td className="text-right">
-                      <input type="number" min={0} max={it.invoiced - it.received} value={it.expectedQuantity}
-                        onChange={(e) => setItems((prev) => prev.map((p) => (p.product._id === it.product._id ? { ...p, expectedQuantity: e.target.value } : p)))}
+                      <input type="number" min={0} step="any" max={it.invoiced - it.received} value={it.expectedQuantity}
+                        onChange={(e) => setItems((prev) => prev.map((p) => (lineKey(p) === lineKey(it) ? { ...p, expectedQuantity: e.target.value } : p)))}
                         className="w-20 rounded border px-1.5 py-1 text-xs text-right" style={{ borderColor: 'var(--border-subtle)' }} />
                     </td>
                   </tr>
@@ -166,29 +167,29 @@ export function InwardDC() {
         {processing && (
           <div className="space-y-3">
             {processing.items.map((it) => {
-              const val = processItems[it.product._id] || {};
+              const val = processItems[lineKey(it)] || {};
               return (
-                <div key={it.product._id} className="p-3 rounded-xl border" style={{ borderColor: 'var(--border-subtle)' }}>
+                <div key={lineKey(it)} className="p-3 rounded-xl border" style={{ borderColor: 'var(--border-subtle)' }}>
                   <div className="flex justify-between mb-2">
-                    <span className="font-medium text-sm">{it.product.name}</span>
+                    <span className="font-medium text-sm">{lineLabel(it)}</span>
                     <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Expected: {it.expectedQuantity}</span>
                   </div>
                   <div className="flex items-center gap-3 flex-wrap">
-                    <input type="number" value={val.receivedQuantity} min={0} max={it.expectedQuantity}
-                      onChange={(e) => setProcessItems((s) => ({ ...s, [it.product._id]: { ...val, receivedQuantity: e.target.value } }))}
+                    <input type="number" step="any" value={val.receivedQuantity} min={0} max={it.expectedQuantity}
+                      onChange={(e) => setProcessItems((s) => ({ ...s, [lineKey(it)]: { ...val, receivedQuantity: e.target.value } }))}
                       className="w-24 rounded-lg border px-2 py-1.5 text-sm" style={{ borderColor: 'var(--border-subtle)' }} />
-                    <button type="button" onClick={() => setProcessItems((s) => ({ ...s, [it.product._id]: { ...val, qualityCheckPassed: true } }))}
+                    <button type="button" onClick={() => setProcessItems((s) => ({ ...s, [lineKey(it)]: { ...val, qualityCheckPassed: true } }))}
                       className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs ${val.qualityCheckPassed ? 'bg-emerald-100 text-emerald-700' : 'text-graphite-500'}`}>
                       <CheckCircle2 size={14} /> Pass
                     </button>
-                    <button type="button" onClick={() => setProcessItems((s) => ({ ...s, [it.product._id]: { ...val, qualityCheckPassed: false } }))}
+                    <button type="button" onClick={() => setProcessItems((s) => ({ ...s, [lineKey(it)]: { ...val, qualityCheckPassed: false } }))}
                       className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs ${val.qualityCheckPassed === false ? 'bg-rose-100 text-rose-700' : 'text-graphite-500'}`}>
                       <XCircle size={14} /> Reject
                     </button>
                     <label className="flex items-center gap-1.5 text-xs ml-auto" style={{ color: 'var(--text-muted)' }}>
                       Expiry
                       <input type="date" value={val.expiryDate || ''}
-                        onChange={(e) => setProcessItems((s) => ({ ...s, [it.product._id]: { ...val, expiryDate: e.target.value } }))}
+                        onChange={(e) => setProcessItems((s) => ({ ...s, [lineKey(it)]: { ...val, expiryDate: e.target.value } }))}
                         className="rounded-lg border px-2 py-1 text-xs" style={{ borderColor: 'var(--border-subtle)' }} />
                     </label>
                   </div>

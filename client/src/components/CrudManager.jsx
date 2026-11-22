@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { PageHeader, DataTable, Button, Modal, SearchBox, ConfirmDialog } from './ui/index.js';
+import { PageHeader, DataTable, Button, Modal, SearchBox, ConfirmDialog, Textarea } from './ui/index.js';
+import EditRequestDialog from './EditRequestDialog.jsx';
+import { editRequestService } from '../services/index.js';
+import { useFieldRules } from '../hooks/useFieldRules.js';
 import { useDebounce } from '../hooks/useDebounce.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { isAdmin } from '../utils/permissions.js';
@@ -9,7 +12,8 @@ import { isAdmin } from '../utils/permissions.js';
 // Generic list + create/edit modal + delete for straightforward master-data entities
 // (Category, Brand, Store, DistributionCenter, Supplier, TaxRate...).
 // reloadKey: optional; change it to refetch the list (e.g. after a row action done outside this component).
-export function CrudManager({ title, entityLabel, service, columns, fields, defaultValues = {}, searchable = true, extraActions, crumbs, reloadKey }) {
+// requestEntity: server record type (e.g. 'Brand'); non-admin users then send change / removal requests to an admin.
+export function CrudManager({ title, entityLabel, service, columns, fields, defaultValues = {}, searchable = true, extraActions, crumbs, reloadKey, requestEntity }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -23,6 +27,10 @@ export function CrudManager({ title, entityLabel, service, columns, fields, defa
   const debouncedSearch = useDebounce(search);
   const { user } = useAuth();
   const canManage = isAdmin(user);
+  const canRequest = !canManage && !!requestEntity;
+  const { req } = useFieldRules();
+  const [reason, setReason] = useState('');
+  const [removeRequest, setRemoveRequest] = useState(null);
 
   async function load() {
     setLoading(true);
@@ -47,6 +55,7 @@ export function CrudManager({ title, entityLabel, service, columns, fields, defa
   function openEdit(row) {
     setEditing(row);
     setForm({ ...defaultValues, ...row });
+    setReason('');
     setModalOpen(true);
   }
 
@@ -54,7 +63,14 @@ export function CrudManager({ title, entityLabel, service, columns, fields, defa
     e.preventDefault();
     setSaving(true);
     try {
-      if (editing) {
+      if (editing && canRequest) {
+        const changes = {};
+        fields.forEach((f) => { if (String(form[f.name] ?? '') !== String(editing[f.name] ?? '')) changes[f.name] = form[f.name]; });
+        if (!Object.keys(changes).length) { toast.error('Change at least one value.'); return; }
+        if (req('editRequest', 'reason') && !reason.trim()) { toast.error('Tell the administrator why this should change.'); return; }
+        await editRequestService.create({ entity: requestEntity, entityId: editing._id, action: 'update', changes, reason: reason.trim() });
+        toast.success('Change request sent to the administrator.');
+      } else if (editing) {
         await service.update(editing._id, form);
         toast.success(`${entityLabel} updated.`);
       } else {
@@ -93,6 +109,12 @@ export function CrudManager({ title, entityLabel, service, columns, fields, defa
               <button onClick={() => setDeleteTarget(row)} title="Delete" className="p-1.5 rounded-lg hover:bg-rose-50 text-rose-500"><Trash2 size={14} /></button>
             </>
           )}
+          {canRequest && (
+            <>
+              <button onClick={() => openEdit(row)} title="Request a change (admin approval)" className="p-1.5 rounded-lg hover:bg-graphite-100 text-graphite-500"><Pencil size={14} /></button>
+              <button onClick={() => setRemoveRequest(row)} title="Request removal (admin approval)" className="p-1.5 rounded-lg hover:bg-rose-50 text-rose-500"><Trash2 size={14} /></button>
+            </>
+          )}
         </div>
       ),
     },
@@ -116,8 +138,8 @@ export function CrudManager({ title, entityLabel, service, columns, fields, defa
       />
 
       <Modal
-        open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? `Edit ${entityLabel}` : `Add ${entityLabel}`}
-        footer={<><Button variant="outline" onClick={() => setModalOpen(false)}>Cancel</Button><Button type="submit" form="crud-form" loading={saving}>Save</Button></>}
+        open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? (canRequest ? `Request change: ${editing.name || entityLabel}` : `Edit ${entityLabel}`) : `Add ${entityLabel}`}
+        footer={<><Button variant="outline" onClick={() => setModalOpen(false)}>Cancel</Button><Button type="submit" form="crud-form" loading={saving}>{editing && canRequest ? 'Send to Admin' : 'Save'}</Button></>}
       >
         <form id="crud-form" onSubmit={handleSubmit} className="space-y-4">
           {fields.map((f) => (
@@ -135,8 +157,15 @@ export function CrudManager({ title, entityLabel, service, columns, fields, defa
               )}
             </div>
           ))}
+          {editing && canRequest && (
+            <Textarea label="Reason for the change (for the administrator)" required={req('editRequest', 'reason')} rows={2} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />
+          )}
         </form>
       </Modal>
+
+      {requestEntity && (
+        <EditRequestDialog open={!!removeRequest} onClose={() => setRemoveRequest(null)} entity={requestEntity} record={removeRequest} action="delete" />
+      )}
 
       <ConfirmDialog
         open={!!deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={handleDelete}

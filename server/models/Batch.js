@@ -4,6 +4,7 @@ const batchSchema = new mongoose.Schema(
   {
     batchNumber: { type: String, required: true, trim: true },
     product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
+    brand: { type: mongoose.Schema.Types.ObjectId, ref: 'Brand' }, // brand bought (brand-wise stock = sum of its batches)
     supplier: { type: mongoose.Schema.Types.ObjectId, ref: 'Supplier' },
     purchaseInvoice: { type: mongoose.Schema.Types.ObjectId, ref: 'Purchase' },
     manufacturingDate: { type: Date },
@@ -21,6 +22,7 @@ const batchSchema = new mongoose.Schema(
 
 batchSchema.index({ batchNumber: 1 });
 batchSchema.index({ product: 1 });
+batchSchema.index({ brand: 1, product: 1 });
 batchSchema.index({ expiryDate: 1 });
 batchSchema.index({ product: 1, store: 1, status: 1 });
 

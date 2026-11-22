@@ -4,9 +4,11 @@
 //   mass   - base gram:      mg = 0.001 g, g = 1 g, kg = 1000 g
 //   volume - base millilitre: ml = 1 ml,  l = 1000 ml
 //   each   - base piece:     pcs = nos = 1, pair = 2, half_dozen = 6, dozen = 12
+//   length - base centimetre: mm = 0.1 cm, cm = 1, m = 100 cm
 //   pack-type units (packet, box, bottle, ...) are each their own family: they never convert to anything,
 //   except to mass / volume for a product whose net content per pack is configured (product.packUnit +
-//   packQuantity + packQuantityUnit, e.g. 1 packet = 500 g).
+//   packQuantity + packQuantityUnit, e.g. 1 packet = 500 g) or that has a conversion rule in product.conversions
+//   (e.g. 1 box = 24 pcs, 1 bundle = 10 pcs).
 // Custom units (Settings.customUnits) are either a pack-type unit or a mass / volume unit with its size
 // in g / ml (e.g. quintal = 100000 g).
 
@@ -16,6 +18,9 @@ export const BUILTIN_UNITS = [
   { code: 'kg', label: 'Kilogram (kg)', short: 'kg', family: 'mass', factor: 1000 },
   { code: 'ml', label: 'Millilitre (ml)', short: 'ml', family: 'volume', factor: 1 },
   { code: 'l', label: 'Litre (L)', short: 'L', family: 'volume', factor: 1000 },
+  { code: 'mm', label: 'Millimetre (mm)', short: 'mm', family: 'length', factor: 0.1 },
+  { code: 'cm', label: 'Centimetre (cm)', short: 'cm', family: 'length', factor: 1 },
+  { code: 'm', label: 'Meter (m)', short: 'm', family: 'length', factor: 100 },
   { code: 'pcs', label: 'Piece (pcs)', short: 'pc', family: 'each', factor: 1 },
   { code: 'nos', label: 'Number (Nos)', short: 'nos', family: 'each', factor: 1 },
   { code: 'pair', label: 'Pair', short: 'pair', family: 'each', factor: 2 },
@@ -31,6 +36,7 @@ const ALIASES = {
   ltr: 'l', litre: 'l', liter: 'l', litres: 'l', liters: 'l', lt: 'l', millilitre: 'ml', milliliter: 'ml', mls: 'ml',
   pc: 'pcs', piece: 'pcs', pieces: 'pcs', no: 'nos', number: 'nos', pkt: 'packet', packets: 'packet', halfdozen: 'half_dozen',
   'half dozen': 'half_dozen', 'half-dozen': 'half_dozen', doz: 'dozen', btl: 'bottle', ea: 'pcs', each: 'pcs', unit: 'pcs',
+  meter: 'm', metre: 'm', meters: 'm', metres: 'm', mtr: 'm', mtrs: 'm', centimetre: 'cm', centimeter: 'cm', millimetre: 'mm', millimeter: 'mm', bdl: 'bundle', bx: 'box',
 };
 
 export const normCode = (v) => {
@@ -43,7 +49,7 @@ export function unitMap(customUnits = []) {
   const map = new Map(BUILTIN_UNITS.map((u) => [u.code, u]));
   for (const c of customUnits || []) {
     if (!c?.code || map.has(c.code)) continue;
-    const family = c.family === 'mass' || c.family === 'volume' ? c.family : `pack:${c.code}`;
+    const family = ['mass', 'volume', 'each', 'length'].includes(c.family) ? c.family : `pack:${c.code}`;
     map.set(c.code, { code: c.code, label: c.label || c.code, short: c.short || c.code, family, factor: family.startsWith('pack:') ? 1 : Number(c.factor) || 1, custom: true });
   }
   return map;
@@ -59,6 +65,12 @@ function resolve(code, units, product) {
   const u = units.get(code);
   if (!u) return null;
   const p = product || {};
+  // Product conversion rules: 1 <unit> = <quantity> <ofUnit>, e.g. 1 box = 24 pcs, 1 bundle = 10 pcs, 1 packet = 500 g.
+  const rule = (p.conversions || []).find((c) => c && c.unit === code && Number(c.quantity) > 0 && c.ofUnit && c.ofUnit !== code);
+  if (rule) {
+    const inner = units.get(rule.ofUnit);
+    if (inner && !inner.family.startsWith('pack:')) return { ...u, family: inner.family, factor: Number(rule.quantity) * inner.factor };
+  }
   if (p.packUnit && code === p.packUnit && p.packQuantity > 0 && units.get(p.packQuantityUnit)) {
     const inner = units.get(p.packQuantityUnit);
     if (inner.family === 'mass' || inner.family === 'volume') return { ...u, family: inner.family, factor: p.packQuantity * inner.factor };
@@ -84,6 +96,14 @@ export function convert(qty, from, to, units, product) {
 }
 
 export const isCountFamily = (u) => !!u && (u.family === 'each' || u.family.startsWith('pack:'));
+// Weight, volume and length can be split (decimals); pieces and packs are counted whole.
+export const allowsDecimal = (u) => !!u && ['mass', 'volume', 'length'].includes(u.family);
+
+// A product's own rate for a unit (unitPrices), e.g. 1 box sold at Rs 250 instead of 24 x Rs 11. kind: 'sellingPrice' | 'purchasePrice'.
+export function unitRate(product, unit, kind = 'sellingPrice') {
+  const r = (product?.unitPrices || []).find((x) => x && x.unit === unit && Number(x[kind]) > 0);
+  return r ? Number(r[kind]) : null;
+}
 
 // The unit setup of a product with defaults for products saved before units existed:
 // selling unit from the old `unit` field (PCS / KG / ...), base (stock) unit = selling unit.

@@ -16,6 +16,8 @@ router.get('/:id/dashboard', canRead, c.vendorDashboard);
 router.get('/:id/checklist', canRead, c.checklist);
 router.get('/:id/documents/:docId', canRead, c.downloadDocument);
 router.post('/', canWrite, c.create);
+// Purchase entry can register a new supplier (name only; it starts as Pending Verification).
+router.post('/quick', requirePermission('vendors', 'purchasing'), c.quickCreate);
 router.put('/:id', canWrite, c.update);
 router.delete('/:id', canWrite, adminOnly, c.remove);
 router.post('/:id/documents', canWrite, docUpload, c.uploadDocument);

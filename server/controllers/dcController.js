@@ -15,6 +15,12 @@ import { requireId, number } from '../utils/validate.js';
 import { applyStockDelta, recordInventoryTransaction } from './inventoryController.js';
 import { assertActiveStore, assertActiveDC, mainStoreId } from '../utils/storeGuard.js';
 import { assertVerifiedVendor } from '../utils/vendorGuard.js';
+import { lineKey, findLine, matchesLine } from '../utils/lineMatch.js';
+import { lineUom } from './purchaseController.js';
+import { round } from '../utils/units.js';
+
+// Stock is kept in the product's base unit: a line entered in kg / box converts with its baseFactor.
+const toBase = (qty, line) => round(qty * (line?.baseFactor || 1), 6);
 
 // Stock rule: Purchase Orders, Purchase Invoices and Purchase Returns never move stock. Stock goes UP only
 // when an Inward DC (against a Purchase Invoice) is submitted, and DOWN only when an Outward DC (against a
@@ -43,19 +49,19 @@ export const createInwardDC = catchAsync(async (req, res) => {
   // Default: every invoice line still to come in. A partial delivery can name the lines and quantities.
   const wanted = Array.isArray(items) && items.length
     ? items
-    : invoice.items.map((l) => ({ product: l.product, expectedQuantity: l.quantity - (l.receivedQuantity || 0) })).filter((l) => l.expectedQuantity > 0);
+    : invoice.items.map((l) => ({ product: l.product, brand: l.brand || null, expectedQuantity: l.quantity - (l.receivedQuantity || 0) })).filter((l) => l.expectedQuantity > 0);
   const seen = new Set();
   const lines = [];
   for (const it of wanted) {
-    const line = invoice.items.find((l) => String(l.product) === String(it?.product));
+    const line = findLine(invoice.items, it);
     if (!line) throw new ApiError(400, 'An item on this DC is not on the purchase invoice.');
-    if (seen.has(String(line.product))) throw new ApiError(400, 'An item appears twice on the DC.');
-    seen.add(String(line.product));
+    if (seen.has(lineKey(line))) throw new ApiError(400, 'An item appears twice on the DC.');
+    seen.add(lineKey(line));
     const left = line.quantity - (line.receivedQuantity || 0);
-    const expectedQuantity = number(it.expectedQuantity, 'Expected quantity', { min: 0, integer: true, exclusiveMin: true });
+    const expectedQuantity = round(number(it.expectedQuantity, 'Expected quantity', { min: 0, integer: !line.decimal, exclusiveMin: true }), 3);
     if (expectedQuantity > left) throw new ApiError(400, `Only ${left} of this item is still to be received on the invoice (invoiced ${line.quantity}).`);
     lines.push({
-      product: line.product, expectedQuantity, receivedQuantity: 0, unitPrice: line.unitPrice,
+      product: line.product, brand: line.brand, ...lineUom(line), expectedQuantity, receivedQuantity: 0, unitPrice: line.unitPrice,
       batchNumber: it.batchNumber || line.batchNumber, manufacturingDate: line.manufacturingDate,
       expiryDate: optionalDate(it.expiryDate, 'Expiry date') || line.expiryDate,
     });
@@ -79,14 +85,14 @@ export const listInwardDC = catchAsync(async (req, res) => {
   if (req.query.distributionCenter) filter.distributionCenter = req.query.distributionCenter;
   if (req.query.purchaseInvoice) filter.purchaseInvoice = requireId(req.query.purchaseInvoice, 'Purchase invoice');
   const [docs, total] = await Promise.all([
-    InwardDC.find(filter).populate('distributionCenter', 'name code').populate('vendor', 'name verificationStatus').populate('items.product', 'name sku').sort({ createdAt: -1 }).skip(skip).limit(limit),
+    InwardDC.find(filter).populate('distributionCenter', 'name code').populate('vendor', 'name verificationStatus').populate('items.product', 'name sku').populate('items.brand', 'name').sort({ createdAt: -1 }).skip(skip).limit(limit),
     InwardDC.countDocuments(filter),
   ]);
   res.json({ success: true, ...buildPaginatedResponse({ docs, total, page, limit }) });
 });
 
 export const getInwardDC = catchAsync(async (req, res) => {
-  const doc = await InwardDC.findById(req.params.id).populate('distributionCenter vendor items.product items.batch');
+  const doc = await InwardDC.findById(req.params.id).populate('distributionCenter vendor items.product items.batch').populate('items.brand', 'name');
   if (!doc) throw new ApiError(404, 'Inward DC document not found.');
   res.json({ success: true, data: doc });
 });
@@ -104,9 +110,9 @@ export const processInwardDC = catchAsync(async (req, res) => {
   // Validate every line first.
   const accepted = []; // { line, qty }
   for (const incoming of items) {
-    const line = doc.items.find((l) => String(l.product) === String(incoming?.product));
+    const line = findLine(doc.items, incoming);
     if (!line) throw new ApiError(400, 'A received item is not on this inward DC.');
-    const qty = number(incoming.receivedQuantity ?? 0, 'Received quantity', { min: 0, integer: true });
+    const qty = round(number(incoming.receivedQuantity ?? 0, 'Received quantity', { min: 0, integer: !line.decimal }), 3);
     if (qty > line.expectedQuantity) throw new ApiError(400, `Received quantity (${qty}) cannot be more than expected (${line.expectedQuantity}).`);
     line.receivedQuantity = qty;
     line.qualityCheckPassed = incoming.qualityCheckPassed !== false;
@@ -122,7 +128,7 @@ export const processInwardDC = catchAsync(async (req, res) => {
     invoice = await PurchaseInvoice.findById(doc.purchaseInvoice);
     if (!invoice || invoice.status === 'cancelled') throw new ApiError(400, 'The purchase invoice for this DC is missing or cancelled.');
     for (const { line, qty } of accepted) {
-      const il = invoice.items.find((l) => String(l.product) === String(line.product));
+      const il = invoice.items.find((l) => lineKey(l) === lineKey(line));
       const left = il ? il.quantity - (il.receivedQuantity || 0) : 0;
       if (qty > left) throw new ApiError(400, `Only ${left} of an item is still due on invoice ${invoice.invoiceNumber} - another DC has already received the rest.`);
     }
@@ -139,7 +145,7 @@ export const processInwardDC = catchAsync(async (req, res) => {
   // Book the received quantities on the invoice (only if it is unchanged since we checked it).
   if (invoice) {
     const nextItems = invoice.items.map((l) => {
-      const a = accepted.find((x) => String(x.line.product) === String(l.product));
+      const a = accepted.find((x) => lineKey(x.line) === lineKey(l));
       const o = l.toObject();
       return a ? { ...o, receivedQuantity: (o.receivedQuantity || 0) + a.qty } : o;
     });
@@ -162,21 +168,28 @@ export const processInwardDC = catchAsync(async (req, res) => {
       const product = await Product.findById(line.product).select('sku sellingPrice purchasePrice').lean();
       const batch = await Batch.create({
         batchNumber: line.batchNumber || `${doc.docNumber}-${product?.sku || ''}`,
-        product: line.product, supplier: doc.vendor, purchaseInvoice: doc.purchase,
+        product: line.product, brand: line.brand, supplier: doc.vendor, purchaseInvoice: doc.purchase,
         manufacturingDate: line.manufacturingDate, expiryDate: line.expiryDate,
-        purchasePrice: line.unitPrice ?? product?.purchasePrice ?? 0, sellingPrice: product?.sellingPrice ?? 0,
-        quantity: qty, availableQuantity: qty, store: central,
+        // Batches are in the stock unit: rate per stock unit = rate per line unit / baseFactor.
+        purchasePrice: line.unitPrice !== undefined ? round(line.unitPrice / (line.baseFactor || 1), 4) : product?.purchasePrice ?? 0, sellingPrice: product?.sellingPrice ?? 0,
+        quantity: toBase(qty, line), availableQuantity: toBase(qty, line), store: central,
       });
       batchId = batch._id;
       line.batch = batch._id;
-      if (doc.purchase) await Purchase.updateOne({ _id: doc.purchase, 'items.product': line.product }, { $inc: { 'items.$.receivedQuantity': qty } });
+      if (doc.purchase) {
+        await Purchase.updateOne(
+          { _id: doc.purchase },
+          { $inc: { 'items.$[l].receivedQuantity': qty } },
+          { arrayFilters: [{ 'l.product': line.product, 'l.brand': line.brand || null }] },
+        );
+      }
     }
-    await applyStockDelta({ product: line.product, delta: qty });
+    await applyStockDelta({ product: line.product, delta: toBase(qty, line) });
     await recordInventoryTransaction({
-      product: line.product, batch: batchId, quantity: qty, type: 'inward_dc',
+      product: line.product, batch: batchId, quantity: toBase(qty, line), type: 'inward_dc',
       destination: central, destinationModel: 'Store',
       referenceType: 'InwardDC', referenceId: doc._id, referenceNumber: doc.docNumber,
-      notes: doc.invoiceNumber ? `Against ${doc.invoiceNumber} / ${doc.poNumber}` : undefined, user: req.user._id,
+      notes: [doc.invoiceNumber ? `Against ${doc.invoiceNumber} / ${doc.poNumber}` : '', line.unit && (line.baseFactor || 1) !== 1 ? `${qty} ${line.unit}` : ''].filter(Boolean).join(' · ') || undefined, user: req.user._id,
     });
   }
 
@@ -208,18 +221,18 @@ export const createOutwardDC = catchAsync(async (req, res) => {
 
   const wanted = Array.isArray(items) && items.length
     ? items
-    : ret.items.map((l) => ({ product: l.product, quantity: l.quantity - (l.dispatchedQuantity || 0) })).filter((l) => l.quantity > 0);
+    : ret.items.map((l) => ({ product: l.product, brand: l.brand || null, quantity: l.quantity - (l.dispatchedQuantity || 0) })).filter((l) => l.quantity > 0);
   const seen = new Set();
   const lines = [];
   for (const it of wanted) {
-    const line = ret.items.find((l) => String(l.product) === String(it?.product));
+    const line = findLine(ret.items, it);
     if (!line) throw new ApiError(400, 'An item on this DC is not on the purchase return.');
-    if (seen.has(String(line.product))) throw new ApiError(400, 'An item appears twice on the DC.');
-    seen.add(String(line.product));
+    if (seen.has(lineKey(line))) throw new ApiError(400, 'An item appears twice on the DC.');
+    seen.add(lineKey(line));
     const left = line.quantity - (line.dispatchedQuantity || 0);
-    const quantity = number(it.quantity, 'Quantity', { min: 0, integer: true, exclusiveMin: true });
+    const quantity = round(number(it.quantity, 'Quantity', { min: 0, integer: !line.decimal, exclusiveMin: true }), 3);
     if (quantity > left) throw new ApiError(400, `Only ${left} of this item is still to be sent back on the return (returned ${line.quantity}).`);
-    lines.push({ product: line.product, quantity });
+    lines.push({ product: line.product, brand: line.brand, ...lineUom(line), quantity });
   }
   if (!lines.length) throw new ApiError(400, 'Nothing is left to dispatch on this purchase return.');
 
@@ -240,14 +253,14 @@ export const listOutwardDC = catchAsync(async (req, res) => {
   if (req.query.sourceDC) filter.sourceDC = req.query.sourceDC;
   if (req.query.purchaseReturn) filter.purchaseReturn = requireId(req.query.purchaseReturn, 'Purchase return');
   const [docs, total] = await Promise.all([
-    OutwardDC.find(filter).populate('sourceDC', 'name code').populate('vendor', 'name verificationStatus').populate('items.product', 'name sku').sort({ createdAt: -1 }).skip(skip).limit(limit),
+    OutwardDC.find(filter).populate('sourceDC', 'name code').populate('vendor', 'name verificationStatus').populate('items.product', 'name sku').populate('items.brand', 'name').sort({ createdAt: -1 }).skip(skip).limit(limit),
     OutwardDC.countDocuments(filter),
   ]);
   res.json({ success: true, ...buildPaginatedResponse({ docs, total, page, limit }) });
 });
 
 export const getOutwardDC = catchAsync(async (req, res) => {
-  const doc = await OutwardDC.findById(req.params.id).populate('sourceDC destination items.product items.batch approvedBy responsibleEmployee');
+  const doc = await OutwardDC.findById(req.params.id).populate('sourceDC destination items.product items.batch approvedBy responsibleEmployee').populate('items.brand', 'name');
   if (!doc) throw new ApiError(404, 'Outward DC document not found.');
   res.json({ success: true, data: doc });
 });
@@ -260,9 +273,9 @@ async function takeStock(product, qty) {
 }
 
 // Reduce the batches this order brought in (oldest expiry first), so expiry tracking stays right.
-async function takeFromBatches(product, purchase, qty) {
+async function takeFromBatches(product, purchase, qty, brand) {
   let left = qty;
-  const batches = await Batch.find({ product, ...(purchase ? { purchaseInvoice: purchase } : {}), availableQuantity: { $gt: 0 } }).sort({ expiryDate: 1, createdAt: 1 }).select('_id availableQuantity').lean();
+  const batches = await Batch.find({ product, ...(purchase ? { purchaseInvoice: purchase } : {}), ...(brand ? { brand } : {}), availableQuantity: { $gt: 0 } }).sort({ expiryDate: 1, createdAt: 1 }).select('_id availableQuantity').lean();
   let first;
   for (const b of batches) {
     if (left <= 0) break;
@@ -285,18 +298,18 @@ export const submitOutwardDC = catchAsync(async (req, res) => {
   const ret = await PurchaseReturn.findById(doc.purchaseReturn);
   if (!ret) throw new ApiError(400, 'The purchase return for this DC was not found.');
   const central = await mainStoreId();
-  const qtyFor = new Map(items.map((i) => [String(i?.product), i?.dispatchedQuantity]));
   const moves = [];
   for (const line of doc.items) {
-    const raw = qtyFor.has(String(line.product)) ? qtyFor.get(String(line.product)) : line.quantity;
-    const qty = number(raw ?? 0, 'Dispatched quantity', { min: 0, integer: true });
+    const sent = items.find((i) => matchesLine(i, line));
+    const raw = sent ? sent.dispatchedQuantity : line.quantity;
+    const qty = round(number(raw ?? 0, 'Dispatched quantity', { min: 0, integer: !line.decimal }), 3);
     if (qty > line.quantity) throw new ApiError(400, `Dispatched quantity (${qty}) cannot be more than planned (${line.quantity}).`);
-    const rl = ret.items.find((l) => String(l.product) === String(line.product));
+    const rl = ret.items.find((l) => lineKey(l) === lineKey(line));
     const left = rl ? rl.quantity - (rl.dispatchedQuantity || 0) : 0;
     if (qty > left) throw new ApiError(400, `Only ${left} of an item is still to be sent back on return ${ret.returnNumber}.`);
     if (qty > 0) {
       const have = (await Inventory.findOne({ product: line.product, store: central }).select('currentStock').lean())?.currentStock || 0;
-      if (have < qty) throw new ApiError(400, `Not enough stock to dispatch ${qty} of an item - only ${have} on hand.`);
+      if (have < toBase(qty, line)) throw new ApiError(400, `Not enough stock to dispatch ${qty} ${line.unit || ''} of an item - only ${have} ${line.baseUnit || ''} on hand.`);
     }
     line.dispatchedQuantity = qty;
     if (qty > 0) moves.push({ line, qty });
@@ -311,7 +324,7 @@ export const submitOutwardDC = catchAsync(async (req, res) => {
 
   // Book dispatched quantities on the return (only if unchanged since we checked it).
   const nextItems = ret.items.map((l) => {
-    const m = moves.find((x) => String(x.line.product) === String(l.product));
+    const m = moves.find((x) => lineKey(x.line) === lineKey(l));
     const o = l.toObject();
     return m ? { ...o, dispatchedQuantity: (o.dispatchedQuantity || 0) + m.qty } : o;
   });
@@ -328,8 +341,8 @@ export const submitOutwardDC = catchAsync(async (req, res) => {
   // Take the stock out; if a line runs short (stock sold meanwhile) undo everything done so far.
   const done = [];
   for (const m of moves) {
-    if (!(await takeStock(m.line.product, m.qty))) {
-      for (const d of done) await applyStockDelta({ product: d.line.product, delta: d.qty });
+    if (!(await takeStock(m.line.product, toBase(m.qty, m.line)))) {
+      for (const d of done) await applyStockDelta({ product: d.line.product, delta: toBase(d.qty, d.line) });
       await PurchaseReturn.updateOne({ _id: ret._id }, { $set: { items: ret.items.map((l) => l.toObject()), status: ret.status }, $inc: { __v: 1 } });
       await OutwardDC.updateOne({ _id: doc._id }, { $set: { stockPosted: false } });
       throw new ApiError(400, 'Stock changed while dispatching - not enough left for one item. Nothing was dispatched; check the stock and try again.');
@@ -337,10 +350,10 @@ export const submitOutwardDC = catchAsync(async (req, res) => {
     done.push(m);
   }
   for (const m of moves) {
-    const batch = await takeFromBatches(m.line.product, ret.purchase, m.qty);
+    const batch = await takeFromBatches(m.line.product, ret.purchase, toBase(m.qty, m.line), m.line.brand);
     if (batch) m.line.batch = batch;
     await recordInventoryTransaction({
-      product: m.line.product, batch, quantity: -m.qty, type: 'outward_dc',
+      product: m.line.product, batch, quantity: -toBase(m.qty, m.line), type: 'outward_dc',
       source: central, sourceModel: 'Store',
       referenceType: 'OutwardDC', referenceId: doc._id, referenceNumber: doc.docNumber,
       notes: `Purchase return ${ret.returnNumber}${ret.invoiceNumber ? ` (${ret.invoiceNumber})` : ''}`, user: req.user._id,

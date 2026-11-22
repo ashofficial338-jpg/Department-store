@@ -379,8 +379,8 @@ export async function outstanding() {
   const [customers, bills] = await Promise.all([
     Customer.find({ outstanding: { $gt: 0 } }).select('name phone outstanding creditLimit updatedAt').sort({ outstanding: -1 }).lean(),
     Purchase.aggregate([
-      { $match: { status: { $in: ['received', 'invoiced'] } } },
-      { $project: { vendor: 1, poNumber: 1, invoiceNumber: 1, createdAt: 1, grandTotal: 1, amountPaid: 1, balance: { $subtract: ['$grandTotal', '$amountPaid'] } } },
+      { $match: { status: { $in: PAYABLE_STATUSES } } },
+      { $project: { vendor: 1, poNumber: 1, invoiceNumber: 1, createdAt: 1, grandTotal: 1, amountPaid: 1, billed: BILLED_EXPR, balance: { $subtract: [BILLED_EXPR, '$amountPaid'] } } },
       { $match: { balance: { $gt: 0.009 } } },
       { $lookup: { from: 'vendors', localField: 'vendor', foreignField: '_id', as: 'v' } },
       { $sort: { createdAt: 1 } },
@@ -391,7 +391,7 @@ export async function outstanding() {
     ...customers.map((c) => ({ type: 'Receivable', party: c.name, reference: c.phone, date: c.updatedAt, ageDays: null, total: null, paid: null, due: round2(c.outstanding) })),
     ...bills.map((b) => ({
       type: 'Payable', party: b.v[0]?.name || '—', reference: b.invoiceNumber ? `${b.poNumber} / ${b.invoiceNumber}` : b.poNumber, date: b.createdAt,
-      ageDays: Math.floor((now - new Date(b.createdAt).getTime()) / DAY_MS), total: round2(b.grandTotal), paid: round2(b.amountPaid), due: round2(b.balance),
+      ageDays: Math.floor((now - new Date(b.createdAt).getTime()) / DAY_MS), total: round2(b.billed), paid: round2(b.amountPaid), due: round2(b.balance),
     })),
   ];
   return {

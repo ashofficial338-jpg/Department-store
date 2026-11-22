@@ -108,7 +108,7 @@ export const productReport = catchAsync(async (req, res) => {
   const rows = await Sale.aggregate([
     { $match: { createdAt: { $gte: from, $lte: to }, status: { $in: ['completed', 'partially_returned'] } } },
     { $unwind: '$items' },
-    { $group: { _id: '$items.product', unitsSold: { $sum: '$items.quantity' }, revenue: { $sum: '$items.totalAmount' } } },
+    { $group: { _id: '$items.product', unitsSold: { $sum: { $ifNull: ['$items.baseQty', '$items.quantity'] } }, revenue: { $sum: '$items.totalAmount' } } },
     { $lookup: { from: 'products', localField: '_id', foreignField: '_id', as: 'product' } },
     { $unwind: '$product' },
     { $project: { name: '$product.name', sku: '$product.sku', unitsSold: 1, revenue: 1 } },

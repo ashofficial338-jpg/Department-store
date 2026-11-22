@@ -10,6 +10,10 @@ export const vendorService = {
   ...createResourceService('/vendors'),
   dashboard: (id) => api.get(`/vendors/${id}/dashboard`).then((r) => r.data),
   verified: () => api.get('/vendors/all', { params: { verified: true } }).then((r) => r.data),
+  // Purchase entry: verified suppliers plus new ones awaiting verification (their orders stay drafts).
+  forPurchase: () => api.get('/vendors/all', { params: { forPurchase: true } }).then((r) => r.data),
+  // Add a supplier during purchase entry (name only; an existing supplier with the same name / mobile / GSTIN is re-used).
+  quick: (payload) => api.post('/vendors/quick', payload).then((r) => r.data),
   checklist: (id) => api.get(`/vendors/${id}/checklist`).then((r) => r.data),
   verify: (id, payload) => api.post(`/vendors/${id}/verify`, payload).then((r) => r.data),
   uploadDocument: (id, docType, file) => {
@@ -50,7 +54,11 @@ export const productService = {
   names: () => api.get('/products/names').then((r) => r.data),
   units: () => api.get('/products/units').then((r) => r.data),
   createUnit: (payload) => api.post('/products/units', payload).then((r) => r.data),
+  updateUnit: (code, payload) => api.put(`/products/units/${code}`, payload).then((r) => r.data),
+  deleteUnit: (code) => api.delete(`/products/units/${code}`).then((r) => r.data),
+  unitUsage: () => api.get('/products/units/usage').then((r) => r.data),
   getOne: (id) => api.get(`/products/${id}`).then((r) => r.data),
+  overview: (id) => api.get(`/products/${id}/overview`).then((r) => r.data),
   create: (payload) => api.post('/products', payload).then((r) => r.data),
   update: (id, payload) => api.put(`/products/${id}`, payload).then((r) => r.data),
   remove: (id) => api.delete(`/products/${id}`).then((r) => r.data),
@@ -133,6 +141,11 @@ export const purchaseService = {
   getOne: (id) => api.get(`/purchases/${id}`).then((r) => r.data),
   create: (payload) => api.post('/purchases', payload).then((r) => r.data),
   approve: (id) => api.post(`/purchases/${id}/approve`).then((r) => r.data),
+  update: (id, payload) => api.put(`/purchases/${id}`, payload).then((r) => r.data), // administrators only
+  cancel: (id, payload) => api.delete(`/purchases/${id}`, { data: payload }).then((r) => r.data), // administrators only
+  quickProduct: (name) => api.post('/purchases/quick/product', { name }).then((r) => r.data),
+  quickBrand: (name, product) => api.post('/purchases/quick/brand', { name, product }).then((r) => r.data),
+  productBrands: (productId) => api.get(`/purchase-analysis/product/${productId}/brands`).then((r) => r.data),
   pay: (id, payload) => api.post(`/purchases/${id}/pay`, payload).then((r) => r.data),
   createReturn: (payload) => api.post('/purchases/returns', payload).then((r) => r.data),
   listReturns: (params) => api.get('/purchases/returns', { params }).then((r) => r.data),
@@ -140,6 +153,7 @@ export const purchaseService = {
   listInvoices: (params) => api.get('/purchases/invoices', { params }).then((r) => r.data),
   getInvoice: (id) => api.get(`/purchases/invoices/${id}`).then((r) => r.data),
   createInvoice: (payload) => api.post('/purchases/invoices', payload).then((r) => r.data),
+  payInvoice: (id, payload) => api.post(`/purchases/invoices/${id}/pay`, payload).then((r) => r.data),
 };
 
 export const paymentService = {
@@ -240,6 +254,34 @@ export const dashboardService = {
   categoryBrandSales: (params) => api.get('/dashboard/category-brand-sales', { params }).then((r) => r.data),
 };
 
+// Sales & purchase money flow: bill receipts, brand stock at billing, customer / supplier ledgers, dashboard summary.
+export const tradeService = {
+  summary: (params) => api.get('/trade/summary', { params, timeout: 60000 }).then((r) => r.data),
+  saleBrands: (productId) => api.get(`/trade/sale-brands/${productId}`).then((r) => r.data),
+  receive: (saleId, payload) => api.post(`/trade/sales/${saleId}/receipts`, payload).then((r) => r.data),
+  ledger: (kind, id, params) => api.get(`/trade/ledger/${kind}/${id}`, { params }).then((r) => r.data),
+  exportLedger: (kind, id, params, format) => downloadFile(`/trade/ledger/${kind}/${id}`, { ...params, format }, `${kind}-ledger.${format}`),
+};
+
+// Edit requests: non-admin users ask; administrators approve or reject. Activity = who created / changed a record.
+export const editRequestService = {
+  list: (params) => api.get('/edit-requests', { params }).then((r) => r.data),
+  count: () => api.get('/edit-requests/count').then((r) => r.data),
+  create: (payload) => api.post('/edit-requests', payload).then((r) => r.data),
+  approve: (id, payload) => api.post(`/edit-requests/${id}/approve`, payload).then((r) => r.data),
+  reject: (id, payload) => api.post(`/edit-requests/${id}/reject`, payload).then((r) => r.data),
+  withdraw: (id) => api.post(`/edit-requests/${id}/withdraw`).then((r) => r.data),
+  activity: (entity, id) => api.get(`/edit-requests/activity/${entity}/${id}`).then((r) => r.data),
+};
+
+// Purchase Analysis: purchase register, product / brand / supplier / date reports, rate history, exports.
+export const purchaseAnalysisService = {
+  options: () => api.get('/purchase-analysis/options').then((r) => r.data),
+  lines: (params) => api.get('/purchase-analysis/lines', { params, timeout: 60000 }).then((r) => r.data),
+  summary: (params) => api.get('/purchase-analysis/summary', { params, timeout: 60000 }).then((r) => r.data),
+  exportFile: (params, format) => downloadFile('/purchase-analysis/export', { ...params, format }, `purchase-report.${format}`),
+};
+
 export const auditLogService = {
   list: (params) => api.get('/audit-logs', { params }).then((r) => r.data),
 };
@@ -247,6 +289,8 @@ export const auditLogService = {
 export const settingsService = {
   get: () => api.get('/settings').then((r) => r.data),
   update: (payload) => api.put('/settings', payload).then((r) => r.data),
+  fieldRules: () => api.get('/settings/field-rules').then((r) => r.data),
+  updateFieldRules: (rules) => api.put('/settings/field-rules', { rules }).then((r) => r.data),
   permissions: () => api.get('/settings/permissions').then((r) => r.data),
   roles: () => api.get('/settings/roles').then((r) => r.data),
   createRole: (payload) => api.post('/settings/roles', payload).then((r) => r.data),

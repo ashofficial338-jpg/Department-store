@@ -17,7 +17,8 @@ const EMAIL_RX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PIN_RX = /^[1-9][0-9]{5}$/;
 
 // Returns { field: message } for every problem (empty object = OK). Bank fields use 'bankDetails.x'.
-export function validateVendor(f) {
+// `req(entity, field)` tells which optional fields an administrator made mandatory (Settings > Mandatory Fields).
+export function validateVendor(f, req = () => false) {
   const e = {};
   const phone = normPhone(f.phone);
   const alt = normPhone(f.alternatePhone);
@@ -28,7 +29,12 @@ export function validateVendor(f) {
   const ifsc = compact(f.bankDetails?.ifsc);
 
   if (!String(f.name || '').trim()) e.name = 'Vendor name is required.';
-  if (!PHONE_RX.test(phone)) e.phone = 'Enter a valid 10-digit mobile number (starting with 6-9).';
+  if (phone && !PHONE_RX.test(phone)) e.phone = 'Enter a valid 10-digit mobile number (starting with 6-9).';
+  const must = { phone, contactPerson: f.contactPerson, email: f.email, address: f.address, city: f.city, pincode: pin, gstin, pan, 'bankDetails.accountNumber': acct, 'bankDetails.ifsc': ifsc };
+  const ruleKey = { 'bankDetails.accountNumber': 'bankAccount', 'bankDetails.ifsc': 'ifsc' };
+  for (const [k, v] of Object.entries(must)) {
+    if (!e[k] && !String(v || '').trim() && req('vendor', ruleKey[k] || k)) e[k] = 'This field is mandatory.';
+  }
   if (alt && !PHONE_RX.test(alt)) e.alternatePhone = 'Enter a valid 10-digit mobile number.';
   if (f.email && !EMAIL_RX.test(String(f.email).trim())) e.email = 'Enter a valid email address.';
   if (pin && !PIN_RX.test(pin)) e.pincode = 'PIN code must be 6 digits.';

@@ -24,7 +24,7 @@ export function SalesReturns() {
 
   useEffect(() => {
     if (!invoiceSearch.trim()) { setMatches([]); return; }
-    salesService.list({ search: invoiceSearch, status: 'completed', limit: 5 }).then((r) => setMatches(r.data));
+    salesService.list({ search: invoiceSearch, status: 'completed,partially_returned', limit: 8 }).then((r) => setMatches(r.data));
   }, [invoiceSearch]);
 
   async function selectSale(sale) {
@@ -35,14 +35,17 @@ export function SalesReturns() {
 
   async function handleSubmit(e) {
     e.preventDefault();
+    // One entry per bill line (a product can be on a bill more than once, e.g. different brands or units).
     const items = selectedSale.items
-      .filter((it) => Number(returnQty[it.product._id || it.product]) > 0)
-      .map((it) => ({ product: it.product._id || it.product, quantity: Number(returnQty[it.product._id || it.product]), restockStatus: restockStatus[it.product._id || it.product] || 'restocked' }));
+      .map((it, i) => ({ it, i }))
+      .filter(({ i }) => Number(returnQty[i]) > 0)
+      .map(({ i }) => ({ lineIndex: i, quantity: Number(returnQty[i]), restockStatus: restockStatus[i] || 'restocked' }));
     if (!items.length) { toast.error('Enter a return quantity for at least one item.'); return; }
     setSaving(true);
     try {
-      await salesService.createReturn({ saleId: selectedSale._id, items, refundMethod });
-      toast.success('Sales return processed.');
+      const res = await salesService.createReturn({ saleId: selectedSale._id, items, refundMethod });
+      const r = res.data;
+      toast.success(r.dueAdjusted > 0 ? `Return saved: ${formatCurrency(r.dueAdjusted)} taken off the amount due, ${formatCurrency(r.refundPaid)} refunded.` : 'Sales return processed.');
       setCreateOpen(false); setSelectedSale(null); setInvoiceSearch('');
       load();
     } catch (err) { toast.error(err.message); } finally { setSaving(false); }
@@ -61,7 +64,9 @@ export function SalesReturns() {
           { key: 'sale', header: 'Original Invoice', render: (r) => r.sale?.invoiceNumber },
           { key: 'customer', header: 'Customer', render: (r) => r.customer?.name || 'Walk-in' },
           { key: 'createdAt', header: 'Date', render: (r) => formatDate(r.createdAt) },
-          { key: 'totalRefund', header: 'Refund', render: (r) => formatCurrency(r.totalRefund) },
+          { key: 'totalRefund', header: 'Return value', render: (r) => formatCurrency(r.totalRefund) },
+          { key: 'dueAdjusted', header: 'Off amount due', render: (r) => (r.dueAdjusted > 0 ? formatCurrency(r.dueAdjusted) : '-') },
+          { key: 'refundPaid', header: 'Refunded', render: (r) => `${formatCurrency(r.refundPaid ?? r.totalRefund)} ${String(r.refundMethod || '').replace('_', ' ')}` },
         ]}
       />
 
@@ -83,18 +88,18 @@ export function SalesReturns() {
           </div>
         ) : (
           <form id="sr-form" onSubmit={handleSubmit} className="space-y-4">
-            <p className="text-sm">Returning against <strong>{selectedSale.invoiceNumber}</strong></p>
+            <p className="text-sm">Returning against <strong>{selectedSale.invoiceNumber}</strong>{selectedSale.amountDue > 0 ? <span className="text-rose-600"> &middot; {formatCurrency(selectedSale.amountDue)} still due on this bill - the return is first taken off that</span> : null}</p>
             <table className="w-full text-sm">
               <thead><tr className="text-xs" style={{ color: 'var(--text-muted)' }}><th className="text-left py-1">Item</th><th className="text-right">Sold Qty</th><th className="text-right">Return Qty</th><th className="text-right">Restock?</th></tr></thead>
               <tbody>
-                {selectedSale.items.map((it) => {
-                  const pid = it.product._id || it.product;
+                {selectedSale.items.map((it, idx) => {
+                  const pid = idx;
                   return (
                     <tr key={pid} style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                      <td className="py-1.5">{it.productName}</td>
-                      <td className="text-right">{it.quantity}</td>
+                      <td className="py-1.5">{it.productName}{it.brandName ? <span style={{ color: 'var(--text-muted)' }}> - {it.brandName}</span> : null}</td>
+                      <td className="text-right">{it.quantity} {it.unit || ''}</td>
                       <td className="text-right">
-                        <input type="number" min={0} max={it.quantity} value={returnQty[pid] || ''}
+                        <input type="number" min={0} max={it.quantity} step="any" value={returnQty[pid] || ''}
                           onChange={(e) => setReturnQty((s) => ({ ...s, [pid]: e.target.value }))}
                           className="w-16 rounded border px-1.5 py-1 text-xs text-right" style={{ borderColor: 'var(--border-subtle)' }} />
                       </td>

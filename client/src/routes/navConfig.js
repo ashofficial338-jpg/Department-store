@@ -6,7 +6,7 @@ import {
   ClipboardList, FileText, RotateCcw, Building2,
   Landmark, ArrowDownCircle, ArrowUpCircle, Receipt, Coins, Percent, TrendingUp,
   BarChart3, FileBarChart, RefreshCcw, MapPin, FileSpreadsheet,
-  UserCog, ShieldCheck, Percent as PercentIcon, FileCog, Settings as SettingsIcon, DatabaseZap,
+  UserCog, ShieldCheck, GitPullRequestArrow, PieChart, Users, BookOpenText, Ruler, ListChecks as ListChecksIcon, Percent as PercentIcon, FileCog, Settings as SettingsIcon, DatabaseZap,
 } from 'lucide-react';
 
 // module: used by requireModule() permission checks on the client (mirrors server config/permissions.js)
@@ -27,6 +27,7 @@ export const NAV_SECTIONS = [
       { label: 'Sales Invoices', to: '/sales/invoices', icon: ReceiptText, module: 'sales' },
       { label: 'Sales Returns', to: '/sales/returns', icon: Undo2, module: 'sales' },
       { label: 'Sales History', to: '/sales/history', icon: History, module: 'sales' },
+      { label: 'Customers', to: '/customers', icon: Users, module: 'sales' },
     ],
   },
   {
@@ -36,6 +37,7 @@ export const NAV_SECTIONS = [
       { label: 'Product Master', to: '/products', icon: Package, module: 'products' },
       { label: 'Categories', to: '/products/categories', icon: Tags, module: 'products' },
       { label: 'Brands', to: '/products/brands', icon: Award, module: 'products' },
+      { label: 'Units (UOM)', to: '/products/units', icon: Ruler, module: 'products' },
       { label: 'Create from Image', to: '/products/from-image', icon: Images, module: 'products' },
       { label: 'Batch Management', to: '/products/batches', icon: Layers, module: 'products' },
       { label: 'Pricing & GST', to: '/products/pricing', icon: Tag, module: 'products' },
@@ -71,6 +73,7 @@ export const NAV_SECTIONS = [
       { label: 'Purchase Invoices', to: '/purchasing/invoices', icon: FileText, module: 'purchasing' },
       { label: 'Purchase Returns', to: '/purchasing/returns', icon: RotateCcw, module: 'purchasing' },
       { label: 'Vendor Management', to: '/purchasing/vendors', icon: Building2, module: 'vendors' },
+      { label: 'Purchase Analysis', to: '/reports/purchase-analysis', icon: PieChart, module: 'purchasing' },
     ],
   },
   {
@@ -80,6 +83,7 @@ export const NAV_SECTIONS = [
       { label: 'Accounts', to: '/finance/accounts', icon: Landmark, module: 'finance' },
       { label: 'Receivables', to: '/finance/receivables', icon: ArrowDownCircle, module: 'finance' },
       { label: 'Payables', to: '/finance/payables', icon: ArrowUpCircle, module: 'finance' },
+      { label: 'Customer & Supplier Ledgers', to: '/finance/ledgers', icon: BookOpenText, module: 'finance' },
       { label: 'Expenses', to: '/finance/expenses', icon: Receipt, module: 'finance' },
       { label: 'Cash & Bank', to: '/finance/cash-bank', icon: Coins, module: 'finance' },
       { label: 'GST', to: '/finance/gst', icon: Percent, module: 'finance' },
@@ -91,6 +95,7 @@ export const NAV_SECTIONS = [
     module: 'reports',
     items: [
       { label: 'Analytics & Exports', to: '/reports/analytics', icon: BarChart3, module: 'reports' },
+      { label: 'Purchase Analysis', to: '/reports/purchase-analysis', icon: PieChart, module: 'reports' },
       { label: 'Reports Center', to: '/reports', icon: FileBarChart, module: 'reports' },
     ],
   },
@@ -100,6 +105,7 @@ export const NAV_SECTIONS = [
     items: [
       { label: 'Users', to: '/settings/users', icon: UserCog, module: 'users' },
       { label: 'Roles & Permissions', to: '/settings/roles', icon: ShieldCheck, module: 'settings' },
+      { label: 'Mandatory Fields', to: '/settings/mandatory-fields', icon: ListChecksIcon, module: 'settings' },
       { label: 'Tax Settings', to: '/settings/tax', icon: PercentIcon, module: 'settings' },
       { label: 'Invoice Settings', to: '/settings/invoice', icon: FileCog, module: 'settings' },
       { label: 'System Settings', to: '/settings/system', icon: SettingsIcon, module: 'settings' },
@@ -108,7 +114,10 @@ export const NAV_SECTIONS = [
   },
   {
     label: null,
-    items: [{ label: 'Audit Log', to: '/audit-log', icon: BarChart3, module: 'audit' }],
+    items: [
+      { label: 'Edit Requests', to: '/edit-requests', icon: GitPullRequestArrow, module: 'dashboard' },
+      { label: 'Audit Log', to: '/audit-log', icon: BarChart3, module: 'audit' },
+    ],
   },
 ];
 

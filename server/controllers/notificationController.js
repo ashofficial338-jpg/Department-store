@@ -6,10 +6,23 @@ import InwardDC from '../models/InwardDC.js';
 import OutwardDC from '../models/OutwardDC.js';
 import Sale from '../models/Sale.js';
 import catchAsync from '../utils/catchAsync.js';
+import EditRequest from '../models/EditRequest.js';
+import Vendor from '../models/Vendor.js';
+import { isFullAccessRole } from '../services/permissionService.js';
 
 // Computed live (no separate notifications collection) so the badge is always accurate.
 export const listNotifications = catchAsync(async (req, res) => {
   const notifications = [];
+
+  // Administrators: change requests and new suppliers waiting for them.
+  if (isFullAccessRole(req.user?.role)) {
+    const [requests, vendors] = await Promise.all([
+      EditRequest.countDocuments({ status: 'pending' }),
+      Vendor.countDocuments({ verificationStatus: 'pending', status: { $ne: 'inactive' } }),
+    ]);
+    if (requests) notifications.push({ type: 'approval', severity: 'warning', message: `${requests} edit request(s) waiting for your approval.`, link: '/edit-requests' });
+    if (vendors) notifications.push({ type: 'approval', severity: 'info', message: `${vendors} supplier(s) waiting for verification.`, link: '/purchasing/vendors' });
+  }
 
   const lowStock = await Inventory.aggregate([
     { $lookup: { from: 'products', localField: 'product', foreignField: '_id', as: 'product' } },

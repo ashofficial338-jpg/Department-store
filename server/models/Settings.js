@@ -20,10 +20,12 @@ const settingsSchema = new mongoose.Schema(
       code: { type: String, trim: true, lowercase: true },
       label: { type: String, trim: true },
       short: { type: String, trim: true },
-      family: { type: String, enum: ['mass', 'volume', 'pack'], default: 'pack' },
+      family: { type: String, enum: ['mass', 'volume', 'each', 'length', 'pack'], default: 'pack' },
       factor: { type: Number, min: 0 },
     }],
     lowStockThresholdDefault: { type: Number, default: 10 },
+    // Mandatory fields chosen by administrators: { entity: { field: true } } (everything non-essential is optional by default).
+    fieldRules: { type: mongoose.Schema.Types.Mixed, default: {} },
     paymentMethods: {
       type: [String],
       default: ['cash', 'upi', 'card', 'bank_transfer', 'credit'],

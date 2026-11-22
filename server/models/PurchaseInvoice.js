@@ -5,7 +5,13 @@ import mongoose from 'mongoose';
 const invoiceItemSchema = new mongoose.Schema(
   {
     product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
-    quantity: { type: Number, required: true, min: 1 }, // invoiced quantity
+    brand: { type: mongoose.Schema.Types.ObjectId, ref: 'Brand' }, // optional: same product bought under different brands
+    quantity: { type: Number, required: true, min: 0.001 }, // invoiced quantity
+    // Unit of this line (e.g. kg, box) and how many stock (base) units one of it is - stock moves in base units.
+    unit: { type: String, trim: true },
+    baseUnit: { type: String, trim: true },
+    baseFactor: { type: Number, default: 1 },
+    decimal: { type: Boolean, default: false }, // quantity may have decimals (weight / volume / length)
     unitPrice: { type: Number, required: true, min: 0 },
     gstRate: { type: Number, default: 0 },
     taxableAmount: Number,
@@ -20,6 +26,19 @@ const invoiceItemSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const invoicePaymentSchema = new mongoose.Schema(
+  {
+    amount: { type: Number, required: true, min: 0 },
+    method: { type: String, enum: ['cash', 'upi', 'card', 'bank_transfer'], required: true },
+    voucherNumber: String,
+    payment: { type: mongoose.Schema.Types.ObjectId, ref: 'Payment' },
+    paidAt: { type: Date, default: Date.now },
+    paidBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    atEntry: { type: Boolean, default: false }, // paid when the invoice was entered (cash purchase)
+  },
+  { _id: true }
+);
+
 const purchaseInvoiceSchema = new mongoose.Schema(
   {
     invoiceNumber: { type: String, required: true, unique: true }, // system number, PINV/..
@@ -32,6 +51,10 @@ const purchaseInvoiceSchema = new mongoose.Schema(
     subtotal: Number,
     taxAmount: Number,
     grandTotal: Number,
+    // Supplier outstanding on this bill = grandTotal - returnedAmount - amountPaid (same as the Excel model).
+    amountPaid: { type: Number, default: 0 },
+    returnedAmount: { type: Number, default: 0 },
+    payments: [invoicePaymentSchema],
     allowOverInvoice: { type: Boolean, default: false }, // explicitly permitted to bill beyond the ordered quantity
     status: {
       type: String,

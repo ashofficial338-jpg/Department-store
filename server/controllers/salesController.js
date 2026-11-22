@@ -20,7 +20,10 @@ import { recordInventoryTransaction } from './inventoryController.js';
 import { postLedgerPair, methodToAccountKey } from '../utils/ledger.js';
 import { searchRegex, requireId, number, positive, oneOf } from '../utils/validate.js';
 import { assertActiveStore, mainStoreId } from '../utils/storeGuard.js';
-import { unitMap, normCode, compatible, convert, productUnits, round } from '../utils/units.js';
+import Brand from '../models/Brand.js';
+import { resolveSaleCustomer } from './tradeController.js';
+import { requireFields } from '../utils/fieldRules.js';
+import { unitMap, normCode, compatible, convert, productUnits, round, unitRate } from '../utils/units.js';
 
 // POS billing. Everything that affects money or stock is decided here, never by the browser:
 // prices come from the product master, quantities/discounts/payments are validated, stock is
@@ -134,6 +137,26 @@ async function reserveStock(lines) {
       done.push({ kind: 'inv', id: inv._id, qty });
     }
     for (const line of lines) {
+      if (line.brand) {
+        // Brand chosen at billing: take the quantity from that brand's batches (oldest expiry first).
+        let left = line.quantity;
+        const batches = await Batch.find({ product: line.product, brand: line.brand, availableQuantity: { $gt: 0 } })
+          .sort({ expiryDate: 1, createdAt: 1 }).select('_id availableQuantity').lean();
+        const have = batches.reduce((t, b) => t + b.availableQuantity, 0);
+        if (have + 1e-9 < left) {
+          throw new ApiError(400, have > 0 ? `Only ${round(have, 3)} of ${line.productName} (${line.brandName || 'this brand'}) in stock.` : `${line.productName} (${line.brandName || 'this brand'}) is out of stock.`);
+        }
+        for (const b of batches) {
+          if (left <= 1e-9) break;
+          const take = Math.min(left, b.availableQuantity);
+          const r = await Batch.updateOne({ _id: b._id, availableQuantity: { $gte: take } }, { $inc: { availableQuantity: -take } });
+          if (!r.modifiedCount) throw new ApiError(409, 'Stock changed while billing. Try again.');
+          done.push({ kind: 'batch', id: b._id, qty: take });
+          line.batch = line.batch || b._id;
+          left -= take;
+        }
+        continue;
+      }
       if (line.batch) {
         if (!mongoose.isValidObjectId(line.batch)) throw new ApiError(400, 'Invalid batch selected.');
         const b = await Batch.findOneAndUpdate(
@@ -191,7 +214,8 @@ async function completeSale(req, body) {
     const invoiceNumber = await generateDocNumber('sale');
     sale = await Sale.create({
       invoiceNumber, store, customer: customer || undefined, items: lines, ...summary,
-      amountPaid: settled.amountPaid, payments: settled.payments, isInterState: !!isInterState,
+      amountPaid: round2(settled.amountPaid - settled.creditAmount), payments: settled.payments, isInterState: !!isInterState,
+      creditAmount: settled.creditAmount, amountDue: settled.creditAmount,
       status: 'completed', cashier: req.user._id, notes: notes ? String(notes).slice(0, 500) : undefined, clientRequestId,
     });
   } catch (err) {
@@ -270,27 +294,87 @@ export const resumeSale = catchAsync(async (req, res) => {
   res.status(duplicate ? 200 : 201).json({ success: true, data: sale, duplicate });
 });
 
+// Payment status of a bill from what is still due: paid / partial (some received, some due) / unpaid (nothing received).
+const SALE_PAYMENT_STATUS = {
+  paid: { amountDue: { $lte: 0.005 } },
+  partial: { amountDue: { $gt: 0.005 }, amountPaid: { $gt: 0 } },
+  unpaid: { amountDue: { $gt: 0.005 }, amountPaid: { $lte: 0 } },
+};
+const SALE_SORTS = { date: 'createdAt', total: 'grandTotal', due: 'amountDue', invoiceNumber: 'invoiceNumber' };
+const istStart = (d) => new Date(`${String(d).slice(0, 10)}T00:00:00.000+05:30`);
+const istEnd = (d) => new Date(`${String(d).slice(0, 10)}T23:59:59.999+05:30`);
+const asNum = (v) => (v === undefined || v === null || v === '' ? null : Number(v));
+
+// Sales register filters (all combine): date range, invoice no, customer, product, brand, payment method,
+// payment status, sale type (cash / credit), bill type, status, quantity / rate / amount ranges.
+export async function salesFilter(q = {}) {
+  const filter = {};
+  const and = [];
+  if (q.status) filter.status = { $in: String(q.status).split(',').filter(Boolean) };
+  else filter.status = { $nin: ['held'] };
+  if (q.customer) filter.customer = new mongoose.Types.ObjectId(requireId(q.customer, 'Customer'));
+  if (q.billType) filter.billType = oneOf(q.billType, ['pos', 'simple'], 'Bill type');
+  if (q.search) {
+    const rx = searchRegex(q.search);
+    const custIds = await Customer.find({ $or: [{ name: rx }, { phone: rx }] }).distinct('_id');
+    and.push({ $or: [{ invoiceNumber: rx }, { customer: { $in: custIds } }, { 'items.productName': rx }] });
+  }
+  if (q.from || q.to) {
+    filter.createdAt = {};
+    if (q.from) filter.createdAt.$gte = istStart(q.from);
+    if (q.to) filter.createdAt.$lte = istEnd(q.to);
+  }
+  if (q.method) and.push({ 'payments.method': oneOf(q.method, PAYMENT_METHODS, 'Payment method') });
+  if (q.saleType === 'cash') and.push({ creditAmount: { $not: { $gt: 0 } }, 'payments.method': { $ne: 'credit' } });
+  if (q.saleType === 'credit') and.push({ $or: [{ creditAmount: { $gt: 0 } }, { 'payments.method': 'credit' }] });
+  if (q.paymentStatus) {
+    const st = SALE_PAYMENT_STATUS[q.paymentStatus];
+    if (!st) throw new ApiError(400, 'Payment status must be paid, partial or unpaid.');
+    and.push(st);
+  }
+  const line = {};
+  if (q.product) line.product = new mongoose.Types.ObjectId(requireId(q.product, 'Product'));
+  if (q.brand) line.brand = new mongoose.Types.ObjectId(requireId(q.brand, 'Brand'));
+  const range = (field, min, max) => {
+    const a = asNum(min); const b = asNum(max);
+    if (a === null && b === null) return;
+    line[field] = {};
+    if (a !== null) line[field].$gte = a;
+    if (b !== null) line[field].$lte = b;
+  };
+  range('quantity', q.minQty, q.maxQty);
+  range('unitPrice', q.minRate, q.maxRate);
+  if (Object.keys(line).length) and.push({ items: { $elemMatch: line } });
+  const minA = asNum(q.minAmount); const maxA = asNum(q.maxAmount);
+  if (minA !== null || maxA !== null) {
+    filter.grandTotal = {};
+    if (minA !== null) filter.grandTotal.$gte = minA;
+    if (maxA !== null) filter.grandTotal.$lte = maxA;
+  }
+  if (and.length) filter.$and = and;
+  return filter;
+}
+
 export const listSales = catchAsync(async (req, res) => {
   const { page, limit, skip } = getPagination(req.query);
-  const filter = {};
-  if (req.query.status) filter.status = String(req.query.status);
-  if (req.query.customer && mongoose.isValidObjectId(req.query.customer)) filter.customer = req.query.customer;
-  const rx = searchRegex(req.query.search);
-  if (rx) filter.invoiceNumber = rx;
-  if (req.query.from || req.query.to) {
-    filter.createdAt = {};
-    if (req.query.from) filter.createdAt.$gte = new Date(req.query.from);
-    if (req.query.to) filter.createdAt.$lte = new Date(req.query.to);
-  }
-  const [docs, total] = await Promise.all([
-    Sale.find(filter).populate('customer', 'name phone').populate('cashier', 'name').sort({ createdAt: -1 }).skip(skip).limit(limit),
+  const filter = await salesFilter(req.query);
+  const sortKey = SALE_SORTS[req.query.sort] || 'createdAt';
+  const dir = req.query.order === 'asc' ? 1 : -1;
+  const [docs, total, sums] = await Promise.all([
+    Sale.find(filter).populate('customer', 'name phone').populate('cashier', 'name').sort({ [sortKey]: dir, _id: dir }).skip(skip).limit(limit),
     Sale.countDocuments(filter),
+    Sale.aggregate([
+      { $match: { ...filter, status: filter.status?.$in ? filter.status : { $nin: ['held', 'cancelled'] } } },
+      { $group: { _id: null, total: { $sum: '$grandTotal' }, received: { $sum: '$amountPaid' }, due: { $sum: { $ifNull: ['$amountDue', 0] } }, credit: { $sum: { $ifNull: ['$creditAmount', 0] } } } },
+    ]),
   ]);
-  res.json({ success: true, ...buildPaginatedResponse({ docs, total, page, limit }) });
+  const s = sums[0] || {};
+  const summary = { total: round2(s.total || 0), received: round2(s.received || 0), due: round2(s.due || 0), credit: round2(s.credit || 0), cash: round2((s.total || 0) - (s.credit || 0)) };
+  res.json({ success: true, ...buildPaginatedResponse({ docs, total, page, limit }), summary });
 });
 
 export const getSale = catchAsync(async (req, res) => {
-  const sale = await Sale.findById(req.params.id).populate('customer store cashier items.product');
+  const sale = await Sale.findById(req.params.id).populate('customer store cashier items.product').populate('items.brand', 'name');
   if (!sale) throw new ApiError(404, 'Invoice not found.');
   res.json({ success: true, data: sale });
 });
@@ -318,6 +402,7 @@ export const cancelSale = catchAsync(async (req, res) => {
   const sale = await Sale.findById(req.params.id);
   if (!sale) throw new ApiError(404, 'Invoice not found.');
   if (sale.status === 'cancelled') throw new ApiError(400, 'This invoice is already cancelled.');
+  if (sale.receipts?.length) throw new ApiError(400, 'Payments have been received against this invoice. Process a sales return instead of cancelling.');
   if (['returned', 'partially_returned'].includes(sale.status) || await SalesReturn.exists({ sale: sale._id })) {
     throw new ApiError(400, 'This invoice has returns against it. Process the remaining items as a sales return instead of cancelling.');
   }
@@ -345,6 +430,7 @@ export const cancelSale = catchAsync(async (req, res) => {
       const customer = await Customer.findById(sale.customer);
       if (customer) {
         customer.outstanding = round2((customer.outstanding || 0) - credit);
+        await Sale.updateOne({ _id: sale._id }, { $set: { amountDue: 0 } });
         customer.loyaltyPoints = Math.max(0, (customer.loyaltyPoints || 0) - Math.floor(sale.grandTotal / 100));
         await customer.save();
       }
@@ -366,21 +452,27 @@ export const cancelSale = catchAsync(async (req, res) => {
 // grams only when the product's net content per packet is set. GST = taxable x the product's GST %; the GST type
 // in Pricing & GST decides the split (Intra-State -> CGST + SGST, Inter-State -> IGST). Total = taxable + GST.
 // Unit, rate and amounts are stored on the bill, so later price changes never alter old bills.
-const SIMPLE_PAYMENTS = ['cash', 'upi', 'card'];
+const SIMPLE_PAYMENTS = ['cash', 'upi', 'card', 'bank_transfer'];
 
 function priceLine(it, product, units) {
   const unit = normCode(it.unit);
   if (!units.has(unit)) throw new ApiError(400, `Unknown unit "${it.unit}" for ${product.name}.`);
   const quantity = positive(it.quantity, `Quantity for ${product.name}`, { max: 1000000 });
-  const pack = product.packUnit ? product : null;
-  const catalogue = product.sellingPrice > 0;
+  // Conversion rules of the product (box = 24 pcs, packet = 500 g...) take part in every conversion.
+  const pack = product;
+  const ownRate = unitRate(product, normCode(it.unit), 'sellingPrice');
+  const catalogue = product.sellingPrice > 0 || ownRate !== null;
   let rateUnit; let rate; let base;
   if (catalogue) {
     if (product.status !== 'active') throw new ApiError(400, `${product.name} is ${product.status} and cannot be sold.`);
     const { sellingUnit, baseUnit } = productUnits(product, units);
-    rateUnit = sellingUnit;
-    rate = product.sellingPrice;
+    // A unit with its own selling rate (e.g. per box) is billed at that rate; other units convert to the selling unit.
+    rateUnit = ownRate !== null ? normCode(it.unit) : sellingUnit;
+    rate = ownRate !== null ? ownRate : product.sellingPrice;
     base = baseUnit;
+    if (!compatible(normCode(it.unit), baseUnit, units, pack)) {
+      throw new ApiError(400, `${product.name} is stocked in ${units.get(baseUnit)?.short}; ${units.get(normCode(it.unit))?.short || it.unit} does not convert to it. Add a conversion rule in Product Master.`);
+    }
   } else {
     rateUnit = normCode(it.rateUnit || 'kg');
     if (!units.has(rateUnit)) throw new ApiError(400, `Unknown rate unit "${it.rateUnit}" for ${product.name}.`);
@@ -409,6 +501,9 @@ function priceLine(it, product, units) {
 export const createSimpleBill = catchAsync(async (req, res) => {
   const { items, paymentMethod = 'cash' } = req.body || {};
   oneOf(paymentMethod, SIMPLE_PAYMENTS, 'Payment method');
+  // Optional customer (existing id, or name + phone to add one). Needed when part of the bill is left unpaid.
+  const customerDoc = await resolveSaleCustomer(req, req.body?.customer, req.body?.newCustomer);
+  await requireFields('billing', { customer: customerDoc?._id });
   const clientRequestId = req.body?.clientRequestId ? String(req.body.clientRequestId).slice(0, 100) : undefined;
   if (clientRequestId) {
     const first = await Sale.findOne({ clientRequestId });
@@ -424,9 +519,17 @@ export const createSimpleBill = catchAsync(async (req, res) => {
   for (const it of items) {
     requireId(it?.product, 'Product');
     const product = await Product.findById(it.product)
-      .select('name sku status gstRate sellingPrice discountPercent unit sellingUnit baseUnit packUnit packQuantity packQuantityUnit').lean();
+      .select('name sku status gstRate sellingPrice discountPercent unit sellingUnit baseUnit packUnit packQuantity packQuantityUnit conversions unitPrices').lean();
     if (!product || product.status === 'discontinued') throw new ApiError(400, 'A product on this bill is no longer in the product list.');
     const line = priceLine(it, product, units);
+    if (it.brand) {
+      requireId(it.brand, 'Brand');
+      if (line.baseQty === undefined) throw new ApiError(400, `${product.name} has no selling price, so it is not sold from stock - remove the brand or set a price in Product Master.`);
+      const brand = await Brand.findById(it.brand).select('name').lean();
+      if (!brand) throw new ApiError(400, 'A brand on this bill was not found.');
+      line.brand = brand._id;
+      line.brandName = brand.name;
+    }
     const gstRate = Number(product.gstRate) || 0;
     const tax = round2((line.taxableAmount * gstRate) / 100);
     const cgst = interState ? 0 : round2(tax / 2);
@@ -438,10 +541,16 @@ export const createSimpleBill = catchAsync(async (req, res) => {
   const taxTotal = sum('taxAmount');
   const total = round2(taxableTotal + taxTotal);
   if (total <= 0) throw new ApiError(400, 'The bill total must be more than zero.');
+  // Amount received now (default: the whole bill). The rest is a credit sale on the customer's account.
+  const received = req.body?.amountReceived === undefined || req.body?.amountReceived === null || req.body?.amountReceived === ''
+    ? total : round2(number(req.body.amountReceived, 'Amount received', { min: 0, max: 1e9 }));
+  if (received > total + 0.001) throw new ApiError(400, `Amount received (₹${received}) is more than the bill total (₹${total}).`);
+  const credit = round2(total - received);
+  if (credit > 0.001 && !customerDoc) throw new ApiError(400, 'Select or add the customer for a credit / part-paid bill.');
 
   // Priced products: check the stock (in the base unit, with a clear message), then take it atomically -
   // the conditional decrement in reserveStock never lets stock go below zero.
-  const stockLines = lines.filter((l) => l.baseQty !== undefined).map((l) => ({ product: l.product, quantity: l.baseQty, productName: l.productName, ref: l }));
+  const stockLines = lines.filter((l) => l.baseQty !== undefined).map((l) => ({ product: l.product, brand: l.brand, brandName: l.brandName, quantity: l.baseQty, productName: l.productName, ref: l }));
   if (stockLines.length) {
     const need = new Map();
     for (const l of stockLines) need.set(String(l.product), round((need.get(String(l.product)) || 0) + l.quantity, 6));
@@ -463,10 +572,13 @@ export const createSimpleBill = catchAsync(async (req, res) => {
   let sale;
   try {
     sale = await Sale.create({
-      invoiceNumber: await generateDocNumber('sale'), store, items: lines, billType: 'simple',
+      invoiceNumber: await generateDocNumber('sale'), store, items: lines, billType: 'simple', customer: customerDoc?._id,
       subtotal: sum('grossAmount'), discount: sum('discountAmount'), taxableAmount: taxableTotal, cgst: sum('cgst'), sgst: sum('sgst'), igst: sum('igst'),
       taxAmount: taxTotal, roundOff: 0, grandTotal: total, isInterState: interState,
-      amountPaid: total, payments: [{ method: paymentMethod, amount: total }], status: 'completed', cashier: req.user._id, clientRequestId,
+      amountPaid: received,
+      payments: [...(received > 0 ? [{ method: paymentMethod, amount: received }] : []), ...(credit > 0 ? [{ method: 'credit', amount: credit }] : [])],
+      creditAmount: credit, amountDue: credit,
+      status: 'completed', cashier: req.user._id, clientRequestId,
     });
   } catch (err) {
     await undo();
@@ -484,9 +596,18 @@ export const createSimpleBill = catchAsync(async (req, res) => {
     });
   }
   await postLedgerPair({
-    debitKey: methodToAccountKey(paymentMethod), creditKey: 'sales', amount: total,
+    debitKey: methodToAccountKey(paymentMethod), creditKey: 'sales', amount: received,
     narration: `Sale ${sale.invoiceNumber}`, referenceType: 'Sale', referenceId: sale._id, userId: req.user._id,
   });
+  if (credit > 0) {
+    await postLedgerPair({
+      debitKey: 'receivable', creditKey: 'sales', amount: credit,
+      narration: `Credit sale ${sale.invoiceNumber}`, referenceType: 'Sale', referenceId: sale._id, userId: req.user._id,
+    });
+  }
+  if (customerDoc) {
+    await Customer.findByIdAndUpdate(customerDoc._id, { $inc: { outstanding: credit, loyaltyPoints: Math.floor(total / 100) } });
+  }
   if (taxTotal > 0) {
     await postLedgerPair({
       debitKey: 'sales', creditKey: 'gstOutput', amount: taxTotal,
@@ -499,76 +620,113 @@ export const createSimpleBill = catchAsync(async (req, res) => {
 
 // ---------- Sales Returns ----------
 
+// A return is valued at the line's billed price (incl. GST). If the bill still has an amount due (credit /
+// part-paid), the return first reduces that due; only the rest is refunded (cash / UPI / card / bank /
+// store credit). Restocked items go back to stock: POS lines by quantity, Billing-screen lines by the base
+// quantity that was taken (e.g. returning 0.5 kg of a 1 kg line puts back 500 g).
 export const createSalesReturn = catchAsync(async (req, res) => {
   const { saleId, items, refundMethod = 'cash' } = req.body;
   requireId(saleId, 'Invoice');
   oneOf(refundMethod, REFUND_METHODS, 'Refund method');
   const sale = await Sale.findById(saleId);
   if (!sale) throw new ApiError(404, 'Original invoice not found.');
-  if (sale.billType === 'simple') throw new ApiError(400, 'This bill was made on the simple Billing screen - cancel the bill instead of returning items.');
   if (!['completed', 'partially_returned'].includes(sale.status)) throw new ApiError(400, `Items cannot be returned against a ${sale.status.replace('_', ' ')} invoice.`);
   if (!Array.isArray(items) || !items.length) throw new ApiError(400, 'Select at least one item to return.');
   if (refundMethod === 'store_credit' && !sale.customer) throw new ApiError(400, 'Store credit needs a customer on the invoice.');
 
-  // What has already been returned on earlier returns, per product.
+  // Which bill line each request item refers to: lineIndex, or the product when it is on the bill once.
+  const lineIndexOf = (ret) => {
+    if (ret?.lineIndex !== undefined && ret?.lineIndex !== null && ret?.lineIndex !== '') {
+      const i = Number(ret.lineIndex);
+      if (!Number.isInteger(i) || i < 0 || i >= sale.items.length) throw new ApiError(400, 'Returned item was not part of the original invoice.');
+      return i;
+    }
+    requireId(ret?.product, 'Returned product');
+    const matches = sale.items.map((l, i) => (String(l.product) === String(ret.product) ? i : -1)).filter((i) => i >= 0);
+    if (!matches.length) throw new ApiError(400, 'Returned item was not part of the original invoice.');
+    if (matches.length > 1) throw new ApiError(400, 'This product is on the bill more than once - choose the bill line to return.');
+    return matches[0];
+  };
+
+  // Already returned per bill line (older returns have no line index: matched by product).
   const already = new Map();
   for (const r of await SalesReturn.find({ sale: sale._id }).lean()) {
-    for (const i of r.items) already.set(String(i.product), (already.get(String(i.product)) || 0) + i.quantity);
+    for (const i of r.items) {
+      const idx = i.lineIndex ?? sale.items.findIndex((l) => String(l.product) === String(i.product));
+      already.set(idx, (already.get(idx) || 0) + i.quantity);
+    }
   }
+  const plan = [];
   const requested = new Map();
   for (const ret of items) {
-    requireId(ret?.product, 'Returned product');
-    const line = sale.items.find((l) => String(l.product) === String(ret.product));
-    if (!line) throw new ApiError(400, 'Returned item was not part of the original invoice.');
+    const idx = lineIndexOf(ret);
+    const line = sale.items[idx];
     const qty = positive(ret.quantity, `Return quantity for ${line.productName}`, { max: line.quantity });
-    const key = String(line.product);
-    requested.set(key, (requested.get(key) || 0) + qty);
-    const left = line.quantity - (already.get(key) || 0);
-    if (requested.get(key) > left + 1e-9) throw new ApiError(400, `Only ${left} of ${line.productName} can still be returned on this invoice.`);
+    requested.set(idx, (requested.get(idx) || 0) + qty);
+    const left = round(line.quantity - (already.get(idx) || 0), 6);
+    if (requested.get(idx) > left + 1e-9) throw new ApiError(400, `Only ${left} ${line.unit || ''} of ${line.productName} can still be returned on this invoice.`.replace('  ', ' '));
     if (ret.restockStatus && !['restocked', 'damaged'].includes(ret.restockStatus)) throw new ApiError(400, 'Restock status must be restocked or damaged.');
+    await requireFields('salesReturn', { reason: ret.reason });
+    plan.push({ idx, line, qty, ret });
   }
 
   let totalRefund = 0;
   const returnItems = [];
-  for (const ret of items) {
-    const line = sale.items.find((l) => String(l.product) === String(ret.product));
-    const qty = Number(ret.quantity);
+  const store = await mainStoreId();
+  for (const { idx, line, qty, ret } of plan) {
     const refundAmount = round2((line.totalAmount / line.quantity) * qty);
     totalRefund += refundAmount;
     const restockStatus = ret.restockStatus || 'restocked';
-    returnItems.push({ product: line.product, batch: line.batch, quantity: qty, unitPrice: line.unitPrice, refundAmount, reason: ret.reason ? String(ret.reason).slice(0, 200) : undefined, restockStatus });
-    if (restockStatus === 'restocked') {
-      await Inventory.updateOne({ product: line.product, store: await mainStoreId() }, { $inc: { currentStock: qty } }, { upsert: true });
-      if (line.batch) await Batch.updateOne({ _id: line.batch }, { $inc: { availableQuantity: qty } });
-    }
-    await recordInventoryTransaction({
-      product: line.product, batch: line.batch, quantity: qty, type: 'sale_return',
-      destination: sale.store, destinationModel: 'Store',
-      referenceType: 'SalesReturn', referenceNumber: sale.invoiceNumber, notes: ret.reason, user: req.user._id,
+    // Stock that goes back: POS lines by quantity; Billing-screen lines only if stock was taken (baseQty).
+    const stockQty = sale.billType === 'simple' ? (line.baseQty > 0 ? round((line.baseQty * qty) / line.quantity, 6) : 0) : qty;
+    returnItems.push({
+      product: line.product, brand: line.brand, lineIndex: idx, batch: line.batch, quantity: qty, unit: line.unit, stockQuantity: stockQty,
+      unitPrice: line.unitPrice, refundAmount, reason: ret.reason ? String(ret.reason).slice(0, 200) : undefined, restockStatus,
     });
+    if (restockStatus === 'restocked' && stockQty > 0) {
+      await Inventory.updateOne({ product: line.product, store }, { $inc: { currentStock: stockQty } }, { upsert: true });
+      if (line.batch) await Batch.updateOne({ _id: line.batch }, { $inc: { availableQuantity: stockQty } });
+    }
+    if (stockQty > 0) {
+      await recordInventoryTransaction({
+        product: line.product, batch: line.batch, quantity: restockStatus === 'restocked' ? stockQty : 0, type: 'sale_return',
+        destination: sale.store, destinationModel: 'Store',
+        referenceType: 'SalesReturn', referenceNumber: sale.invoiceNumber, notes: [restockStatus === 'damaged' ? 'Damaged - not restocked' : '', ret.reason].filter(Boolean).join(' - ') || undefined, user: req.user._id,
+      });
+    }
   }
   totalRefund = round2(totalRefund);
+  // Credit / part-paid bill: the return first clears what the customer still owes on it.
+  const dueAdjusted = round2(Math.min(totalRefund, Math.max(0, sale.amountDue || 0)));
+  const refundPaid = round2(totalRefund - dueAdjusted);
 
   const returnNumber = await generateDocNumber('saleReturn');
   const salesReturn = await SalesReturn.create({
     returnNumber, sale: sale._id, customer: sale.customer, items: returnItems,
-    refundMethod, totalRefund, processedBy: req.user._id,
+    refundMethod, totalRefund, dueAdjusted, refundPaid, processedBy: req.user._id,
   });
 
-  const sold = sale.items.reduce((s, l) => s + l.quantity, 0);
-  const returned = [...already.values()].reduce((s, q) => s + q, 0) + returnItems.reduce((s, l) => s + l.quantity, 0);
-  sale.status = returned >= sold ? 'returned' : 'partially_returned';
+  const allReturned = new Map(already);
+  plan.forEach(({ idx, qty }) => allReturned.set(idx, (allReturned.get(idx) || 0) + qty));
+  const fully = sale.items.every((l, i) => (allReturned.get(i) || 0) + 1e-9 >= l.quantity);
+  sale.status = fully ? 'returned' : 'partially_returned';
+  sale.amountDue = round2((sale.amountDue || 0) - dueAdjusted);
   await sale.save();
 
-  if (sale.customer && refundMethod === 'store_credit') {
-    await Customer.findByIdAndUpdate(sale.customer, { $inc: { outstanding: -totalRefund } });
+  const customerDelta = dueAdjusted + (refundMethod === 'store_credit' ? refundPaid : 0);
+  if (sale.customer && customerDelta > 0) await Customer.findByIdAndUpdate(sale.customer, { $inc: { outstanding: -round2(customerDelta) } });
+  if (dueAdjusted > 0) {
+    await postLedgerPair({
+      debitKey: 'sales', creditKey: 'receivable', amount: dueAdjusted, narration: `Return against ${sale.invoiceNumber} (adjusted against amount due)`,
+      referenceType: 'SalesReturn', referenceId: salesReturn._id, userId: req.user._id,
+    });
   }
   await postLedgerPair({
     debitKey: 'sales', creditKey: refundMethod === 'store_credit' ? 'receivable' : methodToAccountKey(refundMethod),
-    amount: totalRefund, narration: `Return against ${sale.invoiceNumber}`,
+    amount: refundPaid, narration: `Return against ${sale.invoiceNumber}`,
     referenceType: 'SalesReturn', referenceId: salesReturn._id, userId: req.user._id,
   });
-  await recordAudit({ req, action: 'sale.return', entity: 'SalesReturn', entityId: salesReturn._id, newValue: { returnNumber, totalRefund } });
+  await recordAudit({ req, action: 'sale.return', entity: 'SalesReturn', entityId: salesReturn._id, newValue: { returnNumber, totalRefund, dueAdjusted, refundPaid } });
   res.status(201).json({ success: true, data: salesReturn });
 });
 

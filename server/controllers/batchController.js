@@ -52,7 +52,7 @@ export const batchProfitability = catchAsync(async (req, res) => {
   const sales = await Sale.aggregate([
     { $unwind: '$items' },
     { $match: { 'items.batch': batch._id, status: { $in: ['completed', 'partially_returned'] } } },
-    { $group: { _id: null, unitsSold: { $sum: '$items.quantity' }, revenue: { $sum: '$items.totalAmount' } } },
+    { $group: { _id: null, unitsSold: { $sum: { $ifNull: ['$items.baseQty', '$items.quantity'] } }, revenue: { $sum: '$items.totalAmount' } } },
   ]);
 
   const unitsSold = sales[0]?.unitsSold || 0;

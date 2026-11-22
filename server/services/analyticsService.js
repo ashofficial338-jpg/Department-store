@@ -9,6 +9,7 @@ import Expense from '../models/Expense.js';
 import Customer from '../models/Customer.js';
 import ApiError from '../utils/ApiError.js';
 import { parseDateRange } from '../utils/dateRanges.js';
+import { PAYABLE_STATUSES, BILLED_EXPR } from '../utils/payables.js';
 import { round2 } from '../utils/gstCalculator.js';
 
 // Single source of truth for dashboard KPIs, detail pages, exports and the P&L report, so every
@@ -309,8 +310,8 @@ export async function receivablesTotal() {
 
 export async function payablesTotal() {
   const rows = await Purchase.aggregate([
-    { $match: { status: { $in: ['received', 'invoiced'] } } },
-    { $project: { balance: { $subtract: ['$grandTotal', '$amountPaid'] } } },
+    { $match: { status: { $in: PAYABLE_STATUSES } } },
+    { $project: { balance: { $subtract: [BILLED_EXPR, '$amountPaid'] } } },
     { $match: { balance: { $gt: 0 } } },
     { $group: { _id: null, total: { $sum: '$balance' }, count: { $sum: 1 } } },
   ]);

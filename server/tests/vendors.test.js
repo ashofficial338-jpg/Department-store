@@ -71,10 +71,16 @@ test('VEN-01b common typing formats are accepted; errors name the field', async 
   await Vendor.deleteOne({ _id: r.body.data._id });
 });
 
-test('VEN-02 unverified vendors cannot be used for purchase orders and are not offered in dropdowns', async () => {
+test('VEN-02 unverified vendors: a PO stays a draft until the vendor is verified; not offered as verified', async () => {
+  // New / unknown suppliers can be ordered from (user decision 2026-11-22), but only as a draft.
   const po = await api('POST', '/purchases', { token: admin, body: { vendor: V._id, items: [{ product: P._id, quantity: 1, unitPrice: 10 }] } });
-  assert.equal(po.status, 400);
-  assert.match(po.body.message, /Pending Verification/);
+  assert.equal(po.status, 201, JSON.stringify(po.body));
+  assert.equal(po.body.data.status, 'draft');
+  assert.match(po.body.notice, /waiting for verification/);
+  const approve = await api('POST', `/purchases/${po.body.data._id}/approve`, { token: admin });
+  assert.equal(approve.status, 400);
+  assert.match(approve.body.message, /Pending Verification/);
+  await api('DELETE', `/purchases/${po.body.data._id}`, { token: admin }); // tidy up: cancel the draft
   const all = await api('GET', '/vendors/all?verified=true', { token: pm });
   assert.ok(!all.body.data.some((v) => v._id === V._id));
 });
@@ -97,8 +103,10 @@ test('VEN-03 documents: PDF/image only, content checked, private download, one p
   assert.equal(Buffer.from(await dl.arrayBuffer()).toString().slice(0, 4), '%PDF');
 });
 
-test('VEN-04 only administrators verify; documents are optional but details are required; remarks needed to reject / hold', async () => {
+test('VEN-04 only administrators verify; documents are optional; details / remarks required only when configured', async () => {
   assert.equal((await api('POST', `/vendors/${V._id}/verify`, { token: pm, body: { status: 'verified' } })).status, 403, 'not admin');
+  // Since 2026-11-23 every detail is optional by default; the administrator turns the checks on in Settings > Mandatory Fields.
+  await api('PUT', '/settings/field-rules', { token: admin, body: { rules: { vendorVerification: { phone: true, address: true, gstin: true, pan: true, bank: true, remarks: true } } } });
   // A vendor with no documents and no bank details cannot be verified yet - the details are what is missing.
   const bare = await api('POST', '/vendors', { token: admin, body: { name: `QA No Docs ${tag}`, phone: '9876509999', address: 'x', gstin: `33QANOD${tag}B1Z5`, pan: `QANOD${tag}B` } });
   assert.equal(bare.status, 201, JSON.stringify(bare.body));
@@ -112,6 +120,7 @@ test('VEN-04 only administrators verify; documents are optional but details are 
   await Vendor.deleteOne({ _id: bare.body.data._id });
   assert.equal((await api('POST', `/vendors/${V._id}/verify`, { token: admin, body: { status: 'on_hold' } })).status, 400, 'remarks required');
   const hold = await api('POST', `/vendors/${V._id}/verify`, { token: admin, body: { status: 'on_hold', remarks: 'Waiting for PAN card' } });
+  await api('PUT', '/settings/field-rules', { token: admin, body: { rules: {} } }); // back to the default (all optional)
   assert.equal(hold.status, 200);
   assert.equal(hold.body.data.verificationStatus, 'on_hold');
 

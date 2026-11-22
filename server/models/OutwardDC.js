@@ -3,8 +3,14 @@ import mongoose from 'mongoose';
 const outwardItemSchema = new mongoose.Schema(
   {
     product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
+    brand: { type: mongoose.Schema.Types.ObjectId, ref: 'Brand' }, // optional: same product bought under different brands
     batch: { type: mongoose.Schema.Types.ObjectId, ref: 'Batch' },
-    quantity: { type: Number, required: true, min: 1 }, // planned
+    quantity: { type: Number, required: true, min: 0.001 }, // planned
+    // Unit of this line (e.g. kg, box) and how many stock (base) units one of it is - stock moves in base units.
+    unit: { type: String, trim: true },
+    baseUnit: { type: String, trim: true },
+    baseFactor: { type: Number, default: 1 },
+    decimal: { type: Boolean, default: false }, // quantity may have decimals (weight / volume / length)
     dispatchedQuantity: { type: Number, min: 0 }, // actually dispatched (set on submit)
   },
   { _id: false }

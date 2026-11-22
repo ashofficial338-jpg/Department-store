@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { Plus, Trash2, Printer, RotateCcw } from 'lucide-react';
 import { Button, Modal } from '../../components/ui/index.js';
-import { productService, salesService, settingsService } from '../../services/index.js';
+import { productService, salesService, settingsService, tradeService } from '../../services/index.js';
+import CustomerField from '../../components/CustomerField.jsx';
+import { useFieldRules } from '../../hooks/useFieldRules.js';
 import { formatCurrency } from '../../utils/format.js';
 import {
   toUnitMap, productUnits, billingUnits, quickSizes, pricedLine, wholeError, fmtQty, unitShort, isMeasure, round, round2, parseOption,
@@ -21,8 +23,8 @@ import ReceiptView from './ReceiptView.jsx';
 
 const newRequestId = () => (globalThis.crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
 let seq = 0;
-const blankLine = () => ({ key: ++seq, product: '', quantity: '', unit: 'kg', rate: '', info: null, step: null });
-const PAYMENT_MODES = [['cash', 'Cash'], ['upi', 'UPI'], ['card', 'Card']];
+const blankLine = () => ({ key: ++seq, product: '', quantity: '', unit: 'kg', rate: '', info: null, step: null, brand: '', brands: [] });
+const PAYMENT_MODES = [['cash', 'Cash'], ['upi', 'UPI'], ['card', 'Card'], ['bank_transfer', 'Bank']];
 // Built-in units, used until GET /products/units answers (and if it fails).
 const FALLBACK_UNITS = toUnitMap([
   { code: 'mg', short: 'mg', family: 'mass', factor: 0.001 }, { code: 'g', short: 'g', family: 'mass', factor: 1 },
@@ -72,6 +74,10 @@ export function POSBilling() {
   const [saving, setSaving] = useState(false);
   const [receipt, setReceipt] = useState(null);
   const [gstType, setGstType] = useState('intra');
+  // Customer (optional; needed for credit) and the amount received now ('' = the whole bill).
+  const [customer, setCustomer] = useState(null); // { _id, name, phone } existing, or { isNew: true, name, phone }
+  const [received, setReceived] = useState('');
+  const { req } = useFieldRules();
   const requestId = useRef(newRequestId());
   useEffect(() => {
     productService.names()
@@ -113,12 +119,17 @@ export function POSBilling() {
     return { taxable, discount: round2(discount), rows, tax, total: round2(taxable + tax) };
   }, [lines, products, interState, units]);
   const { total } = summary;
+  const paidNow = received === '' ? total : Math.min(total, Math.max(0, Number(received) || 0));
+  const due = round2(total - paidNow);
 
   // Stock needed (in the product's base unit) by all priced lines of one product.
-  function stockNeeded(list, productId) {
-    return round(list.filter((l) => l.info && l.product === productId)
+  function stockNeeded(list, productId, brand = '') {
+    return round(list.filter((l) => l.info && l.product === productId && (!brand || l.brand === brand))
       .reduce((t, l) => t + (pricedLine(l, l.info, units).baseQty || 0), 0), 6);
   }
+  // Stock the line can use: the chosen brand's stock, or the product's total stock.
+  const stockFor = (l) => (l.brand ? (l.brands.find((b) => b.brandId === l.brand)?.stock ?? 0) : l.info?.stock);
+  const overStock = (list, l) => l.info && stockFor(l) !== null && stockFor(l) !== undefined && stockNeeded(list, l.product, l.brand) > stockFor(l) + 1e-9;
 
   function update(key, patch) {
     setLines((prev) => prev.map((l) => (l.key === key ? { ...l, ...patch } : l)));
@@ -141,13 +152,19 @@ export function POSBilling() {
   // The product picked in a row's dropdown.
   async function pickProduct(key, id) {
     const p = products.find((x) => x._id === id);
-    if (!p || !(p.sellingPrice > 0)) { update(key, { product: id, info: null, step: null, unit: 'kg' }); return; }
-    update(key, { product: id, info: { ...p, stock: null }, ...defaultsFor(p), rate: '' });
+    // Priced = a unit price, or a separate selling rate for some unit (e.g. per box).
+    const priced = p && (p.sellingPrice > 0 || (p.unitPrices || []).some((r) => r.sellingPrice > 0));
+    if (!priced) { update(key, { product: id, info: null, step: null, unit: 'kg' }); return; }
+    update(key, { product: id, info: { ...p, stock: null }, ...defaultsFor(p), rate: '', brand: '', brands: [] });
     focusQty(key);
     try {
       const full = (await productService.getOne(id)).data;
       setLines((prev) => prev.map((l) => (l.key === key && l.product === id ? { ...l, info: { ...l.info, stock: full.stock ?? 0 } } : l)));
     } catch { /* stock is checked again when the bill is saved */ }
+    try {
+      const b = await tradeService.saleBrands(id);
+      setLines((prev) => prev.map((l) => (l.key === key && l.product === id ? { ...l, brands: b.data } : l)));
+    } catch { /* brand choice is optional */ }
   }
 
   function addLine() {
@@ -163,6 +180,8 @@ export function POSBilling() {
   function clearBill() {
     setLines([blankLine()]);
     setPayment('cash');
+    setCustomer(null);
+    setReceived('');
     requestId.current = newRequestId();
   }
 
@@ -175,22 +194,29 @@ export function POSBilling() {
       if (l.info) {
         const whole = wholeError(l, units);
         if (whole) { toast.error(`Row ${i + 1}: quantity ${whole}.`); return; }
-        if (l.info.stock !== null && stockNeeded(filled, l.product) > l.info.stock + 1e-9) {
-          toast.error(`Row ${i + 1}: only ${fmtQty(l.info.stock, productUnits(l.info, units).baseUnit, units)} of ${l.info.name} in stock.`); return;
+        if (overStock(filled, l)) {
+          toast.error(`Row ${i + 1}: only ${fmtQty(stockFor(l), productUnits(l.info, units).baseUnit, units)} of ${l.info.name}${l.brand ? ` (${l.brands.find((b) => b.brandId === l.brand)?.brandName})` : ''} in stock.`); return;
         }
       } else if (l.rate === '' || !(Number(l.rate) >= 0)) { toast.error(`Row ${i + 1}: enter the rate.`); return; }
     }
     if (!(total > 0)) { toast.error('The bill total must be more than zero.'); return; }
+    if (received !== '' && (Number(received) < 0 || Number(received) > total + 0.001)) { toast.error('Amount received must be between 0 and the bill total.'); return; }
+    if (due > 0.001 && !customer) { toast.error('Select or add the customer for a credit / part-paid bill.'); return; }
+    if (!customer && req('billing', 'customer')) { toast.error('Select or add the customer (mandatory in Settings).'); return; }
+    if (customer?.isNew && customer.phone && !/^[6-9][0-9]{9}$/.test(String(customer.phone).replace(/\D/g, '').slice(-10))) { toast.error('The mobile number must be 10 digits.'); return; }
     setSaving(true);
     try {
       const res = await salesService.createSimple({
         items: filled.map((l) => (l.info
-          ? { product: l.product, quantity: Number(l.quantity), unit: l.unit }
+          ? { product: l.product, quantity: Number(l.quantity), unit: l.unit, ...(l.brand ? { brand: l.brand } : {}) }
           : { product: l.product, quantity: Number(l.quantity), unit: l.unit, rate: Number(l.rate), rateUnit: 'kg' })),
         paymentMethod: payment,
+        ...(received !== '' ? { amountReceived: Number(received) } : {}),
+        ...(customer && !customer.isNew ? { customer: customer._id } : {}),
+        ...(customer?.isNew ? { newCustomer: { name: customer.name, phone: customer.phone } } : {}),
         clientRequestId: requestId.current,
       });
-      setReceipt(res.data);
+      setReceipt({ ...res.data, customer: customer ? { name: customer.name, phone: customer.phone } : null });
       clearBill();
     } catch (err) { toast.error(err.message); } finally { setSaving(false); }
   }
@@ -233,7 +259,7 @@ export function POSBilling() {
                 const c = calcOf(l);
                 const pu = l.info ? productUnits(l.info, units) : null;
                 const whole = l.info ? wholeError(l, units) : '';
-                const over = l.info && l.info.stock !== null && stockNeeded(lines, l.product) > l.info.stock + 1e-9;
+                const over = overStock(lines, l);
                 return (
                   <tr key={l.key} className="align-top" style={{ borderTop: '1px solid var(--border-subtle)' }}>
                     <td className="px-3 py-2">
@@ -241,11 +267,17 @@ export function POSBilling() {
                         <option value="">{loadingProducts ? 'Loading…' : products.length ? 'Select product' : 'No products – add in Product Master'}</option>
                         {products.map((p) => <option key={p._id} value={p._id}>{p.name}</option>)}
                       </select>
+                      {l.info && l.brands.length > 0 && (
+                        <select value={l.brand} onChange={(e) => update(l.key, { brand: e.target.value })} className={`${inputCls} mt-1 !h-8 text-xs`} style={inputStyle} aria-label={`Row ${i + 1} brand`}>
+                          <option value="">Any brand (oldest stock first)</option>
+                          {l.brands.map((b) => <option key={b.brandId} value={b.brandId} disabled={!(b.stock > 0)}>{b.brandName} - stock {fmtQty(b.stock, pu.baseUnit, units)}</option>)}
+                        </select>
+                      )}
                       {l.info && (
                         <div className="text-[11px] mt-1 flex flex-wrap gap-x-2" style={muted}>
                           {l.info.productType && <span className="capitalize">{l.info.productType === 'loose' ? 'Loose' : 'Pre-packed'}</span>}
                           <span>GST {l.info.gstRate || 0}%</span>
-                          <span className={over ? 'text-rose-600 font-semibold' : ''}>Stock {l.info.stock === null ? '…' : fmtQty(l.info.stock, pu.baseUnit, units)}</span>
+                          <span className={over ? 'text-rose-600 font-semibold' : ''}>{l.brand ? 'Brand stock' : 'Stock'} {stockFor(l) === null ? '…' : fmtQty(stockFor(l), pu.baseUnit, units)}</span>
                         </div>
                       )}
                     </td>
@@ -288,7 +320,7 @@ export function POSBilling() {
                     <td className="px-3 py-2">
                       {l.info ? (
                         <div className="tabular-nums pt-2" title="Selling price from Product Master">
-                          <div className="font-medium" style={{ color: 'var(--text-primary)' }}>{formatCurrency(l.info.sellingPrice)}<span className="text-xs font-normal" style={muted}> / {unitShort(pu.sellingUnit, units, 1)}</span></div>
+                          <div className="font-medium" style={{ color: 'var(--text-primary)' }}>{formatCurrency(c?.rateUnit ? c.rate : l.info.sellingPrice)}<span className="text-xs font-normal" style={muted}> / {unitShort(c?.rateUnit || pu.sellingUnit, units, 1)}</span></div>
                           {l.info.mrp > l.info.sellingPrice && <div className="text-[11px] line-through" style={muted}>MRP {formatCurrency(l.info.mrp)}</div>}
                         </div>
                       ) : (
@@ -317,15 +349,28 @@ export function POSBilling() {
       </div>
 
       <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border p-4" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-surface)' }}>
-        <div className="flex items-center gap-2">
-          <span className="text-sm" style={muted}>Payment</span>
-          {PAYMENT_MODES.map(([m, label]) => (
-            <button key={m} type="button" onClick={() => setPayment(m)}
-              className={`px-3.5 h-9 rounded-full text-sm font-medium border transition-colors ${payment === m ? 'bg-gold-600 text-white border-transparent' : 'hover:bg-gold-50'}`}
-              style={payment === m ? {} : { borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}>
-              {label}
-            </button>
-          ))}
+        <div className="flex flex-col gap-3 min-w-0 sm:max-w-md w-full">
+          <CustomerField value={customer} onChange={setCustomer} />
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm" style={muted}>Payment</span>
+            {PAYMENT_MODES.map(([m, label]) => (
+              <button key={m} type="button" onClick={() => setPayment(m)}
+                className={`px-3.5 h-9 rounded-full text-sm font-medium border transition-colors ${payment === m ? 'bg-gold-600 text-white border-transparent' : 'hover:bg-gold-50'}`}
+                style={payment === m ? {} : { borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}>
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <label htmlFor="amount-received" className="text-sm" style={muted}>Amount received</label>
+            <input id="amount-received" type="number" inputMode="decimal" min="0" step="any" placeholder={total > 0 ? String(total) : 'Full amount'}
+              value={received} onChange={(e) => setReceived(e.target.value)} className={`${inputCls} !w-36 text-right`} style={inputStyle} />
+            {received !== '' && <button type="button" className="text-xs underline" style={muted} onClick={() => setReceived('')}>Full amount</button>}
+            <button type="button" className="text-xs underline" style={muted} onClick={() => setReceived('0')}>Full credit</button>
+          </div>
+          {due > 0.001 && (
+            <div className="text-sm font-medium text-rose-600">Balance due {formatCurrency(due)} - added to {customer ? (customer.name || 'the customer') : 'the customer (select one)'}&apos;s account</div>
+          )}
         </div>
         <div className="flex flex-col sm:flex-row sm:items-end gap-4 sm:gap-5">
           <div className="text-sm tabular-nums sm:min-w-[240px]" style={{ color: 'var(--text-secondary)' }}>

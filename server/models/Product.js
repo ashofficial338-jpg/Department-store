@@ -16,6 +16,8 @@ const productSchema = new mongoose.Schema(
     category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category' },
     subcategory: { type: mongoose.Schema.Types.ObjectId, ref: 'Category' },
     brand: { type: mongoose.Schema.Types.ObjectId, ref: 'Brand' },
+    // Every brand this product has been bought under (one product, many brands - no duplicate product rows).
+    brands: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Brand' }],
     description: { type: String, trim: true },
     hsn: { type: String, trim: true },
     taxRate: { type: mongoose.Schema.Types.ObjectId, ref: 'TaxRate' },
@@ -37,6 +39,13 @@ const productSchema = new mongoose.Schema(
     packUnit: { type: String, trim: true },
     packQuantity: { type: Number, min: 0 },
     packQuantityUnit: { type: String, trim: true },
+    // Conversion rules for this product: 1 <unit> = <quantity> <ofUnit> (e.g. 1 box = 24 pcs, 1 bundle = 10 pcs).
+    conversions: [{ _id: false, unit: { type: String, trim: true }, quantity: { type: Number, min: 0 }, ofUnit: { type: String, trim: true } }],
+    // Separate rates per unit (e.g. per box): used instead of converting the base / selling rate when set.
+    unitPrices: [{ _id: false, unit: { type: String, trim: true }, sellingPrice: { type: Number, min: 0 }, purchasePrice: { type: Number, min: 0 } }],
+    // Free-form specifications chosen by the store (e.g. Variety: Ponni, Origin: Tamil Nadu, Pack size: 25 kg).
+    attributes: [{ _id: false, name: { type: String, trim: true }, value: { type: String, trim: true } }],
+    shelfLifeDays: { type: Number, min: 0 }, // typical shelf life, used to suggest expiry dates
     reorderLevel: { type: Number, default: 10 },
     maxStock: { type: Number, default: 1000 },
     minStock: { type: Number, default: 0 },
@@ -52,6 +61,7 @@ const productSchema = new mongoose.Schema(
 productSchema.index({ name: 'text', sku: 'text', barcode: 'text' });
 productSchema.index({ category: 1 });
 productSchema.index({ brand: 1 });
+productSchema.index({ brands: 1 });
 productSchema.index({ status: 1 });
 
 const Product = mongoose.model('Product', productSchema);

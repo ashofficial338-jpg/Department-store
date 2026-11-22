@@ -8,6 +8,7 @@ export function Brands() {
     <CrudManager
       title="Brands"
       entityLabel="Brand"
+      requestEntity="Brand"
       service={brandService}
       crumbs={[{ label: 'Products', to: '/products' }, { label: 'Brands' }]}
       defaultValues={{ name: '', description: '', status: 'active' }}

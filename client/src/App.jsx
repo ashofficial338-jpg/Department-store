@@ -55,6 +55,14 @@ const ProfitLoss = lazy(() => import('./pages/finance/ProfitLoss.jsx'));
 
 const ReportsCenter = lazy(() => import('./pages/reports/ReportsCenter.jsx'));
 const AdvancedReports = lazy(() => import('./pages/reports/AdvancedReports.jsx'));
+const PurchaseAnalysis = lazy(() => import('./pages/reports/PurchaseAnalysis.jsx'));
+const EditRequests = lazy(() => import('./pages/EditRequests.jsx'));
+const CustomerMaster = lazy(() => import('./pages/customers/CustomerMaster.jsx'));
+const Ledgers = lazy(() => import('./pages/finance/Ledgers.jsx'));
+const ProductEditor = lazy(() => import('./pages/products/ProductEditor.jsx'));
+const ProductView = lazy(() => import('./pages/products/ProductView.jsx'));
+const Units = lazy(() => import('./pages/products/Units.jsx'));
+const MandatoryFields = lazy(() => import('./pages/settings/MandatoryFields.jsx'));
 
 const UsersSettings = lazy(() => import('./pages/settings/UsersSettings.jsx'));
 const RolesSettings = lazy(() => import('./pages/settings/RolesSettings.jsx'));
@@ -106,11 +114,15 @@ export default function App() {
             <Route path="/sales/history" element={<RequirePermission any={['sales', 'pos']}><SalesHistory /></RequirePermission>} />
 
             <Route path="/products" element={<RequirePermission any={['products']}><ProductMaster /></RequirePermission>} />
+            <Route path="/products/new" element={<RequirePermission any={['products']}><ProductEditor /></RequirePermission>} />
+            <Route path="/products/:id/edit" element={<RequirePermission any={['products']}><ProductEditor /></RequirePermission>} />
+            <Route path="/products/units" element={<RequirePermission any={['products', 'purchasing', 'pos', 'sales']}><Units /></RequirePermission>} />
             <Route path="/products/categories" element={<RequirePermission any={['products']}><Categories /></RequirePermission>} />
             <Route path="/products/brands" element={<RequirePermission any={['products']}><Brands /></RequirePermission>} />
             <Route path="/products/from-image" element={<RequirePermission any={['products']}><ProductFromImage /></RequirePermission>} />
             <Route path="/products/batches" element={<RequirePermission any={['products']}><Batches /></RequirePermission>} />
             <Route path="/products/pricing" element={<RequirePermission any={['products']}><Pricing /></RequirePermission>} />
+            <Route path="/products/:id" element={<RequirePermission any={['products', 'inventory', 'purchasing', 'reports']}><ProductView /></RequirePermission>} />
 
             <Route path="/inventory/racks" element={<RequirePermission any={['inventory', 'products']}><RackLocator /></RequirePermission>} />
             <Route path="/inventory/overview" element={<RequirePermission any={['inventory']}><StockOverview /></RequirePermission>} />
@@ -138,13 +150,18 @@ export default function App() {
             <Route path="/finance/expenses" element={<RequirePermission any={['finance']}><Expenses /></RequirePermission>} />
             <Route path="/finance/cash-bank" element={<RequirePermission any={['finance']}><CashBank /></RequirePermission>} />
             <Route path="/finance/gst" element={<RequirePermission any={['finance']}><GST /></RequirePermission>} />
+            <Route path="/finance/ledgers" element={<RequirePermission any={['finance', 'sales', 'customers', 'purchasing', 'vendors']}><Ledgers /></RequirePermission>} />
+            <Route path="/customers" element={<RequirePermission any={['customers', 'sales', 'pos']}><CustomerMaster /></RequirePermission>} />
             <Route path="/finance/profit-loss" element={<RequirePermission any={['finance']}><ProfitLoss /></RequirePermission>} />
 
             <Route path="/reports" element={<RequirePermission any={['reports']}><ReportsCenter /></RequirePermission>} />
             <Route path="/reports/analytics" element={<RequirePermission any={['reports']}><AdvancedReports /></RequirePermission>} />
+            <Route path="/reports/purchase-analysis" element={<RequirePermission any={['reports', 'purchasing']}><PurchaseAnalysis /></RequirePermission>} />
+            <Route path="/edit-requests" element={<RequirePermission any={['dashboard', 'purchasing', 'products', 'vendors']}><EditRequests /></RequirePermission>} />
 
             <Route path="/settings/users" element={<RequirePermission admin><UsersSettings /></RequirePermission>} />
             <Route path="/settings/roles" element={<RequirePermission admin><RolesSettings /></RequirePermission>} />
+            <Route path="/settings/mandatory-fields" element={<RequirePermission admin><MandatoryFields /></RequirePermission>} />
             <Route path="/settings/tax" element={<RequirePermission admin><TaxSettings /></RequirePermission>} />
             <Route path="/settings/invoice" element={<RequirePermission admin><InvoiceSettings /></RequirePermission>} />
             <Route path="/settings/system" element={<RequirePermission admin><SystemSettings /></RequirePermission>} />

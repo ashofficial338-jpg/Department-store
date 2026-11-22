@@ -13,6 +13,7 @@ export function Categories() {
     <CrudManager
       title="Categories"
       entityLabel="Category"
+      requestEntity="Category"
       service={categoryService}
       crumbs={[{ label: 'Products', to: '/products' }, { label: 'Categories' }]}
       defaultValues={{ name: '', slug: '', parent: '', description: '', status: 'active' }}
@@ -23,7 +24,7 @@ export function Categories() {
       ]}
       fields={[
         { name: 'name', label: 'Category Name', required: true, component: Input },
-        { name: 'slug', label: 'Slug', required: true, component: Input, props: { placeholder: 'e.g. mens-fashion' } },
+        { name: 'slug', label: 'Slug (optional)', component: Input, props: { placeholder: 'Made from the name when empty' } },
         {
           name: 'parent', label: 'Parent Category (optional)', component: Select,
           options: [{ value: '', label: 'None - top level' }, ...parents.filter((p) => !p.parent).map((p) => ({ value: p._id, label: p.name }))],

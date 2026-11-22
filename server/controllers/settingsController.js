@@ -8,12 +8,32 @@ import {
   MODULES, DASHBOARD_PERMISSIONS, ADMIN_ONLY_MODULES, ASSIGNABLE_PERMISSIONS, FULL_ACCESS_ROLES,
 } from '../config/permissions.js';
 import { ensureRolePermissions, clearPermissionCache } from '../services/permissionService.js';
+import { FIELD_REGISTRY, getFieldRules, clearFieldRulesCache } from '../utils/fieldRules.js';
 
 async function getOrCreateSettings() {
   let settings = await Settings.findOne();
   if (!settings) settings = await Settings.create({});
   return settings;
 }
+
+// Mandatory / optional fields (Settings > Mandatory Fields). Read by every form; changed by administrators only.
+export const getFieldRulesConfig = catchAsync(async (req, res) => {
+  res.json({ success: true, data: { registry: FIELD_REGISTRY, rules: await getFieldRules() } });
+});
+
+export const updateFieldRules = catchAsync(async (req, res) => {
+  const incoming = req.body?.rules || {};
+  const stored = {};
+  for (const [entity, def] of Object.entries(FIELD_REGISTRY)) {
+    stored[entity] = {};
+    for (const f of def.fields) if (!f.essential && incoming?.[entity]?.[f.key] === true) stored[entity][f.key] = true;
+  }
+  const before = await getFieldRules();
+  await Settings.updateOne({}, { $set: { fieldRules: stored } }, { upsert: true });
+  clearFieldRulesCache();
+  await recordAudit({ req, action: 'settings.field_rules', entity: 'Settings', oldValue: before, newValue: stored });
+  res.json({ success: true, data: { registry: FIELD_REGISTRY, rules: await getFieldRules() } });
+});
 
 export const getSettings = catchAsync(async (req, res) => {
   const settings = await getOrCreateSettings();

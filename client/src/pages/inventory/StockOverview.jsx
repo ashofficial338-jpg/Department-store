@@ -37,17 +37,17 @@ export function StockOverview() {
     { key: 'product', header: 'Product', render: (r) => <div><div className="font-medium">{r.product?.name}</div><div className="text-xs" style={{ color: 'var(--text-muted)' }}>{r.product?.sku}</div></div> },
     { key: 'totalInward', header: 'Total Inward', render: (r) => <span className="text-emerald-700">{r.totalInward ?? 0}</span> },
     { key: 'totalOutward', header: 'Total Outward', render: (r) => <span className="text-rose-600">{r.totalOutward ?? 0}</span> },
-    { key: 'currentStock', header: 'Current Stock', render: (r) => <span className={r.currentStock <= (r.product?.reorderLevel || 0) ? 'text-rose-600 font-semibold' : 'font-medium'}>{r.currentStock}</span> },
+    { key: 'currentStock', header: 'Current Stock', render: (r) => <span className={r.currentStock <= (r.product?.reorderLevel || 0) ? 'text-rose-600 font-semibold' : 'font-medium'}>{r.currentStock} <span className="text-xs font-normal" style={{ color: 'var(--text-muted)' }}>{(r.product?.baseUnit || r.product?.sellingUnit || String(r.product?.unit || '').toLowerCase())}</span></span> },
     { key: 'reservedStock', header: 'Reserved' },
     { key: 'damagedStock', header: 'Damaged' },
-    { key: 'availableStock', header: 'Available' },
+    { key: 'availableStock', header: 'Available', render: (r) => `${r.availableStock ?? 0} ${(r.product?.baseUnit || r.product?.sellingUnit || String(r.product?.unit || '').toLowerCase())}` },
     { key: 'value', header: 'Stock Value', render: (r) => formatCurrency((r.currentStock || 0) * (r.product?.purchasePrice || 0)) },
   ];
 
   const movementColumns = [
     { key: 'createdAt', header: 'Date', render: (r) => formatDateTime(r.createdAt) },
     { key: 'product', header: 'Item', render: (r) => <div><div className="font-medium">{r.product?.name}</div><div className="text-xs" style={{ color: 'var(--text-muted)' }}>{r.product?.sku}</div></div> },
-    { key: 'quantity', header: 'Quantity', render: (r) => <span className={r.quantity > 0 ? 'text-emerald-700 font-medium' : 'text-rose-600 font-medium'}>{Math.abs(r.quantity)}</span> },
+    { key: 'quantity', header: 'Quantity', render: (r) => <span className={r.quantity > 0 ? 'text-emerald-700 font-medium' : 'text-rose-600 font-medium'}>{Math.abs(r.quantity)} {(r.product?.baseUnit || r.product?.sellingUnit || String(r.product?.unit || '').toLowerCase())}</span> },
     { key: 'type', header: 'Transaction Type', render: (r) => TYPE_LABEL[r.type] || r.type },
     { key: 'referenceNumber', header: 'Reference #', render: (r) => <span className="font-mono text-xs">{r.referenceNumber || '-'}</span> },
     { key: 'notes', header: 'Against', render: (r) => <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{r.notes || '-'}</span> },

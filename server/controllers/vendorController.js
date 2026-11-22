@@ -9,7 +9,8 @@ import catchAsync from '../utils/catchAsync.js';
 import ApiError from '../utils/ApiError.js';
 import recordAudit from '../utils/audit.js';
 import { getPagination, buildPaginatedResponse } from '../utils/pagination.js';
-import { literalRegex, number, oneOf } from '../utils/validate.js';
+import { literalRegex, number, oneOf, escapeRegex } from '../utils/validate.js';
+import { requireFields, getFieldRules } from '../utils/fieldRules.js';
 
 export const STATUS_LABEL = { pending: 'Pending Verification', verified: 'Verified', rejected: 'Rejected', on_hold: 'On Hold' };
 const LIST_FIELDS = '-verificationHistory';
@@ -65,7 +66,9 @@ function cleanBody(body = {}, { partial = false } = {}) {
 
   // Each error names its field (details.field) so the form can show it under the right box.
   if (!partial || out.name !== undefined) { if (!out.name) throw bad('name', 'Vendor name is required.'); }
-  if (!partial || out.phone !== undefined) { if (!out.phone || !PHONE_RX.test(out.phone)) throw bad('phone', 'Enter a valid 10-digit mobile number (starting with 6-9).'); }
+  // Mobile is optional (unless made mandatory in Settings > Mandatory Fields); when given it must be valid.
+  if (out.phone && !PHONE_RX.test(out.phone)) throw bad('phone', 'Enter a valid 10-digit mobile number (starting with 6-9).');
+  if (out.phone === '') out.phone = undefined;
   if (out.alternatePhone && !PHONE_RX.test(out.alternatePhone)) throw bad('alternatePhone', 'Alternate number must be a valid 10-digit mobile number.');
   if (out.email && !EMAIL_RX.test(out.email)) throw bad('email', 'Enter a valid email address.');
   if (out.pincode && !PIN_RX.test(out.pincode)) throw bad('pincode', 'PIN code must be 6 digits.');
@@ -124,6 +127,8 @@ export const list = catchAsync(async (req, res) => {
 export const listAll = catchAsync(async (req, res) => {
   const filter = {};
   if (req.query.verified === 'true') Object.assign(filter, { verificationStatus: 'verified', status: { $ne: 'inactive' } });
+  // Purchase entry: verified suppliers plus new ones awaiting verification (those orders stay drafts).
+  if (req.query.forPurchase === 'true') Object.assign(filter, { verificationStatus: { $in: ['verified', 'pending', 'on_hold'] }, status: { $ne: 'inactive' } });
   if (req.query.status) filter.status = String(req.query.status);
   const docs = await Vendor.find(filter).select('name companyName gstin verificationStatus status').sort({ name: 1 }).collation({ locale: 'en' });
   res.json({ success: true, data: docs });
@@ -136,8 +141,44 @@ export const getOne = catchAsync(async (req, res) => {
 });
 
 // ---------- create / update / delete ----------
+// Supplier entry from the purchase screen: only the name is needed (phone / GSTIN optional). A supplier
+// that already exists (same GSTIN, mobile number or name) is re-used, so no duplicate vendor is created.
+// New suppliers start as Pending Verification; orders with them stay drafts until an admin verifies them.
+export const quickCreate = catchAsync(async (req, res) => {
+  const name = str(req.body?.name, 120)?.replace(/\s+/g, ' ');
+  if (!name) throw bad('name', 'Supplier name is required.');
+  const phone = req.body?.phone ? normPhone(req.body.phone) : undefined;
+  if (phone && !PHONE_RX.test(phone)) throw bad('phone', 'Enter a valid 10-digit mobile number (starting with 6-9).');
+  const gstin = req.body?.gstin ? compact(req.body.gstin) : undefined;
+  if (gstin && !GSTIN_RX.test(gstin)) throw bad('gstin', 'GSTIN must be 15 characters, e.g. 33ABCDE1234F1Z5.');
+  await requireFields('vendor', { phone, gstin, address: str(req.body?.address, 500), city: str(req.body?.city, 80) }, { partial: true });
+
+  const nameRx = new RegExp(`^${escapeRegex(name)}$`, 'i');
+  const existing = (gstin && await Vendor.findOne({ gstin }))
+    || (phone && await Vendor.findOne({ phone }))
+    || await Vendor.findOne({ name: nameRx });
+  if (existing) {
+    return res.json({ success: true, data: existing, existing: true, message: `"${existing.name}" is already registered - using the existing supplier.` });
+  }
+  const vendor = new Vendor({
+    name, phone, gstin, pan: gstin ? gstin.slice(2, 12) : undefined,
+    address: str(req.body?.address, 500), city: str(req.body?.city, 80), verificationStatus: 'pending',
+  });
+  addHistory(vendor, req, { action: 'registered', toStatus: 'pending', remarks: 'Added during purchase entry - awaiting verification' });
+  await vendor.save();
+  await recordAudit({ req, action: 'vendor.create', entity: 'Vendor', entityId: vendor._id, newValue: { name: vendor.name, via: 'purchase entry' } });
+  res.status(201).json({ success: true, data: vendor, existing: false });
+});
+
+// Configured mandatory supplier fields (all optional by default).
+const vendorRuleValues = (b) => ({
+  phone: b.phone, contactPerson: b.contactPerson, email: b.email, address: b.address, city: b.city, pincode: b.pincode,
+  gstin: b.gstin, pan: b.pan, ...(b.bankDetails ? { bankAccount: b.bankDetails.accountNumber, ifsc: b.bankDetails.ifsc } : {}),
+});
+
 export const create = catchAsync(async (req, res) => {
   const body = cleanBody(req.body);
+  await requireFields('vendor', vendorRuleValues(body));
   await assertNoDuplicate(body);
   const vendor = new Vendor({ ...body, verificationStatus: 'pending' });
   addHistory(vendor, req, { action: 'registered', toStatus: 'pending', remarks: 'Vendor registered - awaiting verification' });
@@ -150,6 +191,7 @@ export const update = catchAsync(async (req, res) => {
   const vendor = await Vendor.findById(req.params.id);
   if (!vendor) throw new ApiError(404, 'Vendor not found.');
   const body = cleanBody(req.body, { partial: true });
+  await requireFields('vendor', Object.fromEntries(Object.entries(vendorRuleValues(body)).filter(([, v]) => v !== undefined || false)), { partial: true });
   await assertNoDuplicate({ gstin: body.gstin, pan: body.pan, name: body.name }, vendor._id);
   const merged = { gstin: body.gstin ?? vendor.gstin, pan: body.pan ?? vendor.pan };
   if (merged.gstin && merged.pan && merged.gstin.slice(2, 12) !== merged.pan) throw bad('pan', 'PAN does not match the PAN inside the GSTIN (characters 3-12).');
@@ -272,15 +314,19 @@ export const deleteDocument = catchAsync(async (req, res) => {
 
 // ---------- verification ----------
 // What must be in place before a vendor can be verified.
-export function verificationChecklist(v) {
+// What is needed before a supplier can be marked Verified: the name, plus whatever an administrator made
+// mandatory in Settings > Mandatory Fields (Supplier verification). Everything else is shown as optional.
+export function verificationChecklist(v, rules = {}) {
   const has = (t) => v.documents.some((d) => d.docType === t);
+  const opt = (k) => !rules[k];
+  const lab = (l, k) => `${l}${opt(k) ? ' (optional)' : ''}`;
   return [
     { key: 'name', label: 'Vendor name', ok: !!v.name },
-    { key: 'contact', label: 'Contact number', ok: !!v.phone },
-    { key: 'address', label: 'Address', ok: !!v.address },
-    { key: 'gstin', label: 'GSTIN', ok: !!v.gstin },
-    { key: 'pan', label: 'PAN number', ok: !!v.pan },
-    { key: 'bank', label: 'Bank account & IFSC', ok: !!(v.bankDetails?.accountNumber && v.bankDetails?.ifsc) },
+    { key: 'contact', label: lab('Contact number', 'phone'), ok: !!v.phone, optional: opt('phone') },
+    { key: 'address', label: lab('Address', 'address'), ok: !!v.address, optional: opt('address') },
+    { key: 'gstin', label: lab('GSTIN', 'gstin'), ok: !!v.gstin, optional: opt('gstin') },
+    { key: 'pan', label: lab('PAN number', 'pan'), ok: !!v.pan, optional: opt('pan') },
+    { key: 'bank', label: lab('Bank account & IFSC', 'bank'), ok: !!(v.bankDetails?.accountNumber && v.bankDetails?.ifsc), optional: opt('bank') },
     ...Object.keys(DOC_TYPES).map((t) => {
       const optional = !REQUIRED_DOCS.includes(t);
       return { key: t, label: `${DOC_TYPES[t]}${optional ? ' (optional)' : ''}`, ok: has(t), optional };
@@ -291,7 +337,7 @@ export function verificationChecklist(v) {
 export const checklist = catchAsync(async (req, res) => {
   const vendor = await Vendor.findById(req.params.id).select('name phone address gstin pan bankDetails documents');
   if (!vendor) throw new ApiError(404, 'Vendor not found.');
-  res.json({ success: true, data: verificationChecklist(vendor) });
+  res.json({ success: true, data: verificationChecklist(vendor, (await getFieldRules()).vendorVerification) });
 });
 
 export const verify = catchAsync(async (req, res) => {
@@ -301,9 +347,10 @@ export const verify = catchAsync(async (req, res) => {
   if (!vendor) throw new ApiError(404, 'Vendor not found.');
   const before = vendor.verificationStatus;
   if (before === status) throw new ApiError(400, `Vendor is already ${STATUS_LABEL[status]}.`);
-  if (status !== 'verified' && !remarks) throw new ApiError(400, `Give a remark for marking the vendor ${STATUS_LABEL[status]}.`);
+  const vrules = (await getFieldRules()).vendorVerification;
+  if (status !== 'verified' && !remarks && vrules.remarks) throw new ApiError(400, `Give a remark for marking the vendor ${STATUS_LABEL[status]}.`);
   if (status === 'verified') {
-    const missing = verificationChecklist(vendor).filter((c) => !c.ok && !c.optional).map((c) => c.label);
+    const missing = verificationChecklist(vendor, vrules).filter((c) => !c.ok && !c.optional).map((c) => c.label);
     if (missing.length) throw new ApiError(400, `Cannot verify yet - missing: ${missing.join(', ')}.`);
     vendor.verifiedAt = new Date();
     vendor.verifiedBy = req.user._id;
@@ -338,6 +385,6 @@ export const vendorDashboard = catchAsync(async (req, res) => {
 });
 
 export const vendorController = {
-  list, listAll, getOne, create, update, remove, uploadDocument, downloadDocument, deleteDocument, checklist, verify, vendorDashboard,
+  list, listAll, getOne, create, quickCreate, update, remove, uploadDocument, downloadDocument, deleteDocument, checklist, verify, vendorDashboard,
 };
 export default vendorController;

@@ -3,6 +3,8 @@ import mongoose from 'mongoose';
 const saleItemSchema = new mongoose.Schema(
   {
     product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
+    brand: { type: mongoose.Schema.Types.ObjectId, ref: 'Brand' }, // brand sold (stock taken from that brand's batches)
+    brandName: String,
     batch: { type: mongoose.Schema.Types.ObjectId, ref: 'Batch' },
     productName: String,
     sku: String,
@@ -43,6 +45,19 @@ const paymentSplitSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const receiptSchema = new mongoose.Schema(
+  {
+    amount: { type: Number, required: true, min: 0 },
+    method: { type: String, enum: ['cash', 'upi', 'card', 'bank_transfer'], required: true },
+    voucherNumber: String,
+    payment: { type: mongoose.Schema.Types.ObjectId, ref: 'Payment' },
+    receivedAt: { type: Date, default: Date.now },
+    receivedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    notes: String,
+  },
+  { _id: true }
+);
+
 const saleSchema = new mongoose.Schema(
   {
     invoiceNumber: { type: String, required: true, unique: true },
@@ -60,6 +75,11 @@ const saleSchema = new mongoose.Schema(
     grandTotal: Number,
     amountPaid: { type: Number, default: 0 },
     payments: [paymentSplitSchema],
+    // Credit / partial sales: creditAmount = left unpaid at billing; amountDue = still to be collected
+    // (creditAmount - receipts - returns adjusted against it). Customer outstanding = sum of amountDue.
+    creditAmount: { type: Number, default: 0 },
+    amountDue: { type: Number, default: 0 },
+    receipts: [receiptSchema],
     isInterState: { type: Boolean, default: false },
     status: { type: String, enum: ['held', 'completed', 'cancelled', 'returned', 'partially_returned'], default: 'completed' },
     // 'simple' = bill from the Billing screen: priced products take stock (baseQty), unpriced name-only lines (rate typed) do not.
@@ -76,6 +96,8 @@ saleSchema.index({ clientRequestId: 1 }, { unique: true, partialFilterExpression
 saleSchema.index({ customer: 1 });
 saleSchema.index({ createdAt: -1 });
 saleSchema.index({ status: 1 });
+saleSchema.index({ amountDue: 1 });
+saleSchema.index({ 'items.product': 1 });
 
 const Sale = mongoose.model('Sale', saleSchema);
 export default Sale;

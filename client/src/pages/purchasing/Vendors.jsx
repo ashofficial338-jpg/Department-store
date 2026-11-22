@@ -11,6 +11,7 @@ import { vendorService } from '../../services/index.js';
 import { useDebounce } from '../../hooks/useDebounce.js';
 import { formatDate, formatDateTime } from '../../utils/format.js';
 import { validateVendor } from '../../utils/vendorValidation.js';
+import { useFieldRules } from '../../hooks/useFieldRules.js';
 
 const DOC_TYPES = [
   // All documents are optional - a vendor can be verified on its details alone.
@@ -97,6 +98,7 @@ export function Vendors() {
   const [checklist, setChecklist] = useState([]);
   const [decision, setDecision] = useState('verified');
   const [remarks, setRemarks] = useState('');
+  const { req } = useFieldRules();
   const [verifying, setVerifying] = useState(false);
 
   async function load() {
@@ -139,7 +141,7 @@ export function Vendors() {
   async function saveVendor(e) {
     e.preventDefault();
     // Check here first: a wrong value is shown under its box instead of failing on the server.
-    const found = validateVendor(form);
+    const found = validateVendor(form, req);
     setErrors(found);
     const first = Object.keys(found)[0];
     if (first) { toast.error(found[first]); focusField(first); return; }
@@ -319,25 +321,25 @@ export function Vendors() {
             <Input label="Company / legal name" value={form.companyName} onChange={setF('companyName')} maxLength={160} />
           </Section>
           <Section title="Contact details" icon={Phone}>
-            <Input label="Contact person" value={form.contactPerson} onChange={setF('contactPerson')} />
-            <Input label="Mobile number" required data-field="phone" error={errors.phone} inputMode="tel" placeholder="e.g. 93000 00059" value={form.phone} onChange={setF('phone')} maxLength={16} hint={!errors.phone ? '10 digits; +91 or spaces are fine' : undefined} />
+            <Input label="Contact person" required={req('vendor', 'contactPerson')} value={form.contactPerson} onChange={setF('contactPerson')} />
+            <Input label="Mobile number" required={req('vendor', 'phone')} data-field="phone" error={errors.phone} inputMode="tel" placeholder="e.g. 93000 00059" value={form.phone} onChange={setF('phone')} maxLength={16} hint={!errors.phone ? '10 digits; +91 or spaces are fine' : undefined} />
             <Input label="Alternate number" data-field="alternatePhone" error={errors.alternatePhone} inputMode="tel" value={form.alternatePhone} onChange={setF('alternatePhone')} maxLength={16} />
-            <Input label="Email" type="text" inputMode="email" data-field="email" error={errors.email} value={form.email} onChange={setF('email')} />
+            <Input label="Email" required={req('vendor', 'email')} type="text" inputMode="email" data-field="email" error={errors.email} value={form.email} onChange={setF('email')} />
           </Section>
           <Section title="Address" icon={MapPin}>
-            <div className="sm:col-span-2"><Textarea label="Address" value={form.address} onChange={setF('address')} rows={2} /></div>
-            <Input label="City" value={form.city} onChange={setF('city')} />
+            <div className="sm:col-span-2"><Textarea label="Address" required={req('vendor', 'address')} value={form.address} onChange={setF('address')} rows={2} /></div>
+            <Input label="City" required={req('vendor', 'city')} value={form.city} onChange={setF('city')} />
             <Input label="State" value={form.state} onChange={setF('state')} />
-            <Input label="PIN code" data-field="pincode" error={errors.pincode} inputMode="numeric" value={form.pincode} onChange={setF('pincode')} maxLength={7} />
+            <Input label="PIN code" required={req('vendor', 'pincode')} data-field="pincode" error={errors.pincode} inputMode="numeric" value={form.pincode} onChange={setF('pincode')} maxLength={7} />
           </Section>
           <Section title="Tax registration" icon={FileText}>
-            <Input label="GSTIN" data-field="gstin" error={errors.gstin} placeholder="33ABCDE1234F1Z5" value={form.gstin} onChange={setF('gstin', true)} maxLength={20} className="font-mono" hint="15 characters (optional)" />
-            <Input label="PAN number" data-field="pan" error={errors.pan} placeholder="ABCDE1234F" value={form.pan} onChange={setF('pan', true)} maxLength={14} className="font-mono" hint="Must match characters 3–12 of the GSTIN" />
+            <Input label="GSTIN" required={req('vendor', 'gstin')} data-field="gstin" error={errors.gstin} placeholder="33ABCDE1234F1Z5" value={form.gstin} onChange={setF('gstin', true)} maxLength={20} className="font-mono" hint="15 characters (optional)" />
+            <Input label="PAN number" required={req('vendor', 'pan')} data-field="pan" error={errors.pan} placeholder="ABCDE1234F" value={form.pan} onChange={setF('pan', true)} maxLength={14} className="font-mono" hint="Must match characters 3–12 of the GSTIN" />
           </Section>
           <Section title="Bank account" icon={Landmark}>
             <Input label="Account holder name" value={form.bankDetails.accountName} onChange={setB('accountName')} />
-            <Input label="Account number" data-field="bankDetails.accountNumber" error={errors['bankDetails.accountNumber']} inputMode="numeric" value={form.bankDetails.accountNumber} onChange={setB('accountNumber')} maxLength={24} className="font-mono" />
-            <Input label="IFSC code" data-field="bankDetails.ifsc" error={errors['bankDetails.ifsc']} placeholder="SBIN0001234" value={form.bankDetails.ifsc} onChange={setB('ifsc', true)} maxLength={14} className="font-mono" />
+            <Input label="Account number" required={req('vendor', 'bankAccount')} data-field="bankDetails.accountNumber" error={errors['bankDetails.accountNumber']} inputMode="numeric" value={form.bankDetails.accountNumber} onChange={setB('accountNumber')} maxLength={24} className="font-mono" />
+            <Input label="IFSC code" required={req('vendor', 'ifsc')} data-field="bankDetails.ifsc" error={errors['bankDetails.ifsc']} placeholder="SBIN0001234" value={form.bankDetails.ifsc} onChange={setB('ifsc', true)} maxLength={14} className="font-mono" />
             <Input label="Bank name" value={form.bankDetails.bankName} onChange={setB('bankName')} />
             <Input label="Branch" value={form.bankDetails.branch} onChange={setB('branch')} />
           </Section>
@@ -483,7 +485,7 @@ export function Vendors() {
               ))}
             </div>
           </div>
-          <Textarea label={decision === 'verified' ? 'Remarks (optional)' : 'Remarks'} required={decision !== 'verified'} value={remarks} onChange={(e) => setRemarks(e.target.value)} maxLength={500}
+          <Textarea label={decision !== 'verified' && req('vendorVerification', 'remarks') ? 'Remarks' : 'Remarks (optional)'} required={decision !== 'verified' && req('vendorVerification', 'remarks')} value={remarks} onChange={(e) => setRemarks(e.target.value)} maxLength={500}
             placeholder={decision === 'rejected' ? 'Why is the vendor rejected?' : decision === 'on_hold' ? 'What is pending from the vendor?' : 'e.g. GST & PAN checked with originals'} />
         </div>
       </Modal>

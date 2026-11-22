@@ -15,6 +15,7 @@ const paymentSchema = new mongoose.Schema(
     partyModel: { type: String, enum: ['Customer', 'Vendor', 'Supplier'] },
     referenceType: { type: String }, // 'Sale' | 'Purchase' | 'SalesReturn' | 'Expense'
     referenceId: { type: mongoose.Schema.Types.ObjectId },
+    referenceNumber: { type: String }, // invoice / bill number the payment settles
     method: { type: String, enum: ['cash', 'upi', 'card', 'bank_transfer'], required: true },
     amount: { type: Number, required: true, min: 0 },
     transactionRef: { type: String },

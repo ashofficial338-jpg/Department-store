@@ -3,7 +3,7 @@ import {
   previewSale, createSale, createSimpleBill, resumeSale, listSales, getSale, heldSales, cancelSale,
   createSalesReturn, listSalesReturns,
 } from '../controllers/salesController.js';
-import { protect, requirePermission } from '../middleware/auth.js';
+import { protect, requirePermission, adminOnly } from '../middleware/auth.js';
 
 const router = Router();
 router.use(protect, requirePermission('sales', 'pos'));
@@ -17,6 +17,7 @@ router.get('/', listSales);
 router.get('/:id', getSale);
 router.post('/', createSale);
 router.post('/:id/resume', resumeSale);
-router.post('/:id/cancel', cancelSale);
+// Cancelling a saved bill changes an existing record: administrators only.
+router.post('/:id/cancel', adminOnly, cancelSale);
 
 export default router;

@@ -5,6 +5,7 @@ import { PageHeader, DataTable, Button, Modal, Input, Select, ConfirmDialog } fr
 import { useAuth } from '../../context/AuthContext.jsx';
 import { isAdmin } from '../../utils/permissions.js';
 import { expenseService } from '../../services/index.js';
+import { useFieldRules } from '../../hooks/useFieldRules.js';
 import { formatCurrency, formatDate } from '../../utils/format.js';
 
 const CATEGORIES = ['rent', 'utilities', 'salaries', 'marketing', 'logistics', 'maintenance', 'supplies', 'other',
@@ -13,6 +14,7 @@ const CATEGORIES = ['rent', 'utilities', 'salaries', 'marketing', 'logistics', '
 const EMPTY = { category: 'other', description: '', amount: '', paymentMethod: 'cash', expenseDate: new Date().toISOString().slice(0, 10) };
 
 export function Expenses() {
+  const { req } = useFieldRules();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
@@ -95,7 +97,7 @@ export function Expenses() {
           <Select label="Category" value={form.category} onChange={(e) => setForm((s) => ({ ...s, category: e.target.value }))}>
             {CATEGORIES.map((c) => <option key={c} value={c}>{c.replace(/_/g, ' ')}</option>)}
           </Select>
-          <Input label="Description" required value={form.description} onChange={(e) => setForm((s) => ({ ...s, description: e.target.value }))} />
+          <Input label="Description" required={req('expense', 'description')} value={form.description} onChange={(e) => setForm((s) => ({ ...s, description: e.target.value }))} />
           <Input label="Amount" type="number" required value={form.amount} onChange={(e) => setForm((s) => ({ ...s, amount: e.target.value }))} />
           <Select label="Payment Method" value={form.paymentMethod} onChange={(e) => setForm((s) => ({ ...s, paymentMethod: e.target.value }))}>
             <option value="cash">Cash</option><option value="upi">UPI</option><option value="card">Card</option><option value="bank_transfer">Bank Transfer</option>

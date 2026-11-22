@@ -3,6 +3,7 @@ import toast from 'react-hot-toast';
 import { PageHeader, DataTable, Button, Select, Textarea } from '../../components/ui/index.js';
 import ProductPicker from '../../components/ProductPicker.jsx';
 import { inventoryService } from '../../services/index.js';
+import { useFieldRules } from '../../hooks/useFieldRules.js';
 import { formatDateTime } from '../../utils/format.js';
 
 const TYPE_OPTIONS = [
@@ -15,6 +16,7 @@ export function StockAdjustment() {
   const [quantity, setQuantity] = useState('');
   const [type, setType] = useState('stock_adjustment');
   const [notes, setNotes] = useState('');
+  const { req } = useFieldRules();
   const [saving, setSaving] = useState(false);
   const [recent, setRecent] = useState([]);
   const [loadingRecent, setLoadingRecent] = useState(true);
@@ -61,7 +63,7 @@ export function StockAdjustment() {
               style={{ borderColor: 'var(--border-subtle)' }}
             />
           </div>
-          <Textarea label="Notes / Reason" value={notes} onChange={(e) => setNotes(e.target.value)} />
+          <Textarea label="Notes / Reason" required={req('stockAdjustment', 'reason')} value={notes} onChange={(e) => setNotes(e.target.value)} />
           <Button type="submit" className="w-full" loading={saving}>Record Adjustment</Button>
         </form>
 

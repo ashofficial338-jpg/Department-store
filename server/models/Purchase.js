@@ -3,8 +3,14 @@ import mongoose from 'mongoose';
 const purchaseItemSchema = new mongoose.Schema(
   {
     product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
+    brand: { type: mongoose.Schema.Types.ObjectId, ref: 'Brand' }, // optional: same product bought under different brands
     batchNumber: { type: String },
-    quantity: { type: Number, required: true, min: 1 },
+    quantity: { type: Number, required: true, min: 0.001 },
+    // Unit of this line (e.g. kg, box) and how many stock (base) units one of it is - stock moves in base units.
+    unit: { type: String, trim: true },
+    baseUnit: { type: String, trim: true },
+    baseFactor: { type: Number, default: 1 },
+    decimal: { type: Boolean, default: false }, // quantity may have decimals (weight / volume / length)
     unitPrice: { type: Number, required: true },
     gstRate: { type: Number, default: 0 },
     manufacturingDate: Date,
@@ -29,6 +35,8 @@ const purchaseSchema = new mongoose.Schema(
     taxAmount: Number,
     grandTotal: Number,
     amountPaid: { type: Number, default: 0 },
+    // Value of Purchase Returns (debit notes) against this order - reduces what is payable.
+    returnedAmount: { type: Number, default: 0 },
     // Value billed on Purchase Invoices (what is payable). No default on purpose: orders from before the
     // invoice flow have none and stay payable at their full value (see utils/payables.js).
     invoicedAmount: { type: Number },

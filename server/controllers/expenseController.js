@@ -4,6 +4,7 @@ import recordAudit from '../utils/audit.js';
 import catchAsync from '../utils/catchAsync.js';
 import { getPagination, buildPaginatedResponse } from '../utils/pagination.js';
 import { postLedgerPair, methodToAccountKey } from '../utils/ledger.js';
+import { requireFields, isRequired } from '../utils/fieldRules.js';
 import { assertActiveStore, assertActiveStoreIfChanged } from '../utils/storeGuard.js';
 
 export const listExpenses = catchAsync(async (req, res) => {
@@ -24,6 +25,7 @@ export const listExpenses = catchAsync(async (req, res) => {
 });
 
 export const createExpense = catchAsync(async (req, res) => {
+  await requireFields('expense', { description: req.body?.description });
   if (req.body.store) await assertActiveStore(req.body.store);
   const expense = await Expense.create({ ...req.body, recordedBy: req.user._id });
   await postLedgerPair({

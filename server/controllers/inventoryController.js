@@ -14,6 +14,7 @@ import { generateDocNumber } from '../utils/docNumber.js';
 import { literalRegex, requireId, number, positive, oneOf } from '../utils/validate.js';
 import { sendExport } from '../utils/exporters.js';
 import { buildStockReport, stockReportOptions } from '../services/stockReport.js';
+import { requireFields } from '../utils/fieldRules.js';
 import { assertActiveStore, assertActiveDC, ACTIVE_STORE_FILTER, ACTIVE_DC_FILTER, mainStoreId } from '../utils/storeGuard.js';
 
 // Adjust a product's central stock by `delta` units. Single store: whichever store or distribution
@@ -50,7 +51,7 @@ export const stockOverview = catchAsync(async (req, res) => {
   if (productIds) filter.product = { $in: productIds };
 
   const [docs, total] = await Promise.all([
-    Inventory.find(filter).populate('product', 'name sku unit reorderLevel sellingPrice purchasePrice').populate('store', 'name code').populate('distributionCenter', 'name code').sort({ updatedAt: -1 }).skip(skip).limit(limit),
+    Inventory.find(filter).populate('product', 'name sku unit sellingUnit baseUnit reorderLevel sellingPrice purchasePrice').populate('store', 'name code').populate('distributionCenter', 'name code').sort({ updatedAt: -1 }).skip(skip).limit(limit),
     Inventory.countDocuments(filter),
   ]);
   // Total inward / outward movement per product (from the stock ledger) beside the stock figure.
@@ -108,7 +109,7 @@ export const stockLedger = catchAsync(async (req, res) => {
     if (req.query.to) filter.createdAt.$lte = new Date(req.query.to);
   }
   const [docs, total] = await Promise.all([
-    InventoryTransaction.find(filter).populate('product', 'name sku').populate('batch', 'batchNumber').populate('user', 'name').sort({ createdAt: -1 }).skip(skip).limit(limit),
+    InventoryTransaction.find(filter).populate('product', 'name sku unit sellingUnit baseUnit').populate('batch', 'batchNumber').populate('user', 'name').sort({ createdAt: -1 }).skip(skip).limit(limit),
     InventoryTransaction.countDocuments(filter),
   ]);
   res.json({ success: true, ...buildPaginatedResponse({ docs, total, page, limit }) });
@@ -122,7 +123,7 @@ export const adjustStock = catchAsync(async (req, res) => {
   oneOf(type, ['stock_adjustment', 'damage', 'expiry_writeoff', 'opening_stock'], 'Adjustment type');
   const quantity = number(req.body.quantity, 'Quantity', { min: -1000000, max: 1000000, integer: true });
   if (quantity === 0) throw new ApiError(400, 'Quantity cannot be zero.');
-  if (!notes || !String(notes).trim()) throw new ApiError(400, 'Give a reason for the adjustment (it is kept in the stock ledger).');
+  await requireFields('stockAdjustment', { reason: notes });
 
   const prod = await Product.findById(product);
   if (!prod) throw new ApiError(404, 'Product not found.');

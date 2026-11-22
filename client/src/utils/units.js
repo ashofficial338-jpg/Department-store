@@ -1,14 +1,15 @@
 // Grocery units (browser side). Same rules as server/utils/units.js - keep them in sync; the server
 // recalculates every bill, so this file only drives the screens.
 // Unit objects come from GET /products/units: { code, label, short, family, factor } where family is
-// 'mass' (factor in g), 'volume' (factor in ml), 'each' (factor in pieces) or 'pack:<code>' (never converts,
-// except to weight / volume through a product's net content per pack).
+// 'mass' (factor in g), 'volume' (factor in ml), 'each' (factor in pieces), 'length' (factor in cm) or 'pack:<code>'
+// (converts only through a product's conversion rule / net content per pack, e.g. 1 box = 24 pcs).
 
 const ALIASES = {
   kgs: 'kg', kilogram: 'kg', kilo: 'kg', gm: 'g', gms: 'g', gram: 'g', grams: 'g', grm: 'g', milligram: 'mg',
   ltr: 'l', litre: 'l', liter: 'l', litres: 'l', liters: 'l', lt: 'l', millilitre: 'ml', milliliter: 'ml', mls: 'ml',
   pc: 'pcs', piece: 'pcs', pieces: 'pcs', no: 'nos', number: 'nos', pkt: 'packet', packets: 'packet', halfdozen: 'half_dozen',
   'half dozen': 'half_dozen', 'half-dozen': 'half_dozen', doz: 'dozen', btl: 'bottle', ea: 'pcs', each: 'pcs', unit: 'pcs',
+  meter: 'm', metre: 'm', meters: 'm', metres: 'm', mtr: 'm', mtrs: 'm', centimetre: 'cm', centimeter: 'cm', millimetre: 'mm', millimeter: 'mm', bdl: 'bundle', bx: 'box',
 };
 export const normCode = (v) => {
   const s = String(v ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
@@ -27,6 +28,12 @@ function resolve(code, units, product) {
   const u = units.get(code);
   if (!u) return null;
   const p = product || {};
+  // Product conversion rules: 1 <unit> = <quantity> <ofUnit>, e.g. 1 box = 24 pcs, 1 bundle = 10 pcs, 1 packet = 500 g.
+  const rule = (p.conversions || []).find((c) => c && c.unit === code && Number(c.quantity) > 0 && c.ofUnit && c.ofUnit !== code);
+  if (rule) {
+    const inner = units.get(rule.ofUnit);
+    if (inner && !inner.family.startsWith('pack:')) return { ...u, family: inner.family, factor: Number(rule.quantity) * inner.factor };
+  }
   if (p.packUnit && code === p.packUnit && p.packQuantity > 0 && units.get(p.packQuantityUnit)) {
     const inner = units.get(p.packQuantityUnit);
     if (inner.family === 'mass' || inner.family === 'volume') return { ...u, family: inner.family, factor: p.packQuantity * inner.factor };
@@ -48,7 +55,28 @@ export function convert(qty, from, to, units, product) {
   return round((Number(qty) * a.factor) / b.factor, 6);
 }
 
-export const isMeasure = (u) => !!u && (u.family === 'mass' || u.family === 'volume');
+export const isMeasure = (u) => !!u && (u.family === 'mass' || u.family === 'volume' || u.family === 'length');
+export const allowsDecimal = isMeasure;
+
+// A product's own rate for a unit (unitPrices). kind: 'sellingPrice' | 'purchasePrice'.
+export function unitRate(product, unit, kind = 'sellingPrice') {
+  const r = (product?.unitPrices || []).find((x) => x && x.unit === unit && Number(x[kind]) > 0);
+  return r ? Number(r[kind]) : null;
+}
+
+// Every unit a product can be bought / sold in: units that convert to its stock (base) unit.
+export function productUnitList(product, units) {
+  const { sellingUnit, baseUnit } = productUnits(product, units);
+  const base = resolve(baseUnit, units, product);
+  const out = [];
+  const add = (c) => { if (c && units.has(c) && !out.includes(c) && compatible(c, baseUnit, units, product)) out.push(c); };
+  add(baseUnit); add(sellingUnit); add(product?.purchaseUnit);
+  (product?.conversions || []).forEach((c) => add(c.unit));
+  (product?.unitPrices || []).forEach((r) => add(r.unit));
+  if (product?.packUnit) add(product.packUnit);
+  if (base) [...units.values()].filter((u) => u.family === base.family).forEach((u) => add(u.code));
+  return out;
+}
 
 // Selling / base unit with defaults for products saved before units existed (old `unit` field, else pcs).
 export function productUnits(product, units) {
@@ -88,8 +116,11 @@ export function billingUnits(product, units) {
   add(sellingUnit);
   if (sell?.family === 'mass') ['g', 'kg'].forEach(add);
   if (sell?.family === 'volume') ['ml', 'l'].forEach(add);
-  if (sell?.family === 'each') ['pcs', 'dozen', 'half_dozen'].forEach(add);
+  if (sell?.family === 'each') ['pcs', 'nos', 'dozen', 'half_dozen'].forEach(add);
+  if (sell?.family === 'length') ['m', 'cm'].forEach(add);
   if (product.packUnit && product.packQuantity > 0) add(product.packUnit);
+  (product.conversions || []).forEach((c) => add(c.unit));
+  (product.unitPrices || []).forEach((r) => add(r.unit));
   return list;
 }
 
@@ -105,11 +136,13 @@ export function pricedLine({ quantity, unit }, product, units) {
   const { sellingUnit, baseUnit } = productUnits(product, units);
   const q = Number(quantity);
   if (!(q > 0)) return { gross: 0, discount: 0, taxable: 0, baseQty: 0, sellingUnit, baseUnit };
-  const rateQty = convert(q, unit, sellingUnit, units, product);
+  // A unit with its own selling rate (e.g. box) is priced at that rate; any other unit converts to the selling unit.
+  const own = unitRate(product, unit, 'sellingPrice');
+  const rateQty = own !== null ? q : convert(q, unit, sellingUnit, units, product);
   if (Number.isNaN(rateQty)) return { gross: 0, discount: 0, taxable: 0, baseQty: 0, sellingUnit, baseUnit, error: 'unit' };
-  const gross = round2(rateQty * (Number(product.sellingPrice) || 0));
+  const gross = round2(rateQty * (own !== null ? own : (Number(product.sellingPrice) || 0)));
   const discount = round2((gross * (Number(product.discountPercent) || 0)) / 100);
-  return { gross, discount, taxable: round2(gross - discount), baseQty: convert(q, unit, baseUnit, units, product), sellingUnit, baseUnit };
+  return { gross, discount, taxable: round2(gross - discount), baseQty: convert(q, unit, baseUnit, units, product), sellingUnit, baseUnit, rate: own !== null ? own : Number(product.sellingPrice) || 0, rateUnit: own !== null ? unit : sellingUnit };
 }
 
 // Whole-number rule: pieces (1 dozen = 12 pcs is fine) and packs cannot be split.

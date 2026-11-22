@@ -27,6 +27,9 @@ import notificationRoutes from './notificationRoutes.js';
 import searchRoutes from './searchRoutes.js';
 import rackItemRoutes from './rackItemRoutes.js';
 import databaseRoutes from './databaseRoutes.js';
+import editRequestRoutes from './editRequestRoutes.js';
+import purchaseAnalysisRoutes from './purchaseAnalysisRoutes.js';
+import tradeRoutes from './tradeRoutes.js';
 
 const router = Router();
 
@@ -57,5 +60,8 @@ router.use('/notifications', notificationRoutes);
 router.use('/search', searchRoutes);
 router.use('/rack-items', rackItemRoutes);
 router.use('/database', databaseRoutes);
+router.use('/edit-requests', editRequestRoutes);
+router.use('/purchase-analysis', purchaseAnalysisRoutes);
+router.use('/trade', tradeRoutes);
 
 export default router;

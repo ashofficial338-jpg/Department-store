@@ -44,7 +44,7 @@ function SimpleReceipt({ sale }) {
       <div style={{ ...row, fontWeight: 700 }}><span>Item</span><span>Amount</span></div>
       {sale.items.map((it, i) => (
         <div key={i} style={{ marginBottom: 4 }}>
-          <div style={{ fontWeight: 700 }}>{it.productName}</div>
+          <div style={{ fontWeight: 700 }}>{it.productName}{it.brandName ? ` - ${it.brandName}` : ''}</div>
           <div style={row}>
             <span>{qtyText(it.quantity, it.unit)} x {money(it.unitPrice)}/{unitText(it.rateUnit || (it.unit === 'pcs' ? 'pcs' : 'kg'), 1)}{it.gstRate ? ` (GST ${it.gstRate}%)` : ''}</span>
             <span>{money(it.grossAmount ?? it.taxableAmount ?? it.totalAmount)}</span>
@@ -69,8 +69,9 @@ function SimpleReceipt({ sale }) {
       <div style={sep} />
       <div style={{ ...row, fontWeight: 700, fontSize: 14 }}><span>TOTAL</span><span>{money(sale.grandTotal)}</span></div>
       {(sale.payments || []).map((p, i) => (
-        <div key={i} style={{ ...row, textTransform: 'capitalize' }}><span>Paid by {String(p.method).toUpperCase() === 'UPI' ? 'UPI' : p.method}</span><span>{money(p.amount)}</span></div>
+        <div key={i} style={{ ...row, textTransform: 'capitalize' }}><span>{p.method === 'credit' ? 'Balance due (credit)' : `Paid by ${String(p.method).toUpperCase() === 'UPI' ? 'UPI' : String(p.method).replace('_', ' ')}`}</span><span>{money(p.amount)}</span></div>
       ))}
+      {sale.customer && <div style={row}><span>Customer</span><span>{sale.customer.name || ''}{sale.customer.phone ? ` (${sale.customer.phone})` : ''}</span></div>}
       <div style={{ textAlign: 'center', paddingTop: 10 }}>Thank you! Visit again.</div>
     </div>
   );
